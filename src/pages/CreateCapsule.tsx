@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCapsules } from '@/contexts/CapsuleContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,7 @@ import {
 
 const CreateCapsule = () => {
   const navigate = useNavigate();
+  const { addCapsule } = useCapsules();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [triggerType, setTriggerType] = useState<'time' | 'event' | 'connection'>('time');
@@ -65,6 +67,25 @@ const CreateCapsule = () => {
       });
       return;
     }
+
+    // Create delivery date based on trigger type
+    let finalDeliveryDate = '';
+    if (triggerType === 'time' && deliveryDate && deliveryTime) {
+      finalDeliveryDate = `${deliveryDate}T${deliveryTime}:00Z`;
+    } else {
+      // For event/connection based, set a future date as placeholder
+      finalDeliveryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    }
+
+    // Save the capsule
+    addCapsule({
+      title: title.trim(),
+      content: content.trim(),
+      deliveryDate: finalDeliveryDate,
+      recipients: recipients,
+      triggerType: triggerType,
+      attachments: attachments,
+    });
 
     toast({
       title: "Capsule created!",

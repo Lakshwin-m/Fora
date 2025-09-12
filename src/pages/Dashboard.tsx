@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useCapsules } from '@/contexts/CapsuleContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
@@ -19,52 +20,13 @@ import {
 
 const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Mock capsule data
-  const capsules = [
-    {
-      id: '1',
-      title: 'Birthday Wishes for Sarah',
-      content: 'Happy 25th birthday! Remember when we said we\'d be different by now? Well, here we are...',
-      deliveryDate: '2024-03-15T10:00:00Z',
-      recipients: ['Sarah Johnson', 'Mike Chen'],
-      status: 'scheduled' as const,
-      triggerType: 'time' as const,
-    },
-    {
-      id: '2',
-      title: 'Graduation Memories',
-      content: 'We did it! Here\'s to the future and all the adventures waiting for us.',
-      deliveryDate: '2023-12-01T15:30:00Z',
-      recipients: ['Alex Rivera', 'Emma Wilson', 'David Kim'],
-      status: 'opened' as const,
-      triggerType: 'event' as const,
-    },
-    {
-      id: '3',
-      title: 'Wedding Day Message',
-      content: 'To my future self: I hope you still remember how magical this day felt...',
-      deliveryDate: '2024-06-20T18:00:00Z',
-      recipients: ['Future Me'],
-      status: 'delivered' as const,
-      triggerType: 'connection' as const,
-    },
-    {
-      id: '4',
-      title: 'Team Project Victory',
-      content: 'We finally shipped our first product! This moment feels surreal after months of hard work.',
-      deliveryDate: '2024-01-10T09:00:00Z',
-      recipients: ['Team Alpha', 'Jessica Park', 'Ryan O\'Connor'],
-      status: 'scheduled' as const,
-      triggerType: 'time' as const,
-    },
-  ];
+  const { capsules } = useCapsules();
 
   const stats = [
-    { label: 'Total Capsules', value: '24', icon: Clock, color: 'text-primary' },
-    { label: 'Scheduled', value: '12', icon: Calendar, color: 'text-warning' },
-    { label: 'Delivered', value: '8', icon: Zap, color: 'text-accent' },
-    { label: 'Opened', value: '4', icon: TrendingUp, color: 'text-success' },
+    { label: 'Total Capsules', value: capsules.length.toString(), icon: Clock, color: 'text-primary' },
+    { label: 'Scheduled', value: capsules.filter(c => c.status === 'scheduled').length.toString(), icon: Calendar, color: 'text-warning' },
+    { label: 'Delivered', value: capsules.filter(c => c.status === 'delivered').length.toString(), icon: Zap, color: 'text-accent' },
+    { label: 'Opened', value: capsules.filter(c => c.status === 'opened').length.toString(), icon: TrendingUp, color: 'text-success' },
   ];
 
   const filterCapsules = (status?: string) => {
