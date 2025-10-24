@@ -1,165 +1,295 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import Navigation from '@/components/Navigation';
-import { toast } from '@/hooks/use-toast';
-import { 
-  User, 
-  Mail, 
-  Calendar, 
-  Clock, 
-  Edit, 
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import Navigation from "@/components/Navigation";
+import { toast } from "@/hooks/use-toast";
+import { auth, db } from "@/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { updateProfile as updateAuthProfile } from "firebase/auth";
+import {
+  User,
+  Mail,
+  Calendar,
+  Clock,
+  Edit,
   Save,
   Camera,
   Award,
   TrendingUp,
   Users,
-  Zap
-} from 'lucide-react';
+  Zap,
+  Loader2,
+} from "lucide-react";
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState({
-    name: 'Alex Rivera',
-    email: 'alex.rivera@example.com',
-    bio: 'Time traveler at heart. I love creating memories and sharing them with the people I care about. Always looking forward to the future while cherishing the present.',
-    joinDate: '2023-08-15',
-    location: 'San Francisco, CA',
+    name: "",
+    email: "",
+    photoURL: "",
+    bio: "",
+    joinDate: "",
+    location: "",
   });
-
-  const stats = [
-    {
-      label: 'Total Capsules',
-      value: '24',
-      icon: Clock,
-      color: 'text-primary',
-      description: 'Time capsules created',
-    },
-    {
-      label: 'Connections',
-      value: '18',
-      icon: Users,
-      color: 'text-secondary',
-      description: 'Active connections',
-    },
-    {
-      label: 'Opened',
-      value: '12',
-      icon: Zap,
-      color: 'text-accent',
-      description: 'Capsules unlocked',
-    },
-    {
-      label: 'Success Rate',
-      value: '94%',
-      icon: TrendingUp,
-      color: 'text-success',
-      description: 'Delivery success',
-    },
-  ];
-
-  const achievements = [
-    {
-      title: 'First Timer',
-      description: 'Created your first time capsule',
-      icon: '🚀',
-      earned: true,
-    },
-    {
-      title: 'Social Butterfly',
-      description: 'Connected with 10+ people',
-      icon: '🦋',
-      earned: true,
-    },
-    {
-      title: 'Time Master',
-      description: 'Created 25 time capsules',
-      icon: '⏰',
-      earned: false,
-    },
-    {
-      title: 'Future Self',
-      description: 'Opened a capsule from 1+ year ago',
-      icon: '🔮',
-      earned: true,
-    },
-  ];
+  const [stats, setStats] = useState({
+    totalCapsules: 0,
+    connections: 0,
+    opened: 0,
+  });
 
   const recentActivity = [
     {
-      action: 'Created capsule',
-      title: 'Birthday Wishes for Sarah',
-      date: '2024-01-08',
-      type: 'create',
+      action: "Created capsule",
+      title: "Birthday Wishes for Sarah",
+      date: "2024-01-08",
+      type: "create",
     },
     {
-      action: 'Opened capsule',
-      title: 'New Year Resolutions 2023',
-      date: '2024-01-01',
-      type: 'open',
+      action: "Opened capsule",
+      title: "New Year Resolutions 2023",
+      date: "2024-01-01",
+      type: "open",
     },
     {
-      action: 'Connected with',
-      title: 'Jessica Park',
-      date: '2023-12-28',
-      type: 'connect',
+      action: "Connected with",
+      title: "Jessica Park",
+      date: "2023-12-28",
+      type: "connect",
     },
     {
-      action: 'Capsule delivered',
-      title: 'College Graduation Memory',
-      date: '2023-12-25',
-      type: 'deliver',
+      action: "Capsule delivered",
+      title: "College Graduation Memory",
+      date: "2023-12-25",
+      type: "deliver",
     },
   ];
 
-  const handleSave = () => {
-    toast({
-      title: "Profile updated!",
-      description: "Your profile has been successfully updated.",
-    });
-    setIsEditing(false);
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      const user = auth.currentUser;
+
+      if (!user) {
+        console.error("No user logged in");
+        setLoading(false);
+        return;
+      }
+
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        setProfile({
+          name: userData.name || user.displayName || "User",
+          email: user.email || "",
+          photoURL: userData.photoURL || user.photoURL || "",
+          bio: userData.bio || "",
+          joinDate: userData.joinDate || new Date().toISOString(),
+          location: userData.location || "",
+        });
+
+        setStats({
+          totalCapsules: userData.stats?.totalCapsules || 0,
+          connections: userData.stats?.connections || 0,
+          opened: userData.stats?.opened || 0,
+        });
+      } else {
+        setProfile({
+          name: user.displayName || "User",
+          email: user.email || "",
+          photoURL: user.photoURL || "",
+          bio: "",
+          joinDate: user.metadata.creationTime || new Date().toISOString(),
+          location: "",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load profile data.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      const user = auth.currentUser;
+
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "No user logged in.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const userRef = doc(db, "users", user.uid);
+
+      await updateDoc(userRef, {
+        name: profile.name,
+        bio: profile.bio,
+        location: profile.location,
+      });
+
+      if (profile.name !== user.displayName) {
+        await updateAuthProfile(user, {
+          displayName: profile.name,
+        });
+      }
+
+      toast({
+        title: "Profile updated!",
+        description: "Your profile has been successfully updated.",
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update profile.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleImageUpload = () => {
     toast({
       title: "Image upload",
-      description: "Profile picture upload functionality would be implemented here.",
+      description:
+        "Profile picture upload functionality would be implemented here.",
     });
   };
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  const getInitials = (name) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
   };
 
-  const getActivityIcon = (type: string) => {
+  const getActivityIcon = (type) => {
     switch (type) {
-      case 'create': return '📝';
-      case 'open': return '🔓';
-      case 'connect': return '🤝';
-      case 'deliver': return '📦';
-      default: return '⭐';
+      case "create":
+        return "📝";
+      case "open":
+        return "🔓";
+      case "connect":
+        return "🤝";
+      case "deliver":
+        return "📦";
+      default:
+        return "⭐";
     }
   };
+
+  const successRate =
+    stats.totalCapsules > 0
+      ? Math.round((stats.opened / stats.totalCapsules) * 100)
+      : 0;
+
+  const statsDisplay = [
+    {
+      label: "Total Capsules",
+      value: stats.totalCapsules.toString(),
+      icon: Clock,
+      color: "text-primary",
+      description: "Time capsules created",
+    },
+    {
+      label: "Connections",
+      value: stats.connections.toString(),
+      icon: Users,
+      color: "text-secondary",
+      description: "Active connections",
+    },
+    {
+      label: "Opened",
+      value: stats.opened.toString(),
+      icon: Zap,
+      color: "text-accent",
+      description: "Capsules unlocked",
+    },
+    {
+      label: "Success Rate",
+      value: `${successRate}%`,
+      icon: TrendingUp,
+      color: "text-success",
+      description: "Delivery success",
+    },
+  ];
+
+  const achievements = [
+    {
+      title: "First Timer",
+      description: "Created your first time capsule",
+      icon: "🚀",
+      earned: stats.totalCapsules >= 1,
+    },
+    {
+      title: "Social Butterfly",
+      description: "Connected with 10+ people",
+      icon: "🦋",
+      earned: stats.connections >= 10,
+    },
+    {
+      title: "Time Master",
+      description: "Created 25 time capsules",
+      icon: "⏰",
+      earned: stats.totalCapsules >= 25,
+    },
+    {
+      title: "Future Self",
+      description: "Opened a capsule from 1+ year ago",
+      icon: "🔮",
+      earned: stats.opened >= 1,
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Profile Header */}
         <Card className="border-border bg-card/80 backdrop-blur-sm mb-8">
           <CardContent className="p-8">
             <div className="flex flex-col md:flex-row items-start md:items-center space-y-6 md:space-y-0 md:space-x-8">
-              {/* Avatar */}
               <div className="relative">
                 <Avatar className="w-32 h-32">
-                  <AvatarImage src="" alt={profile.name} />
+                  <AvatarImage src={profile.photoURL} alt={profile.name} />
                   <AvatarFallback className="bg-gradient-primary text-white text-2xl">
                     {getInitials(profile.name)}
                   </AvatarFallback>
@@ -173,7 +303,6 @@ const Profile = () => {
                 </Button>
               </div>
 
-              {/* Profile Info */}
               <div className="flex-1">
                 {isEditing ? (
                   <div className="space-y-4">
@@ -182,7 +311,9 @@ const Profile = () => {
                       <Input
                         id="name"
                         value={profile.name}
-                        onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                        onChange={(e) =>
+                          setProfile({ ...profile, name: e.target.value })
+                        }
                         className="border-border bg-input"
                       />
                     </div>
@@ -191,8 +322,11 @@ const Profile = () => {
                       <Textarea
                         id="bio"
                         value={profile.bio}
-                        onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
+                        onChange={(e) =>
+                          setProfile({ ...profile, bio: e.target.value })
+                        }
                         className="border-border bg-input min-h-20"
+                        placeholder="Tell us about yourself..."
                       />
                     </div>
                     <div className="space-y-2">
@@ -200,15 +334,23 @@ const Profile = () => {
                       <Input
                         id="location"
                         value={profile.location}
-                        onChange={(e) => setProfile({ ...profile, location: e.target.value })}
+                        onChange={(e) =>
+                          setProfile({ ...profile, location: e.target.value })
+                        }
                         className="border-border bg-input"
+                        placeholder="e.g., San Francisco, CA"
                       />
                     </div>
                   </div>
                 ) : (
                   <div>
-                    <h1 className="text-3xl font-bold text-foreground mb-2">{profile.name}</h1>
-                    <p className="text-muted-foreground mb-4">{profile.bio}</p>
+                    <h1 className="text-3xl font-bold text-foreground mb-2">
+                      {profile.name}
+                    </h1>
+                    <p className="text-muted-foreground mb-4">
+                      {profile.bio ||
+                        "No bio yet. Click Edit Profile to add one!"}
+                    </p>
                     <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center space-x-2">
                         <Mail className="w-4 h-4" />
@@ -216,35 +358,45 @@ const Profile = () => {
                       </div>
                       <div className="flex items-center space-x-2">
                         <Calendar className="w-4 h-4" />
-                        <span>Joined {new Date(profile.joinDate).toLocaleDateString()}</span>
+                        <span>
+                          Joined{" "}
+                          {new Date(profile.joinDate).toLocaleDateString()}
+                        </span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <User className="w-4 h-4" />
-                        <span>{profile.location}</span>
-                      </div>
+                      {profile.location && (
+                        <div className="flex items-center space-x-2">
+                          <User className="w-4 h-4" />
+                          <span>{profile.location}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Action Button */}
               <div>
                 {isEditing ? (
                   <div className="flex space-x-2">
-                    <Button onClick={handleSave} className="bg-gradient-primary hover-glow">
+                    <Button
+                      onClick={handleSave}
+                      className="bg-gradient-primary hover-glow"
+                    >
                       <Save className="w-4 h-4 mr-2" />
                       Save Changes
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setIsEditing(false)}
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditing(false);
+                        fetchUserProfile();
+                      }}
                       className="border-border"
                     >
                       Cancel
                     </Button>
                   </div>
                 ) : (
-                  <Button 
+                  <Button
                     onClick={() => setIsEditing(true)}
                     className="bg-gradient-accent hover-glow"
                   >
@@ -258,37 +410,49 @@ const Profile = () => {
         </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {stats.map((stat, index) => (
-                <Card key={index} className="border-border bg-card/80 backdrop-blur-sm hover-glow">
+              {statsDisplay.map((stat, index) => (
+                <Card
+                  key={index}
+                  className="border-border bg-card/80 backdrop-blur-sm hover-glow"
+                >
                   <CardContent className="p-4 text-center">
                     <div className="flex justify-center mb-2">
                       <stat.icon className={`w-6 h-6 ${stat.color}`} />
                     </div>
-                    <div className="text-2xl font-bold text-foreground mb-1">{stat.value}</div>
-                    <div className="text-xs text-muted-foreground">{stat.description}</div>
+                    <div className="text-2xl font-bold text-foreground mb-1">
+                      {stat.value}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {stat.description}
+                    </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
 
-            {/* Recent Activity */}
             <Card className="border-border bg-card/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Your latest time capsule interactions</CardDescription>
+                <CardDescription>
+                  Your latest time capsule interactions
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {recentActivity.map((activity, index) => (
-                    <div key={index} className="flex items-center space-x-4 p-3 rounded-lg bg-muted/10 hover:bg-muted/20 transition-smooth">
-                      <div className="text-2xl">{getActivityIcon(activity.type)}</div>
+                    <div
+                      key={index}
+                      className="flex items-center space-x-4 p-3 rounded-lg bg-muted/10 hover:bg-muted/20 transition-smooth"
+                    >
+                      <div className="text-2xl">
+                        {getActivityIcon(activity.type)}
+                      </div>
                       <div className="flex-1">
                         <p className="text-sm text-foreground">
-                          <span className="font-medium">{activity.action}</span> "{activity.title}"
+                          <span className="font-medium">{activity.action}</span>{" "}
+                          "{activity.title}"
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(activity.date).toLocaleDateString()}
@@ -301,9 +465,7 @@ const Profile = () => {
             </Card>
           </div>
 
-          {/* Right Column */}
           <div className="space-y-8">
-            {/* Achievements */}
             <Card className="border-border bg-card/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
@@ -315,12 +477,12 @@ const Profile = () => {
               <CardContent>
                 <div className="space-y-4">
                   {achievements.map((achievement, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className={`flex items-start space-x-3 p-3 rounded-lg transition-smooth ${
-                        achievement.earned 
-                          ? 'bg-success/10 border border-success/20' 
-                          : 'bg-muted/10'
+                        achievement.earned
+                          ? "bg-success/10 border border-success/20"
+                          : "bg-muted/10"
                       }`}
                     >
                       <div className="text-2xl">{achievement.icon}</div>
@@ -330,7 +492,10 @@ const Profile = () => {
                             {achievement.title}
                           </h4>
                           {achievement.earned && (
-                            <Badge variant="secondary" className="text-xs bg-success/20 text-success">
+                            <Badge
+                              variant="secondary"
+                              className="text-xs bg-success/20 text-success"
+                            >
                               Earned
                             </Badge>
                           )}
@@ -345,7 +510,6 @@ const Profile = () => {
               </CardContent>
             </Card>
 
-            {/* Quick Actions */}
             <Card className="border-border bg-card/80 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
@@ -355,11 +519,17 @@ const Profile = () => {
                   <Clock className="w-4 h-4 mr-3" />
                   Create New Capsule
                 </Button>
-                <Button variant="outline" className="w-full justify-start border-border">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-border"
+                >
                   <Users className="w-4 h-4 mr-3" />
                   Invite Friends
                 </Button>
-                <Button variant="outline" className="w-full justify-start border-border">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-border"
+                >
                   <Mail className="w-4 h-4 mr-3" />
                   Export Data
                 </Button>

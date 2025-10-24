@@ -1,4 +1,21 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs,
+  orderBy,
+  Timestamp,
+  or,
+} from "firebase/firestore";
 
 export interface Capsule {
   id: string;
@@ -6,16 +23,26 @@ export interface Capsule {
   content: string;
   deliveryDate: string;
   recipients: string[];
-  status: 'scheduled' | 'delivered' | 'opened';
-  triggerType: 'time' | 'event' | 'connection';
+  recipientNames?: string[];
+  recipientType?: "self" | "friends";
+  status: "scheduled" | "delivered" | "opened";
+  triggerType: "time" | "event" | "connection";
   attachments?: string[];
   createdAt: string;
+  isUnlocked?: boolean;
+  userId?: string;
+  username?: string;
+  // Flag to identify if this capsule was received from someone else
+  isReceived?: boolean;
 }
 
 interface CapsuleContextType {
   capsules: Capsule[];
-  addCapsule: (capsule: Omit<Capsule, 'id' | 'createdAt' | 'status'>) => void;
+  receivedCapsules: Capsule[];
+  addCapsule: (capsule: Omit<Capsule, "id" | "createdAt" | "status">) => void;
   updateCapsule: (id: string, updates: Partial<Capsule>) => void;
+  refreshCapsules: () => Promise<void>;
+  loading: boolean;
 }
 
 const CapsuleContext = createContext<CapsuleContextType | undefined>(undefined);
@@ -23,93 +50,193 @@ const CapsuleContext = createContext<CapsuleContextType | undefined>(undefined);
 export const useCapsules = () => {
   const context = useContext(CapsuleContext);
   if (!context) {
-    throw new Error('useCapsules must be used within a CapsuleProvider');
+    throw new Error("useCapsules must be used within a CapsuleProvider");
   }
   return context;
 };
 
 export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
-  const [capsules, setCapsules] = useState<Capsule[]>([]);
+  const [capsules, setCapsules] = useState<Capsule[]>([]); // Capsules created by user
+  const [receivedCapsules, setReceivedCapsules] = useState<Capsule[]>([]); // Capsules received from friends
+  const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const auth = getAuth();
+  const db = getFirestore();
 
-  // Load capsules from localStorage on mount
-  useEffect(() => {
-    const savedCapsules = localStorage.getItem('fora-capsules');
-    if (savedCapsules) {
-      setCapsules(JSON.parse(savedCapsules));
-    } else {
-      // Initialize with mock data if no saved capsules
-      const mockCapsules: Capsule[] = [
-        {
-          id: '1',
-          title: 'Birthday Wishes for Sarah',
-          content: 'Happy 25th birthday! Remember when we said we\'d be different by now? Well, here we are...',
-          deliveryDate: '2024-03-15T10:00:00Z',
-          recipients: ['Sarah Johnson', 'Mike Chen'],
-          status: 'scheduled',
-          triggerType: 'time',
-          createdAt: '2024-01-15T10:00:00Z',
-        },
-        {
-          id: '2',
-          title: 'Graduation Memories',
-          content: 'We did it! Here\'s to the future and all the adventures waiting for us.',
-          deliveryDate: '2023-12-01T15:30:00Z',
-          recipients: ['Alex Rivera', 'Emma Wilson', 'David Kim'],
-          status: 'opened',
-          triggerType: 'event',
-          createdAt: '2023-11-15T10:00:00Z',
-        },
-        {
-          id: '3',
-          title: 'Wedding Day Message',
-          content: 'To my future self: I hope you still remember how magical this day felt...',
-          deliveryDate: '2024-06-20T18:00:00Z',
-          recipients: ['Future Me'],
-          status: 'delivered',
-          triggerType: 'connection',
-          createdAt: '2024-01-20T10:00:00Z',
-        },
-        {
-          id: '4',
-          title: 'Team Project Victory',
-          content: 'We finally shipped our first product! This moment feels surreal after months of hard work.',
-          deliveryDate: '2024-01-10T09:00:00Z',
-          recipients: ['Team Alpha', 'Jessica Park', 'Ryan O\'Connor'],
-          status: 'scheduled',
-          triggerType: 'time',
-          createdAt: '2023-12-20T10:00:00Z',
-        },
-      ];
-      setCapsules(mockCapsules);
-      localStorage.setItem('fora-capsules', JSON.stringify(mockCapsules));
+  // Convert Firestore document to Capsule
+  const convertFirestoreDoc = (
+    doc: any,
+    isReceived: boolean = false
+  ): Capsule => {
+    const data = doc.data();
+
+    // Convert Firestore Timestamp to ISO string
+    const deliveryDate =
+      data.unlockDate instanceof Timestamp
+        ? data.unlockDate.toDate().toISOString()
+        : data.unlockDate;
+
+    const createdAt =
+      data.createdAt instanceof Timestamp
+        ? data.createdAt.toDate().toISOString()
+        : new Date().toISOString();
+
+    return {
+      id: doc.id,
+      title: data.title,
+      content: data.content,
+      deliveryDate: deliveryDate,
+      recipients: data.recipients || [],
+      recipientNames: data.recipientNames || [],
+      recipientType: data.recipientType || "self",
+      status: data.status || "scheduled",
+      triggerType: data.triggerType || "time",
+      attachments: data.attachments || [],
+      createdAt: createdAt,
+      isUnlocked: data.isUnlocked || false,
+      userId: data.userId,
+      username: data.username,
+      isReceived: isReceived,
+    };
+  };
+
+  // Load capsules from Firestore
+  const refreshCapsules = async () => {
+    console.log("refreshCapsules called, userId:", currentUserId);
+
+    if (!currentUserId) {
+      console.log("No user ID, skipping refresh");
+      setCapsules([]);
+      setReceivedCapsules([]);
+      return;
     }
+
+    try {
+      const capsulesRef = collection(db, "capsules");
+
+      // Query 1: Capsules created by the user
+      const createdByUserQuery = query(
+        capsulesRef,
+        where("userId", "==", currentUserId)
+      );
+
+      // Query 2: Capsules sent to the user (received from friends)
+      const receivedByUserQuery = query(
+        capsulesRef,
+        where("recipients", "array-contains", currentUserId),
+        where("userId", "!=", currentUserId)
+      );
+
+      console.log("Executing queries...");
+      const [createdSnapshot, receivedSnapshot] = await Promise.all([
+        getDocs(createdByUserQuery),
+        getDocs(receivedByUserQuery),
+      ]);
+
+      console.log("Created capsules:", createdSnapshot.size);
+      console.log("Received capsules:", receivedSnapshot.size);
+
+      // Process created capsules
+      const loadedCapsules: Capsule[] = [];
+      createdSnapshot.forEach((doc) => {
+        loadedCapsules.push(convertFirestoreDoc(doc, false));
+      });
+
+      // Sort by createdAt in memory
+      loadedCapsules.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      // Process received capsules
+      const loadedReceivedCapsules: Capsule[] = [];
+      receivedSnapshot.forEach((doc) => {
+        loadedReceivedCapsules.push(convertFirestoreDoc(doc, true));
+      });
+
+      // Sort by createdAt in memory
+      loadedReceivedCapsules.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      console.log("Loaded created capsules:", loadedCapsules);
+      console.log("Loaded received capsules:", loadedReceivedCapsules);
+
+      setCapsules(loadedCapsules);
+      setReceivedCapsules(loadedReceivedCapsules);
+    } catch (error) {
+      console.error("Error loading capsules:", error);
+      setCapsules([]);
+      setReceivedCapsules([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load capsules when user auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("Auth state changed:", user?.uid);
+
+      if (user) {
+        setCurrentUserId(user.uid);
+        setLoading(true);
+        await refreshCapsules();
+      } else {
+        setCurrentUserId(null);
+        setCapsules([]);
+        setReceivedCapsules([]);
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  // Save capsules to localStorage whenever capsules change
+  // Refresh when currentUserId changes
   useEffect(() => {
-    localStorage.setItem('fora-capsules', JSON.stringify(capsules));
-  }, [capsules]);
+    if (currentUserId) {
+      refreshCapsules();
+    }
+  }, [currentUserId]);
 
-  const addCapsule = (capsuleData: Omit<Capsule, 'id' | 'createdAt' | 'status'>) => {
+  const addCapsule = (
+    capsuleData: Omit<Capsule, "id" | "createdAt" | "status">
+  ) => {
     const newCapsule: Capsule = {
       ...capsuleData,
       id: Date.now().toString(),
       createdAt: new Date().toISOString(),
-      status: 'scheduled', // New capsules are always scheduled initially
+      status: "scheduled",
     };
-    setCapsules(prev => [newCapsule, ...prev]);
+    setCapsules((prev) => [newCapsule, ...prev]);
   };
 
   const updateCapsule = (id: string, updates: Partial<Capsule>) => {
-    setCapsules(prev => 
-      prev.map(capsule => 
+    setCapsules((prev) =>
+      prev.map((capsule) =>
+        capsule.id === id ? { ...capsule, ...updates } : capsule
+      )
+    );
+    setReceivedCapsules((prev) =>
+      prev.map((capsule) =>
         capsule.id === id ? { ...capsule, ...updates } : capsule
       )
     );
   };
 
   return (
-    <CapsuleContext.Provider value={{ capsules, addCapsule, updateCapsule }}>
+    <CapsuleContext.Provider
+      value={{
+        capsules,
+        receivedCapsules,
+        addCapsule,
+        updateCapsule,
+        refreshCapsules,
+        loading,
+      }}
+    >
       {children}
     </CapsuleContext.Provider>
   );
