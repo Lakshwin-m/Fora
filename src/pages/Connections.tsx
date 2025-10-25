@@ -304,11 +304,11 @@ const Connections = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-[#FFF9EC]">
         <Navigation />
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <Loader2 className="w-8 h-8 animate-spin text-[#FB6376]" />
           </div>
         </div>
       </div>
@@ -316,79 +316,90 @@ const Connections = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#FFF9EC]">
       <Navigation />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
+        <div className="mb-10">
+          <h1 className="text-4xl font-bold text-[#5D2A42] mb-2">
             Connections
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-[#5D2A42]/60 text-lg">
             Manage your network and share time capsules with friends and family
           </p>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="border-border bg-card/80 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <Card className="border-[#5D2A42]/20 bg-white shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm font-semibold text-[#5D2A42]/70">
                 Total Connections
               </CardTitle>
-              <Users className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 bg-[#FB6376]/10 rounded-lg flex items-center justify-center">
+                <Users className="w-5 h-5 text-[#FB6376]" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">
+              <div className="text-3xl font-bold text-[#5D2A42]">
                 {friends.length}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-border bg-card/80 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card className="border-[#5D2A42]/20 bg-white shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm font-semibold text-[#5D2A42]/70">
                 Pending Requests
               </CardTitle>
-              <Clock className="w-5 h-5 text-warning" />
+              <div className="w-10 h-10 bg-[#FFDCCC] rounded-lg flex items-center justify-center">
+                <Clock className="w-5 h-5 text-[#5D2A42]" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">
+              <div className="text-3xl font-bold text-[#5D2A42]">
                 {allPendingRequests.length}
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-border bg-card/80 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+          <Card className="border-[#5D2A42]/20 bg-white shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm font-semibold text-[#5D2A42]/70">
                 Shared Capsules
               </CardTitle>
-              <MessageCircle className="w-5 h-5 text-accent" />
+              <div className="w-10 h-10 bg-[#FCB1A6]/20 rounded-lg flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-[#5D2A42]" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">0</div>
-              <p className="text-xs text-muted-foreground mt-1">Coming soon</p>
+              <div className="text-3xl font-bold text-[#5D2A42]">0</div>
+              <p className="text-xs text-[#5D2A42]/50 mt-1">Coming soon</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Invite Section */}
-        <Card className="border-border bg-card/80 backdrop-blur-sm mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <UserPlus className="w-5 h-5 text-primary" />
+        <Card className="border-[#5D2A42]/20 bg-white shadow-sm mb-10">
+          <CardHeader className="bg-[#FFDCCC]/30 border-b border-[#5D2A42]/10">
+            <CardTitle className="flex items-center space-x-2 text-[#5D2A42]">
+              <UserPlus className="w-5 h-5 text-[#FB6376]" />
               <span>Find & Connect</span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-[#5D2A42]/60">
               Search for users by email to send connection requests
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="flex space-x-3">
               <div className="flex-1 space-y-2">
-                <Label htmlFor="invite-email">Email Address</Label>
+                <Label
+                  htmlFor="invite-email"
+                  className="text-[#5D2A42] font-medium"
+                >
+                  Email Address
+                </Label>
                 <Input
                   id="invite-email"
                   type="email"
@@ -396,14 +407,14 @@ const Connections = () => {
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearchUsers()}
-                  className="border-border bg-input"
+                  className="border-[#5D2A42]/20 bg-[#FFF9EC]"
                 />
               </div>
               <div className="flex items-end">
                 <Button
                   onClick={handleSearchUsers}
                   disabled={searchLoading || !inviteEmail.trim()}
-                  className="bg-gradient-primary hover-glow"
+                  className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white shadow-md"
                 >
                   {searchLoading ? (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -417,26 +428,29 @@ const Connections = () => {
 
             {/* Search Results */}
             {searchResults.length > 0 && (
-              <div className="mt-4 space-y-3">
-                <p className="text-sm font-medium text-muted-foreground">
+              <div className="mt-6 space-y-3">
+                <p className="text-sm font-semibold text-[#5D2A42]/70">
                   Search Results ({searchResults.length})
                 </p>
                 {searchResults.map((user) => (
-                  <Card key={user.uid} className="border-border">
+                  <Card
+                    key={user.uid}
+                    className="border-[#5D2A42]/20 bg-[#FFF9EC]"
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                          <Avatar className="w-10 h-10">
+                          <Avatar className="w-12 h-12">
                             <AvatarImage src={user.photoURL} alt={user.name} />
-                            <AvatarFallback className="bg-gradient-secondary text-white">
+                            <AvatarFallback className="bg-[#FCB1A6] text-[#5D2A42]">
                               {getInitials(user.name)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <h4 className="font-medium text-foreground">
+                            <h4 className="font-semibold text-[#5D2A42]">
                               {user.name}
                             </h4>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-[#5D2A42]/60">
                               {user.email}
                             </p>
                           </div>
@@ -445,7 +459,7 @@ const Connections = () => {
                           size="sm"
                           onClick={() => handleSendRequest(user.uid)}
                           disabled={actionLoading === user.uid}
-                          className="bg-gradient-accent hover-glow"
+                          className="bg-[#FFDCCC] hover:bg-[#FFDCCC]/80 text-[#5D2A42]"
                         >
                           {actionLoading === user.uid ? (
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -465,15 +479,20 @@ const Connections = () => {
 
         {/* Connections Tabs */}
         <Tabs defaultValue="connections" className="w-full">
-          <TabsList className="grid w-full md:w-fit grid-cols-2 mb-6 bg-muted/20">
-            <TabsTrigger value="connections">My Connections</TabsTrigger>
-            <TabsTrigger value="pending">
+          <TabsList className="grid w-full md:w-fit grid-cols-2 mb-8 bg-white border border-[#5D2A42]/20 p-1 shadow-sm">
+            <TabsTrigger
+              value="connections"
+              className="data-[state=active]:bg-[#FB6376] data-[state=active]:text-white"
+            >
+              My Connections
+            </TabsTrigger>
+            <TabsTrigger
+              value="pending"
+              className="data-[state=active]:bg-[#FCB1A6] data-[state=active]:text-[#5D2A42]"
+            >
               Pending
               {allPendingRequests.length > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="ml-2 h-5 w-5 rounded-full p-0 text-xs"
-                >
+                <Badge className="ml-2 h-5 w-5 rounded-full p-0 text-xs bg-[#FB6376] text-white border-0">
                   {allPendingRequests.length}
                 </Badge>
               )}
@@ -484,24 +503,26 @@ const Connections = () => {
           <TabsContent value="connections" className="space-y-6">
             <div className="flex items-center space-x-4 mb-6">
               <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#5D2A42]/40" />
                 <Input
                   placeholder="Search connections..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-border bg-input"
+                  className="pl-10 border-[#5D2A42]/20 bg-white"
                 />
               </div>
             </div>
 
             {filteredConnections.length === 0 ? (
-              <Card className="border-border bg-card/80 backdrop-blur-sm">
-                <CardContent className="p-12 text-center">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
+              <Card className="border-[#5D2A42]/20 bg-white">
+                <CardContent className="p-16 text-center">
+                  <div className="w-20 h-20 mx-auto mb-6 bg-[#FFDCCC]/50 rounded-2xl flex items-center justify-center">
+                    <Users className="w-10 h-10 text-[#5D2A42]/40" />
+                  </div>
+                  <h3 className="text-xl font-bold text-[#5D2A42] mb-2">
                     No connections yet
                   </h3>
-                  <p className="text-muted-foreground mb-4">
+                  <p className="text-[#5D2A42]/60">
                     Start by searching for friends above
                   </p>
                 </CardContent>
@@ -511,9 +532,9 @@ const Connections = () => {
                 {filteredConnections.map((friend) => (
                   <Card
                     key={friend.id}
-                    className="border-border bg-card/80 backdrop-blur-sm hover-glow"
+                    className="border-[#5D2A42]/20 bg-white hover:shadow-lg transition-shadow"
                   >
-                    <CardHeader className="pb-4">
+                    <CardHeader className="pb-4 bg-[#FFDCCC]/20 border-b border-[#5D2A42]/10">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
                           <Avatar className="w-12 h-12">
@@ -521,28 +542,35 @@ const Connections = () => {
                               src={friend.profile.photoURL}
                               alt={friend.profile.name}
                             />
-                            <AvatarFallback className="bg-gradient-primary text-white">
+                            <AvatarFallback className="bg-[#FB6376] text-white">
                               {getInitials(friend.profile.name)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <h3 className="font-semibold text-foreground">
+                            <h3 className="font-semibold text-[#5D2A42]">
                               {friend.profile.name}
                             </h3>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-[#5D2A42]/60">
                               {friend.profile.email}
                             </p>
                           </div>
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="w-4 h-4" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="hover:bg-[#5D2A42]/10"
+                            >
+                              <MoreHorizontal className="w-4 h-4 text-[#5D2A42]" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
+                          <DropdownMenuContent
+                            align="end"
+                            className="bg-white border-[#5D2A42]/20"
+                          >
                             <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
+                              className="text-[#FB6376] focus:text-[#FB6376] focus:bg-[#FB6376]/10"
                               onClick={() =>
                                 handleRemoveFriend(
                                   friend.id!,
@@ -558,18 +586,18 @@ const Connections = () => {
                         </DropdownMenu>
                       </div>
                     </CardHeader>
-                    <CardContent className="pt-0">
+                    <CardContent className="pt-4">
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">
+                          <span className="text-[#5D2A42]/60">
                             Connections:
                           </span>
-                          <span className="font-medium text-foreground">
+                          <span className="font-semibold text-[#5D2A42]">
                             {friend.profile.connections}
                           </span>
                         </div>
                         {friend.profile.bio && (
-                          <p className="text-xs text-muted-foreground line-clamp-2 mt-2">
+                          <p className="text-xs text-[#5D2A42]/60 line-clamp-2 mt-3 pt-3 border-t border-[#5D2A42]/10">
                             {friend.profile.bio}
                           </p>
                         )}
@@ -584,13 +612,15 @@ const Connections = () => {
           {/* Pending Requests */}
           <TabsContent value="pending" className="space-y-6">
             {allPendingRequests.length === 0 ? (
-              <Card className="border-border bg-card/80 backdrop-blur-sm">
-                <CardContent className="p-12 text-center">
-                  <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
+              <Card className="border-[#5D2A42]/20 bg-white">
+                <CardContent className="p-16 text-center">
+                  <div className="w-20 h-20 mx-auto mb-6 bg-[#FFDCCC]/50 rounded-2xl flex items-center justify-center">
+                    <Clock className="w-10 h-10 text-[#5D2A42]/40" />
+                  </div>
+                  <h3 className="text-xl font-bold text-[#5D2A42] mb-2">
                     No pending requests
                   </h3>
-                  <p className="text-muted-foreground">
+                  <p className="text-[#5D2A42]/60">
                     When you send or receive connection requests, they'll appear
                     here
                   </p>
@@ -601,13 +631,13 @@ const Connections = () => {
                 {/* Received Requests */}
                 {receivedRequests.length > 0 && (
                   <>
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    <h3 className="text-sm font-bold text-[#5D2A42]/70 uppercase tracking-wide">
                       Received Requests ({receivedRequests.length})
                     </h3>
                     {receivedRequests.map((request) => (
                       <Card
                         key={request.id}
-                        className="border-border bg-card/80 backdrop-blur-sm"
+                        className="border-[#5D2A42]/20 bg-white"
                       >
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between">
@@ -617,22 +647,24 @@ const Connections = () => {
                                   src={request.profile.photoURL}
                                   alt={request.profile.name}
                                 />
-                                <AvatarFallback className="bg-gradient-accent text-white">
+                                <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42]">
                                   {getInitials(request.profile.name)}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className="font-semibold text-foreground">
+                                  <h3 className="font-semibold text-[#5D2A42]">
                                     {request.profile.name}
                                   </h3>
-                                  <Badge variant="default">Incoming</Badge>
+                                  <Badge className="bg-[#FB6376]/10 text-[#FB6376] border-[#FB6376]/20">
+                                    Incoming
+                                  </Badge>
                                 </div>
-                                <p className="text-sm text-muted-foreground mb-2">
+                                <p className="text-sm text-[#5D2A42]/60 mb-2">
                                   {request.profile.email}
                                 </p>
                                 {request.profile.bio && (
-                                  <p className="text-sm text-foreground">
+                                  <p className="text-sm text-[#5D2A42]/70">
                                     {request.profile.bio}
                                   </p>
                                 )}
@@ -649,7 +681,7 @@ const Connections = () => {
                                   )
                                 }
                                 disabled={actionLoading === request.id}
-                                className="bg-gradient-primary hover-glow"
+                                className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white"
                               >
                                 {actionLoading === request.id ? (
                                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -668,7 +700,7 @@ const Connections = () => {
                                   )
                                 }
                                 disabled={actionLoading === request.id}
-                                className="border-border hover:bg-destructive/20"
+                                className="border-[#5D2A42]/20 hover:bg-[#5D2A42]/10 text-[#5D2A42]"
                               >
                                 <X className="w-4 h-4 mr-2" />
                                 Decline
@@ -684,13 +716,13 @@ const Connections = () => {
                 {/* Sent Requests */}
                 {sentRequests.length > 0 && (
                   <>
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-8">
+                    <h3 className="text-sm font-bold text-[#5D2A42]/70 uppercase tracking-wide mt-8">
                       Sent Requests ({sentRequests.length})
                     </h3>
                     {sentRequests.map((request) => (
                       <Card
                         key={request.id}
-                        className="border-border bg-card/80 backdrop-blur-sm"
+                        className="border-[#5D2A42]/20 bg-white"
                       >
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between">
@@ -700,21 +732,23 @@ const Connections = () => {
                                   src={request.profile.photoURL}
                                   alt={request.profile.name}
                                 />
-                                <AvatarFallback className="bg-gradient-secondary text-white">
+                                <AvatarFallback className="bg-[#FCB1A6] text-[#5D2A42]">
                                   {getInitials(request.profile.name)}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className="font-semibold text-foreground">
+                                  <h3 className="font-semibold text-[#5D2A42]">
                                     {request.profile.name}
                                   </h3>
-                                  <Badge variant="secondary">Sent</Badge>
+                                  <Badge className="bg-[#FCB1A6]/20 text-[#5D2A42] border-[#5D2A42]/20">
+                                    Sent
+                                  </Badge>
                                 </div>
-                                <p className="text-sm text-muted-foreground mb-2">
+                                <p className="text-sm text-[#5D2A42]/60 mb-2">
                                   {request.profile.email}
                                 </p>
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-[#5D2A42]/50">
                                   Sent{" "}
                                   {request.createdAt
                                     .toDate()
@@ -733,7 +767,7 @@ const Connections = () => {
                                 )
                               }
                               disabled={actionLoading === request.id}
-                              className="border-border hover:bg-destructive/20"
+                              className="border-[#5D2A42]/20 hover:bg-[#5D2A42]/10 text-[#5D2A42]"
                             >
                               {actionLoading === request.id ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -756,5 +790,4 @@ const Connections = () => {
     </div>
   );
 };
-
 export default Connections;

@@ -11,6 +11,7 @@ import ProtectedRoute from "./pages/ProtectedRoutes";
 import { CapsuleProvider } from "./contexts/CapsuleContext";
 import CreateCapsule from "./pages/CreateCapsule";
 import Connections from "./pages/Connections";
+import Settings from "./pages/Settings";
 
 function App() {
   return (
@@ -50,6 +51,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Connections />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             }
           />

@@ -70,6 +70,13 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
   ): Capsule => {
     const data = doc.data();
 
+    console.log("Converting doc:", doc.id, {
+      title: data.title,
+      userId: data.userId,
+      recipientType: data.recipientType,
+      recipients: data.recipients,
+    }); // DEBUG
+
     // Convert Firestore Timestamp to ISO string
     const deliveryDate =
       data.unlockDate instanceof Timestamp
@@ -88,13 +95,13 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       deliveryDate: deliveryDate,
       recipients: data.recipients || [],
       recipientNames: data.recipientNames || [],
-      recipientType: data.recipientType || "self",
+      recipientType: data.recipientType || "self", // Default to "self" for old capsules
       status: data.status || "scheduled",
       triggerType: data.triggerType || "time",
       attachments: data.attachments || [],
       createdAt: createdAt,
       isUnlocked: data.isUnlocked || false,
-      userId: data.userId,
+      userId: data.userId, // Make sure this is included!
       username: data.username,
       isReceived: isReceived,
     };
@@ -120,11 +127,10 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         where("userId", "==", currentUserId)
       );
 
-      // Query 2: Capsules sent to the user (received from friends)
+      // Query 2: Capsules sent to the user (received from friends or self)
       const receivedByUserQuery = query(
         capsulesRef,
-        where("recipients", "array-contains", currentUserId),
-        where("userId", "!=", currentUserId)
+        where("recipients", "array-contains", currentUserId)
       );
 
       console.log("Executing queries...");
@@ -134,7 +140,10 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       ]);
 
       console.log("Created capsules:", createdSnapshot.size);
-      console.log("Received capsules:", receivedSnapshot.size);
+      console.log(
+        "All received capsules (before filter):",
+        receivedSnapshot.size
+      );
 
       // Process created capsules
       const loadedCapsules: Capsule[] = [];
@@ -148,10 +157,14 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      // Process received capsules
+      // Process received capsules - filter out ones created by current user
       const loadedReceivedCapsules: Capsule[] = [];
       receivedSnapshot.forEach((doc) => {
-        loadedReceivedCapsules.push(convertFirestoreDoc(doc, true));
+        const data = doc.data();
+        // Only include capsules NOT created by current user
+        if (data.userId !== currentUserId) {
+          loadedReceivedCapsules.push(convertFirestoreDoc(doc, true));
+        }
       });
 
       // Sort by createdAt in memory
@@ -161,7 +174,10 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       );
 
       console.log("Loaded created capsules:", loadedCapsules);
-      console.log("Loaded received capsules:", loadedReceivedCapsules);
+      console.log(
+        "Loaded received capsules (after filter):",
+        loadedReceivedCapsules
+      );
 
       setCapsules(loadedCapsules);
       setReceivedCapsules(loadedReceivedCapsules);

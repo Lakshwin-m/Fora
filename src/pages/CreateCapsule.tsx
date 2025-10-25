@@ -268,7 +268,7 @@ const CreateCapsule = () => {
         unlockDate: unlockTimestamp,
         recipients: recipientsList,
         recipientNames: recipientNames,
-        recipientType: recipientType,
+        recipientType: recipientType, // Make sure this is set correctly
         attachments: attachments,
         userId: currentUser.uid,
         username: username,
@@ -284,6 +284,8 @@ const CreateCapsule = () => {
             document.getElementById("connectionTrigger")?.value || "",
         }),
       };
+
+      console.log("Creating capsule with recipientType:", recipientType); // Debug log
 
       // Add to Firestore
       const docRef = await addDoc(collection(db, "capsules"), capsuleData);
@@ -675,17 +677,21 @@ const CreateCapsule = () => {
                                   ? "border-primary bg-primary/10"
                                   : "border-border hover:border-primary/50"
                               }`}
-                              onClick={() => toggleFriendSelection(friendId)}
                             >
-                              <CardContent className="p-4">
+                              <CardContent
+                                className="p-4"
+                                onClick={() => toggleFriendSelection(friendId)}
+                              >
                                 <div className="flex items-center space-x-3">
-                                  <Checkbox
-                                    checked={isSelected}
-                                    onCheckedChange={() =>
-                                      toggleFriendSelection(friendId)
-                                    }
-                                    className="mt-0.5"
-                                  />
+                                  <div onClick={(e) => e.stopPropagation()}>
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onCheckedChange={() =>
+                                        toggleFriendSelection(friendId)
+                                      }
+                                      className="mt-0.5"
+                                    />
+                                  </div>
                                   <Avatar className="w-10 h-10">
                                     <AvatarImage
                                       src={friend.profile.photoURL}
