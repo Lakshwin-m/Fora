@@ -12,10 +12,20 @@ import {
   query,
   where,
   getDocs,
-  orderBy,
   Timestamp,
-  or,
+  doc,
+  updateDoc,
+  deleteDoc,
 } from "firebase/firestore";
+
+export interface Attachment {
+  id: string;
+  url: string;
+  type: "image" | "video" | "audio";
+  name: string;
+  size: number;
+  uploadedAt: string;
+}
 
 export interface Capsule {
   id: string;
@@ -27,12 +37,11 @@ export interface Capsule {
   recipientType?: "self" | "friends";
   status: "scheduled" | "delivered" | "opened";
   triggerType: "time" | "event" | "connection";
-  attachments?: string[];
+  attachments?: Attachment[];
   createdAt: string;
   isUnlocked?: boolean;
   userId?: string;
   username?: string;
-  // Flag to identify if this capsule was received from someone else
   isReceived?: boolean;
 }
 
@@ -41,6 +50,8 @@ interface CapsuleContextType {
   receivedCapsules: Capsule[];
   addCapsule: (capsule: Omit<Capsule, "id" | "createdAt" | "status">) => void;
   updateCapsule: (id: string, updates: Partial<Capsule>) => void;
+  deleteCapsule: (id: string) => Promise<void>;
+  markCapsuleAsOpened: (id: string) => Promise<void>;
   refreshCapsules: () => Promise<void>;
   loading: boolean;
 }
@@ -56,28 +67,19 @@ export const useCapsules = () => {
 };
 
 export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
-  const [capsules, setCapsules] = useState<Capsule[]>([]); // Capsules created by user
-  const [receivedCapsules, setReceivedCapsules] = useState<Capsule[]>([]); // Capsules received from friends
+  const [capsules, setCapsules] = useState<Capsule[]>([]);
+  const [receivedCapsules, setReceivedCapsules] = useState<Capsule[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const auth = getAuth();
   const db = getFirestore();
 
-  // Convert Firestore document to Capsule
   const convertFirestoreDoc = (
     doc: any,
     isReceived: boolean = false
   ): Capsule => {
     const data = doc.data();
 
-    console.log("Converting doc:", doc.id, {
-      title: data.title,
-      userId: data.userId,
-      recipientType: data.recipientType,
-      recipients: data.recipients,
-    }); // DEBUG
-
-    // Convert Firestore Timestamp to ISO string
     const deliveryDate =
       data.unlockDate instanceof Timestamp
         ? data.unlockDate.toDate().toISOString()
@@ -88,6 +90,78 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         ? data.createdAt.toDate().toISOString()
         : new Date().toISOString();
 
+    let processedAttachments: Attachment[] = [];
+
+    if (data.attachments && Array.isArray(data.attachments)) {
+      if (typeof data.attachments[0] === "string") {
+        const getFileTypeFromUrl = (
+          url: string
+        ): "image" | "video" | "audio" => {
+          if (!url) return "image";
+          const extension = url.split(".").pop()?.toLowerCase();
+
+          if (
+            ["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(
+              extension || ""
+            )
+          ) {
+            return "image";
+          } else if (
+            ["mp4", "mov", "avi", "webm", "mkv"].includes(extension || "")
+          ) {
+            return "video";
+          } else if (["mp3", "wav", "ogg", "m4a"].includes(extension || "")) {
+            return "audio";
+          }
+
+          return "image";
+        };
+
+        processedAttachments = data.attachments.map(
+          (url: string, index: number) => ({
+            id: `legacy-${index}`,
+            url: url,
+            type: getFileTypeFromUrl(url),
+            name: `Attachment ${index + 1}`,
+            size: 0,
+            uploadedAt: createdAt,
+          })
+        );
+      } else {
+        const getFileTypeFromUrl = (
+          url: string
+        ): "image" | "video" | "audio" => {
+          if (!url) return "image";
+          const extension = url.split(".").pop()?.toLowerCase();
+
+          if (
+            ["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(
+              extension || ""
+            )
+          ) {
+            return "image";
+          } else if (
+            ["mp4", "mov", "avi", "webm", "mkv"].includes(extension || "")
+          ) {
+            return "video";
+          } else if (["mp3", "wav", "ogg", "m4a"].includes(extension || "")) {
+            return "audio";
+          }
+
+          return "image";
+        };
+
+        processedAttachments = data.attachments.map((att: any) => ({
+          id: att.id || `att-${Date.now()}-${Math.random()}`,
+          url: att.url,
+          type: att.type || getFileTypeFromUrl(att.url),
+          name: att.name || `Attachment`,
+          size: att.size || 0,
+          uploadedAt: att.uploadedAt || createdAt,
+        }));
+      }
+    }
+
     return {
       id: doc.id,
       title: data.title,
@@ -95,24 +169,34 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       deliveryDate: deliveryDate,
       recipients: data.recipients || [],
       recipientNames: data.recipientNames || [],
-      recipientType: data.recipientType || "self", // Default to "self" for old capsules
+      recipientType: data.recipientType || "self",
       status: data.status || "scheduled",
       triggerType: data.triggerType || "time",
-      attachments: data.attachments || [],
+      attachments: processedAttachments,
       createdAt: createdAt,
       isUnlocked: data.isUnlocked || false,
-      userId: data.userId, // Make sure this is included!
+      userId: data.userId,
       username: data.username,
       isReceived: isReceived,
     };
   };
 
-  // Load capsules from Firestore
-  const refreshCapsules = async () => {
-    console.log("refreshCapsules called, userId:", currentUserId);
+  const markCapsuleAsOpened = async (id: string) => {
+    try {
+      const capsuleRef = doc(db, "capsules", id);
+      await updateDoc(capsuleRef, {
+        isUnlocked: true,
+        status: "opened",
+      });
+      // Update local state
+      updateCapsule(id, { isUnlocked: true, status: "opened" });
+    } catch (error) {
+      console.error("Error marking capsule as opened:", error);
+    }
+  };
 
+  const refreshCapsules = async () => {
     if (!currentUserId) {
-      console.log("No user ID, skipping refresh");
       setCapsules([]);
       setReceivedCapsules([]);
       return;
@@ -121,68 +205,74 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
     try {
       const capsulesRef = collection(db, "capsules");
 
-      // Query 1: Capsules created by the user
       const createdByUserQuery = query(
         capsulesRef,
         where("userId", "==", currentUserId)
       );
 
-      // Query 2: Capsules sent to the user (received from friends or self)
       const receivedByUserQuery = query(
         capsulesRef,
         where("recipients", "array-contains", currentUserId)
       );
 
-      console.log("Executing queries...");
       const [createdSnapshot, receivedSnapshot] = await Promise.all([
         getDocs(createdByUserQuery),
         getDocs(receivedByUserQuery),
       ]);
 
-      console.log("Created capsules:", createdSnapshot.size);
-      console.log(
-        "All received capsules (before filter):",
-        receivedSnapshot.size
-      );
-
-      // Process created capsules
       const loadedCapsules: Capsule[] = [];
       createdSnapshot.forEach((doc) => {
         loadedCapsules.push(convertFirestoreDoc(doc, false));
       });
 
-      // Sort by createdAt in memory
       loadedCapsules.sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      // Process received capsules - filter out ones created by current user
       const loadedReceivedCapsules: Capsule[] = [];
       receivedSnapshot.forEach((doc) => {
         const data = doc.data();
-        // Only include capsules NOT created by current user
         if (data.userId !== currentUserId) {
           loadedReceivedCapsules.push(convertFirestoreDoc(doc, true));
         }
       });
 
-      // Sort by createdAt in memory
       loadedReceivedCapsules.sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      console.log("Loaded created capsules:", loadedCapsules);
-      console.log(
-        "Loaded received capsules (after filter):",
-        loadedReceivedCapsules
-      );
+      // Check for capsules that should be automatically unlocked
+      const currentTime = new Date().getTime();
+      const capsulesToUpdate: string[] = [];
+
+      [...loadedCapsules, ...loadedReceivedCapsules].forEach((capsule) => {
+        const deliveryTime = new Date(capsule.deliveryDate).getTime();
+        if (deliveryTime <= currentTime && !capsule.isUnlocked) {
+          capsulesToUpdate.push(capsule.id);
+        }
+      });
+
+      // Update capsules that have reached their unlock time
+      if (capsulesToUpdate.length > 0) {
+        const updatePromises = capsulesToUpdate.map((id) =>
+          updateDoc(doc(db, "capsules", id), {
+            isUnlocked: true,
+            status: "delivered",
+          })
+        );
+        await Promise.all(updatePromises);
+
+        // Update local state
+        capsulesToUpdate.forEach((id) => {
+          updateCapsule(id, { isUnlocked: true, status: "delivered" });
+        });
+      }
 
       setCapsules(loadedCapsules);
       setReceivedCapsules(loadedReceivedCapsules);
     } catch (error) {
-      console.error("Error loading capsules:", error);
       setCapsules([]);
       setReceivedCapsules([]);
     } finally {
@@ -190,11 +280,8 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Load capsules when user auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("Auth state changed:", user?.uid);
-
       if (user) {
         setCurrentUserId(user.uid);
         setLoading(true);
@@ -210,11 +297,21 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  // Refresh when currentUserId changes
   useEffect(() => {
     if (currentUserId) {
       refreshCapsules();
     }
+  }, [currentUserId]);
+
+  // Periodic refresh to check for capsules that should unlock
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const interval = setInterval(() => {
+      refreshCapsules();
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
   }, [currentUserId]);
 
   const addCapsule = (
@@ -242,6 +339,22 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
+  const deleteCapsule = async (id: string) => {
+    try {
+      // Delete from Firestore
+      await deleteDoc(doc(db, "capsules", id));
+
+      // Delete from local state
+      setCapsules((prev) => prev.filter((capsule) => capsule.id !== id));
+      setReceivedCapsules((prev) =>
+        prev.filter((capsule) => capsule.id !== id)
+      );
+    } catch (error) {
+      console.error("Error deleting capsule:", error);
+      throw error;
+    }
+  };
+
   return (
     <CapsuleContext.Provider
       value={{
@@ -249,6 +362,8 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         receivedCapsules,
         addCapsule,
         updateCapsule,
+        deleteCapsule,
+        markCapsuleAsOpened,
         refreshCapsules,
         loading,
       }}

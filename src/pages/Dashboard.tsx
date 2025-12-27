@@ -11,19 +11,32 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Navigation from "@/components/Navigation";
+import { getFCMToken, onForegroundMessage } from "@/notifications";
+import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Clock,
   Calendar,
   Users,
-  Package,
-  Plus,
   Send,
   Inbox,
   User,
   Loader2,
   Timer,
+  Lock,
+  Unlock,
+  Trash2,
+  Plus,
 } from "lucide-react";
 
 const Dashboard = () => {
@@ -31,6 +44,7 @@ const Dashboard = () => {
   const { capsules, receivedCapsules, loading } = useCapsules();
   const [activeTab, setActiveTab] = useState("sent");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
   // Update current time every second for countdown
   useEffect(() => {
@@ -41,9 +55,18 @@ const Dashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Debug logs
-  console.log("Dashboard - Sent capsules:", capsules);
-  console.log("Dashboard - Received capsules:", receivedCapsules);
+  // Update sidebar expanded state when window resizes
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (window.innerWidth >= 768) {
+        const isNearLeftEdge = e.clientX < 80;
+        setSidebarExpanded(isNearLeftEdge);
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   const getCountdown = (deliveryDate: string) => {
     const now = currentTime.getTime();
@@ -115,15 +138,10 @@ const Dashboard = () => {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-  };
-
   const CapsuleCard = ({ capsule, isReceived = false }) => {
+    const { deleteCapsule } = useCapsules();
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
     const TriggerIcon = getTriggerIcon(capsule.triggerType);
 
     // Check unlock status
@@ -132,8 +150,6 @@ const Dashboard = () => {
     const isUnlocked = deliveryTime <= currentTimeMs || capsule.isUnlocked;
 
     // Determine if this is a self-capsule
-    // Method 1: Check recipientType field
-    // Method 2: Check if it's in sent tab AND recipients length is 1 (fallback for old capsules)
     const isSentToSelf =
       capsule.recipientType === "self" ||
       (!isReceived && capsule.recipients?.length === 1);
@@ -157,52 +173,57 @@ const Dashboard = () => {
       canView = true;
     }
 
-    // Debug log - detailed
-    const shouldDebug =
-      capsule.title.toLowerCase().includes("my") ||
-      capsule.title.toLowerCase().includes("mine") ||
-      capsule.title.toLowerCase().includes("self");
-
-    if (shouldDebug) {
-      console.log(`🔍 DETAILED DEBUG for "${capsule.title}":`, {
-        recipientType: capsule.recipientType,
-        recipients: capsule.recipients,
-        recipientsLength: capsule.recipients?.length,
-        isSentToSelf,
-        isReceived,
-        deliveryDate: new Date(capsule.deliveryDate).toLocaleString(),
-        currentTime: currentTime.toLocaleString(),
-        deliveryTime,
-        currentTimeMs,
-        timeDiff: deliveryTime - currentTimeMs,
-        isUnlocked,
-        canView,
-        contentPreview: capsule.content?.substring(0, 20),
-        LOGIC: {
-          step1_isUnlocked: isUnlocked,
-          step2_isSentToSelf: isSentToSelf,
-          step3_isReceived: isReceived,
-          finalDecision: canView ? "SHOW CONTENT" : "HIDE CONTENT",
-        },
-      });
-    }
-
     const countdown = getCountdown(capsule.deliveryDate);
 
+    const handleCapsuleClick = () => {
+      // Don't navigate if dialog is open
+      if (isDialogOpen) return;
+      // Navigate to the capsule detail page
+      navigate(`/capsule/${capsule.id}`);
+    };
+
+    const handleDelete = async () => {
+      setIsDeleting(true);
+      try {
+        await deleteCapsule(capsule.id);
+        toast({
+          title: "Capsule deleted",
+          description: "The capsule has been permanently removed.",
+        });
+      } catch (error) {
+        console.error("Error deleting capsule:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete capsule. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsDeleting(false);
+      }
+    };
+
     return (
-      <Card
-        className="border-[#5D2A42]/20 bg-[#FFF9EC] hover:shadow-lg cursor-pointer transition-all duration-200 overflow-hidden group"
-        onClick={() => navigate(`/capsule/${capsule.id}`)}
-      >
+      <Card className="border-[#5D2A42]/20 bg-[#FFF9EC] hover:shadow-lg transition-all duration-200 overflow-hidden group">
         <CardHeader className="pb-4 bg-[#FFDCCC]/30 border-b border-[#5D2A42]/10">
           <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center space-x-3">
+            <div
+              className="flex items-center space-x-3 flex-1 cursor-pointer hover:opacity-80"
+              onClick={(e) => {
+                if (!isDialogOpen) {
+                  handleCapsuleClick();
+                }
+              }}
+            >
               <div
                 className={`w-10 h-10 ${
                   isUnlocked ? "bg-[#FCB1A6]" : "bg-[#FB6376]"
                 } rounded-xl flex items-center justify-center shadow-sm`}
               >
-                <Package className="w-5 h-5 text-[#5D2A42]" />
+                {isUnlocked ? (
+                  <Unlock className="w-5 h-5 text-[#5D2A42]" />
+                ) : (
+                  <Lock className="w-5 h-5 text-[#5D2A42]" />
+                )}
               </div>
               <div>
                 <CardTitle className="text-base font-semibold text-[#5D2A42] group-hover:text-[#FB6376] transition-colors">
@@ -222,6 +243,8 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
             <Badge
               variant="outline"
               className={`${getStatusColor(
@@ -230,26 +253,99 @@ const Dashboard = () => {
             >
               {isUnlocked ? "unlocked" : "scheduled"}
             </Badge>
+            {!isReceived && (
+              <AlertDialog
+                open={isDialogOpen}
+                onOpenChange={(newOpen) => {
+                  if (!newOpen) {
+                    setIsDialogOpen(false);
+                  }
+                }}
+              >
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-red-100 hover:text-[#FB6376] text-[#5D2A42]/60 opacity-70 hover:opacity-100 transition-all"
+                    disabled={isDeleting}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDialogOpen(true);
+                    }}
+                  >
+                    {isDeleting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDownOutside={(e) => e.preventDefault()}
+                  onEscapeKeyDown={(e) => e.preventDefault()}
+                >
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Capsule?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete "{capsule.title}" and all its
+                      contents. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="flex gap-3 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsDialogOpen(false);
+                      }}
+                      disabled={isDeleting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        await handleDelete();
+                        setIsDialogOpen(false);
+                      }}
+                      className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white"
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        "Delete"
+                      )}
+                    </Button>
+                  </div>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
           <CardDescription className="line-clamp-2 text-[#5D2A42]/70 text-sm leading-relaxed">
-            {(() => {
-              if (shouldDebug) {
-                console.log(
-                  `🎨 RENDERING "${capsule.title}": canView=${canView}, content="${capsule.content}"`
-                );
-              }
-              return canView ? (
-                capsule.content
-              ) : (
-                <span className="text-[#5D2A42]/50 italic flex items-center gap-1.5">
-                  🔒 {isSentToSelf ? "Message to your future self" : "Locked"} -
-                  Opens {new Date(capsule.deliveryDate).toLocaleDateString()}
-                </span>
-              );
-            })()}
+            {canView ? (
+              capsule.content
+            ) : (
+              <span className="text-[#5D2A42]/50 italic flex items-center gap-1.5">
+                🔒 {isSentToSelf ? "Message to your future self" : "Locked"} -
+                Opens {new Date(capsule.deliveryDate).toLocaleDateString()}
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
-        <CardContent className="pt-4 bg-white">
+        <CardContent
+          className="pt-4 bg-white cursor-pointer hover:opacity-80"
+          onClick={(e) => {
+            if (!isDialogOpen) {
+              handleCapsuleClick();
+            }
+          }}
+        >
           {/* Countdown Timer */}
           {!isUnlocked && (
             <div className="mb-4 p-3 bg-[#FFDCCC] rounded-lg border border-[#FB6376]/20">
@@ -259,6 +355,9 @@ const Dashboard = () => {
                   {countdown}
                 </span>
               </div>
+              <p className="text-xs text-center text-[#5D2A42]/60 mt-2">
+                Click to view countdown details
+              </p>
             </div>
           )}
 
@@ -312,6 +411,13 @@ const Dashboard = () => {
                 )}
               </div>
             )}
+
+          {/* Click to view hint */}
+          <div className="mt-3 pt-3 border-t border-[#5D2A42]/10">
+            <p className="text-xs text-[#5D2A42]/40 text-center">
+              Click to {isUnlocked ? "view" : "see countdown"}
+            </p>
+          </div>
         </CardContent>
       </Card>
     );
@@ -360,189 +466,107 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FFF9EC]">
-        <Navigation />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="w-8 h-8 animate-spin text-[#FB6376]" />
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FB6376]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF9EC]">
+    <div className="flex min-h-screen">
       <Navigation />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-10">
-          <div>
-            <h1 className="text-4xl font-bold text-[#5D2A42] mb-2">
-              My Capsules
-            </h1>
-            <p className="text-[#5D2A42]/60 text-lg">
-              Manage your time capsules and view messages from friends
-            </p>
+      {/* Main Content Area - Dynamic margin based on sidebar state */}
+      <main
+        className={`flex-1 min-h-screen bg-[#FFF9EC] transition-all duration-300 ml-0 ${
+          sidebarExpanded ? "md:ml-80" : "md:ml-20"
+        }`}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-10">
+            <div>
+              <h1 className="text-4xl font-bold text-[#5D2A42] mb-2">
+                My Capsules
+              </h1>
+              <p className="text-[#5D2A42]/60 text-lg">
+                Manage your time capsules and view messages from friends
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate("/create")}
+              className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white shadow-lg hover:shadow-xl transition-all px-6 py-6"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Create Capsule
+            </Button>
           </div>
-          <Button
-            onClick={() => navigate("/create")}
-            className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white shadow-lg hover:shadow-xl transition-all px-6 py-6"
+
+          {/* Capsules Tabs */}
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
           >
-            <Plus className="w-5 h-5 mr-2" />
-            Create Capsule
-          </Button>
-        </div>
+            <TabsList className="grid w-full md:w-fit grid-cols-2 mb-8 bg-white border border-[#5D2A42]/20 p-1 shadow-sm">
+              <TabsTrigger
+                value="sent"
+                className="space-x-2 data-[state=active]:bg-[#FB6376] data-[state=active]:text-white"
+              >
+                <Send className="w-4 h-4" />
+                <span>Sent ({capsules.length})</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="received"
+                className="space-x-2 data-[state=active]:bg-[#FCB1A6] data-[state=active]:text-[#5D2A42]"
+              >
+                <Inbox className="w-4 h-4" />
+                <span>Received ({receivedCapsules.length})</span>
+              </TabsTrigger>
+            </TabsList>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-          <Card className="border-[#5D2A42]/20 bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-semibold text-[#5D2A42]/70">
-                Total Sent
-              </CardTitle>
-              <div className="w-10 h-10 bg-[#FB6376]/10 rounded-lg flex items-center justify-center">
-                <Send className="w-5 h-5 text-[#FB6376]" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-[#5D2A42]">
-                {capsules.length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-[#5D2A42]/20 bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-semibold text-[#5D2A42]/70">
-                Received
-              </CardTitle>
-              <div className="w-10 h-10 bg-[#FCB1A6]/20 rounded-lg flex items-center justify-center">
-                <Inbox className="w-5 h-5 text-[#5D2A42]" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-[#5D2A42]">
-                {receivedCapsules.length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-[#5D2A42]/20 bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-semibold text-[#5D2A42]/70">
-                Scheduled
-              </CardTitle>
-              <div className="w-10 h-10 bg-[#FFDCCC] rounded-lg flex items-center justify-center">
-                <Clock className="w-5 h-5 text-[#5D2A42]" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-[#5D2A42]">
-                {
-                  [...capsules, ...receivedCapsules].filter(
-                    (c) =>
-                      new Date(c.deliveryDate) > new Date() && !c.isUnlocked
-                  ).length
-                }
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-[#5D2A42]/20 bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-semibold text-[#5D2A42]/70">
-                Unlocked
-              </CardTitle>
-              <div className="w-10 h-10 bg-[#FCB1A6]/30 rounded-lg flex items-center justify-center">
-                <Package className="w-5 h-5 text-[#5D2A42]" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-[#5D2A42]">
-                {
-                  [...capsules, ...receivedCapsules].filter(
-                    (c) =>
-                      new Date(c.deliveryDate) <= new Date() || c.isUnlocked
-                  ).length
-                }
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Capsules Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full md:w-fit grid-cols-2 mb-8 bg-white border border-[#5D2A42]/20 p-1 shadow-sm">
-            <TabsTrigger
-              value="sent"
-              className="space-x-2 data-[state=active]:bg-[#FB6376] data-[state=active]:text-white"
-            >
-              <Send className="w-4 h-4" />
-              <span>Sent ({capsules.length})</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="received"
-              className="space-x-2 data-[state=active]:bg-[#FCB1A6] data-[state=active]:text-[#5D2A42]"
-            >
-              <Inbox className="w-4 h-4" />
-              <span>Received ({receivedCapsules.length})</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Sent Capsules */}
-          <TabsContent value="sent" className="space-y-6">
-            {capsules.length === 0 ? (
-              <EmptyState type="sent" />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {capsules.map((capsule) => (
-                  <CapsuleCard
-                    key={capsule.id}
-                    capsule={capsule}
-                    isReceived={false}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Received Capsules */}
-          <TabsContent value="received" className="space-y-6">
-            {console.log(
-              "Rendering received tab, count:",
-              receivedCapsules.length
-            )}
-            {receivedCapsules.length === 0 ? (
-              <EmptyState type="received" />
-            ) : (
-              <>
-                <p className="text-sm text-[#5D2A42]/60 mb-6 font-medium">
-                  You have {receivedCapsules.length} capsule
-                  {receivedCapsules.length !== 1 ? "s" : ""} from friends
-                </p>
+            {/* Sent Capsules */}
+            <TabsContent value="sent" className="space-y-6">
+              {capsules.length === 0 ? (
+                <EmptyState type="sent" />
+              ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {receivedCapsules.map((capsule) => {
-                    console.log(
-                      "Rendering received capsule:",
-                      capsule.id,
-                      capsule.title
-                    );
-                    return (
+                  {capsules.map((capsule) => (
+                    <CapsuleCard
+                      key={capsule.id}
+                      capsule={capsule}
+                      isReceived={false}
+                    />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Received Capsules */}
+            <TabsContent value="received" className="space-y-6">
+              {receivedCapsules.length === 0 ? (
+                <EmptyState type="received" />
+              ) : (
+                <>
+                  <p className="text-sm text-[#5D2A42]/60 mb-6 font-medium">
+                    You have {receivedCapsules.length} capsule
+                    {receivedCapsules.length !== 1 ? "s" : ""} from friends
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {receivedCapsules.map((capsule) => (
                       <CapsuleCard
                         key={capsule.id}
                         capsule={capsule}
                         isReceived={true}
                       />
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
-      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
+      </main>
     </div>
   );
 };

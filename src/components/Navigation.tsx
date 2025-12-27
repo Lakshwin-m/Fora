@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,18 +10,38 @@ import {
   LogOut,
   Menu,
   X,
+  Archive,
 } from "lucide-react";
-
 import { signOut } from "firebase/auth";
-import { auth } from "@/firebase"; // make sure this points to your firebase.ts
+import { auth } from "@/firebase";
 
 const Navigation = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) {
+      setIsOpen(false);
+    }
+  }, [isMobile]);
 
   const navItems = [
-    { path: "/dashboard", label: "Capsules", icon: Clock },
+    { path: "/dashboard", label: "My Capsules", icon: Clock },
+    { path: "/community", label: "Community", icon: Archive },
     { path: "/connections", label: "Connections", icon: Users },
     { path: "/profile", label: "Profile", icon: User },
     { path: "/settings", label: "Settings", icon: Settings },
@@ -32,125 +52,204 @@ const Navigation = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigate("/"); // redirect to login/signup
+      navigate("/");
     } catch (error) {
       console.error("Error signing out:", error);
     }
   };
 
+  const sidebarWidth = isMobile ? 280 : isOpen || isHovered ? 280 : 80;
+
   return (
-    <nav className="bg-[#FB6376] backdrop-blur-xl border-b border-border sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link
-            to="/dashboard"
-            className="flex items-center space-x-3 hover-glow rounded-lg p-2 -ml-2"
-          >
-            <span className="text-xl font-bold text-white bg-clip-text text-transparent">
-              Forá
-            </span>
-          </Link>
+    <>
+      {/* Mobile Menu Button */}
+      {!isOpen && isMobile && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed top-4 left-4 z-50 bg-[#FB6376] text-white hover:bg-white/20"
+          onClick={() => setIsOpen(true)}
+        >
+          <Menu className="w-5 h-5" />
+        </Button>
+      )}
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
-            {navItems.map(({ path, label, icon: Icon }) => (
-              <Link key={path} to={path}>
-                <Button
-                  variant={isActive(path) ? "default" : "ghost"}
-                  size="sm"
-                  className={`transition-smooth ${
-                    isActive(path)
-                      ? "bg-gradient-primary shadow-glow"
-                      : "hover:bg-muted/"
-                  }`}
-                >
-                  <Icon className="w-4 h-4 mr-2" />
-                  {label}
-                </Button>
-              </Link>
-            ))}
-
-            <div className="w-px h-6 bg-border mx-2" />
-
-            <Link to="/create">
-              <Button size="sm" className="bg-gradient-accent hover-glow">
-                <Plus className="w-4 h-4 mr-2" />
-                Create
-              </Button>
-            </Link>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="hover:bg-destructive/20"
-              onClick={handleLogout}
+      {/* Desktop Sidebar */}
+      <div
+        className={`hidden md:flex flex-col flex-shrink-0 fixed left-0 top-0 h-screen z-30 transition-all duration-300 bg-[#FB6376]  border-white/20`}
+        style={{ width: `${sidebarWidth}px` }}
+        onMouseEnter={() => !isMobile && setIsHovered(true)}
+        onMouseLeave={() => !isMobile && setIsHovered(false)}
+      >
+        <div className="flex flex-col h-full">
+          {/* Logo Section */}
+          <div className="flex items-center justify-center h-16 border-b border-white/20 px-4 flex-shrink-0">
+            <Link
+              to="/dashboard"
+              className="flex items-center justify-center w-full"
             >
-              <LogOut className="w-4 h-4" />
-            </Button>
+              <span className="text-2xl font-bold text-white">
+                {isOpen || isHovered ? "Forá" : "F"}
+              </span>
+            </Link>
           </div>
 
-          {/* Mobile menu button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="md:hidden"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            {isMobileMenuOpen ? (
-              <X className="w-5 h-5" />
-            ) : (
-              <Menu className="w-5 h-5" />
-            )}
-          </Button>
-        </div>
-
-        {/* Mobile Navigation */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-border mt-4">
-            <div className="flex flex-col space-y-2">
-              {navItems.map(({ path, label, icon: Icon }) => (
-                <Link
-                  key={path}
-                  to={path}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
+          {/* Navigation Items */}
+          <div className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+            {navItems.map(({ path, label, icon: Icon }) => (
+              <div key={path} className="mb-1">
+                <Link to={path}>
                   <Button
                     variant={isActive(path) ? "default" : "ghost"}
-                    className={`w-full justify-start transition-smooth ${
+                    className={`w-full justify-start transition-all duration-200 rounded-lg ${
                       isActive(path)
-                        ? "bg-gradient-primary shadow-glow"
-                        : "hover:bg-muted/50"
-                    }`}
+                        ? "bg-white/20 shadow-lg text-white border border-white/30"
+                        : "text-white/90 hover:bg-white/10 hover:text-white"
+                    } ${isOpen || isHovered ? "px-4 py-3" : "px-3 py-3"}`}
+                    size={isOpen || isHovered ? "default" : "icon"}
                   >
-                    <Icon className="w-4 h-4 mr-3" />
-                    {label}
+                    <div className="flex items-center">
+                      <Icon className="w-5 h-5" />
+                      {(isOpen || isHovered) && (
+                        <span className="ml-3 font-medium whitespace-nowrap">
+                          {label}
+                        </span>
+                      )}
+                    </div>
                   </Button>
                 </Link>
-              ))}
+              </div>
+            ))}
+          </div>
 
-              <div className="h-px bg-border my-2" />
-
-              <Link to="/create" onClick={() => setIsMobileMenuOpen(false)}>
-                <Button className="w-full justify-start bg-gradient-accent hover-glow">
-                  <Plus className="w-4 h-4 mr-3" />
-                  Create Capsule
+          {/* Bottom Actions Section */}
+          <div className="px-4 py-6 border-t border-white/20 space-y-3 flex-shrink-0">
+            {/* Create Button */}
+            <div>
+              <Link to="/create">
+                <Button
+                  className={`w-full bg-white text-[#FB6376] hover:bg-white/90 hover:text-[#FB6376] transition-all duration-200 font-medium ${
+                    isOpen || isHovered ? "px-4 py-3" : "px-3 py-3"
+                  }`}
+                  size={isOpen || isHovered ? "default" : "icon"}
+                >
+                  <Plus className="w-5 h-5" />
+                  {(isOpen || isHovered) && (
+                    <span className="ml-3 whitespace-nowrap">Create</span>
+                  )}
                 </Button>
               </Link>
+            </div>
 
+            {/* Logout Button */}
+            <div>
               <Button
                 variant="ghost"
-                className="w-full justify-start hover:bg-destructive/20"
+                className={`w-full justify-start text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 ${
+                  isOpen || isHovered ? "px-4 py-3" : "px-3 py-3"
+                }`}
+                size={isOpen || isHovered ? "default" : "icon"}
                 onClick={handleLogout}
               >
-                <LogOut className="w-4 h-4 mr-3" />
-                Sign Out
+                <LogOut className="w-5 h-5" />
+                {(isOpen || isHovered) && (
+                  <span className="ml-3 font-medium whitespace-nowrap">
+                    Sign Out
+                  </span>
+                )}
               </Button>
             </div>
           </div>
-        )}
+        </div>
       </div>
-    </nav>
+
+      {/* Mobile Sidebar Overlay */}
+      {isOpen && isMobile && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Mobile Sidebar */}
+      <div
+        className={`fixed left-0 top-0 h-screen z-50 transition-transform duration-300 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        } bg-gradient-to-b from-[#FB6376] to-[#FF8B9A] border-r border-white/20 w-72`}
+      >
+        <div className="flex flex-col h-full">
+          {/* Mobile Header */}
+          <div className="flex items-center justify-between h-16 border-b border-white/20 px-6 flex-shrink-0">
+            <Link
+              to="/dashboard"
+              className="flex items-center"
+              onClick={() => setIsOpen(false)}
+            >
+              <span className="text-2xl font-bold text-white">Forá</span>
+            </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/20"
+              onClick={() => setIsOpen(false)}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* Mobile Navigation Items */}
+          <div className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+            {navItems.map(({ path, label, icon: Icon }) => (
+              <div key={path} className="mb-1">
+                <Link to={path} onClick={() => setIsOpen(false)}>
+                  <Button
+                    variant={isActive(path) ? "default" : "ghost"}
+                    className={`w-full justify-start transition-all duration-200 rounded-lg px-4 py-3 ${
+                      isActive(path)
+                        ? "bg-white/20 shadow-lg text-white border border-white/30"
+                        : "text-white/90 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <Icon className="w-5 h-5" />
+                      <span className="ml-3 font-medium whitespace-nowrap">
+                        {label}
+                      </span>
+                    </div>
+                  </Button>
+                </Link>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile Bottom Actions */}
+          <div className="px-4 py-6 border-t border-white/20 space-y-3 flex-shrink-0">
+            <div>
+              <Link to="/create" onClick={() => setIsOpen(false)}>
+                <Button className="w-full bg-white text-[#FB6376] hover:bg-white/90 hover:text-[#FB6376] px-4 py-3 font-medium">
+                  <Plus className="w-5 h-5 mr-3" />
+                  Create Capsule
+                </Button>
+              </Link>
+            </div>
+
+            <div>
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-white/90 hover:text-white hover:bg-white/10 px-4 py-3"
+                onClick={() => {
+                  setIsOpen(false);
+                  handleLogout();
+                }}
+              >
+                <LogOut className="w-5 h-5 mr-3" />
+                <span className="font-medium">Sign Out</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 

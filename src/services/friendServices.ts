@@ -16,7 +16,7 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
-import { db } from "../firebase"; // Your Firebase config
+import { db } from "@/firebase"; // Your Firebase config file
 
 // Types
 export interface FriendRequest {
@@ -35,6 +35,7 @@ export interface UserProfile {
   photoURL: string;
   bio?: string;
   connections: number;
+  mutualFriends?: number; // For suggestions
 }
 
 export interface FriendWithProfile extends FriendRequest {
@@ -511,6 +512,9 @@ export const getSentFriendRequests = async (
 /**
  * Search for users by name or email (excluding current user and existing friends)
  */
+/**
+ * Search for users by name or email (excluding current user and existing friends)
+ */
 export const searchUsers = async (
   searchTerm: string,
   currentUserId: string,
@@ -522,30 +526,153 @@ export const searchUsers = async (
     }
 
     const usersRef = collection(db, USERS_COLLECTION);
+    const searchLower = searchTerm.toLowerCase();
 
-    // Note: For production, consider using Algolia or similar for better search
-    // This is a basic implementation using Firestore queries
-    const q = query(
+    // Search by name
+    const nameQuery = query(
       usersRef,
-      where("email", ">=", searchTerm.toLowerCase()),
-      where("email", "<=", searchTerm.toLowerCase() + "\uf8ff"),
+      where("name", ">=", searchTerm),
+      where("name", "<=", searchTerm + "\uf8ff"),
       limit(limitCount)
     );
 
-    const snapshot = await getDocs(q);
+    // Search by email
+    const emailQuery = query(
+      usersRef,
+      where("email", ">=", searchLower),
+      where("email", "<=", searchLower + "\uf8ff"),
+      limit(limitCount)
+    );
 
-    // Filter out current user
-    const users = snapshot.docs
-      .map((doc) => doc.data() as UserProfile)
-      .filter((user) => user.uid !== currentUserId);
+    const [nameSnapshot, emailSnapshot] = await Promise.all([
+      getDocs(nameQuery),
+      getDocs(emailQuery),
+    ]);
 
-    return users;
+    const userMap = new Map<string, UserProfile>();
+
+    nameSnapshot.docs.forEach((doc) => {
+      const user = doc.data() as UserProfile;
+      if (user.uid !== currentUserId) {
+        userMap.set(user.uid, user);
+      }
+    });
+
+    emailSnapshot.docs.forEach((doc) => {
+      const user = doc.data() as UserProfile;
+      if (user.uid !== currentUserId) {
+        userMap.set(user.uid, user);
+      }
+    });
+
+    return Array.from(userMap.values()).slice(0, limitCount);
   } catch (error) {
     console.error("Error searching users:", error);
     return [];
   }
 };
+/**
+ * Get friend suggestions for a user
+ */
+export const getFriendSuggestions = async (
+  userId: string,
+  limitCount: number = 10
+): Promise<{
+  friendsOfFriends: UserProfile[];
+  popularUsers: UserProfile[];
+}> => {
+  try {
+    const currentFriends = await getFriends(userId);
+    const friendIds = currentFriends.map((f) =>
+      f.requesterId === userId ? f.receiverId : f.requesterId
+    );
 
+    const [sentRequests, receivedRequests] = await Promise.all([
+      getSentFriendRequests(userId),
+      getReceivedFriendRequests(userId),
+    ]);
+
+    const pendingIds = new Set([
+      ...sentRequests.map((r) => r.receiverId),
+      ...receivedRequests.map((r) => r.requesterId),
+    ]);
+
+    const friendsOfFriendsMap = new Map<
+      string,
+      { count: number; user: UserProfile }
+    >();
+
+    for (const friendId of friendIds.slice(0, 20)) {
+      try {
+        const friendsOfFriend = await getFriends(friendId);
+
+        for (const fof of friendsOfFriend) {
+          const suggestedUserId =
+            fof.requesterId === friendId ? fof.receiverId : fof.requesterId;
+
+          if (
+            suggestedUserId === userId ||
+            friendIds.includes(suggestedUserId) ||
+            pendingIds.has(suggestedUserId)
+          ) {
+            continue;
+          }
+
+          if (friendsOfFriendsMap.has(suggestedUserId)) {
+            friendsOfFriendsMap.get(suggestedUserId)!.count++;
+          } else {
+            const userDoc = await getDoc(
+              doc(db, USERS_COLLECTION, suggestedUserId)
+            );
+            if (userDoc.exists()) {
+              friendsOfFriendsMap.set(suggestedUserId, {
+                count: 1,
+                user: userDoc.data() as UserProfile,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching friends for ${friendId}:`, error);
+      }
+    }
+
+    const friendsOfFriends = Array.from(friendsOfFriendsMap.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, Math.ceil(limitCount / 2))
+      .map((item) => ({ ...item.user, mutualFriends: item.count }));
+
+    const usersRef = collection(db, USERS_COLLECTION);
+    const popularQuery = query(
+      usersRef,
+      orderBy("connections", "desc"),
+      limit(20)
+    );
+
+    const popularSnapshot = await getDocs(popularQuery);
+    const popularUsers = popularSnapshot.docs
+      .map((doc) => doc.data() as UserProfile)
+      .filter(
+        (user) =>
+          user.uid !== userId &&
+          !friendIds.includes(user.uid) &&
+          !pendingIds.has(user.uid) &&
+          !friendsOfFriendsMap.has(user.uid)
+      )
+      .slice(0, Math.ceil(limitCount / 2));
+
+    return {
+      friendsOfFriends,
+      popularUsers,
+    };
+  } catch (error) {
+    console.error("Error getting friend suggestions:", error);
+    return {
+      friendsOfFriends: [],
+      popularUsers: [],
+    };
+  }
+};
 /**
  * Get friendship status between two users
  */
