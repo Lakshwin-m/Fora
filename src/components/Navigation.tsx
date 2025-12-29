@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Archive,
+  DollarSign,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebase";
@@ -45,6 +46,7 @@ const Navigation = () => {
     { path: "/connections", label: "Connections", icon: Users },
     { path: "/profile", label: "Profile", icon: User },
     { path: "/settings", label: "Settings", icon: Settings },
+    { path: "/pricing", label: "Pricing", icon: DollarSign },
   ];
 
   const isActive = (path: string) => location.pathname === path;

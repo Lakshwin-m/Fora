@@ -12,13 +12,13 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { X, RotateCcw, CheckCircle2, Lock } from "lucide-react";
 
-// Animation and sound assets (in production, import from assets directory)
+// Animation and sound assets
 import timeTravelAnimation from "@/assets/time animation.json";
 
 interface SealCapsuleModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSealComplete: () => void;
+  onSealComplete: (signatureData: string) => void;
   capsuleTitle?: string;
   capsuleId?: string;
 }
@@ -39,19 +39,23 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
   const [isSealing, setIsSealing] = useState(false);
   const [isSealed, setIsSealed] = useState(false);
   const [showAnimation, setShowAnimation] = useState(false);
-
-  // Audio
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [animationComplete, setAnimationComplete] = useState(false);
 
   // Animation ref
   const animationRef = useRef<any>(null);
+
+  // Audio ref for tick sound
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize audio when component mounts
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
-        // Create audio element for tick sound
-        audioRef.current = new Audio(tickSoundFile);
+        // Create audio element for tick sound - use a simple beep if no audio file
+        audioRef.current = new Audio(
+          "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEAQB8AAEAfAAABAAgAZGF0YQ" // Base64 encoded beep sound
+        );
+        audioRef.current.volume = 0.3;
         audioRef.current.preload = "auto";
       } catch (error) {
         console.warn("Could not load tick sound:", error);
@@ -77,6 +81,13 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isOpen, isSealing, onClose]);
+
+  // Reset states when modal opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      resetModal();
+    }
+  }, [isOpen]);
 
   // Handle signature drawing
   const handleSignatureEnd = () => {
@@ -106,16 +117,8 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
     signatureData: string
   ): Promise<boolean> => {
     // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // In production, this would be a real API call:
-    // const response = await fetch('/api/capsules/seal', {
-    //   method: 'POST',
-    //   body: JSON.stringify({ capsuleId, signature: signatureData })
-    // });
-    // return response.ok;
-
-    // For demo, always succeed
     console.log(
       "Capsule sealed with signature:",
       signatureData.slice(0, 50) + "..."
@@ -125,7 +128,28 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
 
   // Play tick sound
   const playTickSound = async () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current) {
+      // Fallback: Create a simple beep using Web Audio API
+      try {
+        const audioContext = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.value = 800;
+        oscillator.type = "sine";
+        gainNode.gain.value = 0.1;
+
+        oscillator.start();
+        setTimeout(() => oscillator.stop(), 200);
+      } catch (error) {
+        console.warn("Could not play sound:", error);
+      }
+      return;
+    }
 
     try {
       audioRef.current.currentTime = 0;
@@ -133,6 +157,32 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
     } catch (error) {
       console.warn("Could not play tick sound:", error);
     }
+  };
+
+  // Handle animation completion
+  const handleAnimationComplete = async () => {
+    setAnimationComplete(true);
+
+    // Play tick sound at the end of animation
+    await playTickSound();
+
+    // Wait a brief moment for sound to play
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // Mark as sealed and hide animation
+    setIsSealed(true);
+    setShowAnimation(false);
+
+    // Notify parent component after a brief delay
+    setTimeout(() => {
+      if (signature) {
+        onSealComplete(signature);
+      }
+      toast({
+        title: "Capsule Sealed! 🎉",
+        description: `"${capsuleTitle}" is now locked until its unlock date`,
+      });
+    }, 500);
   };
 
   // Handle sealing process
@@ -159,24 +209,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
 
       // Step 3: Show animation after backend success
       setShowAnimation(true);
-
-      // Step 4: Wait for animation to complete (2.5 seconds)
-      await new Promise((resolve) => setTimeout(resolve, 2500));
-
-      // Step 5: Play tick sound at animation end
-      await playTickSound();
-
-      // Step 6: Mark as sealed
-      setIsSealed(true);
-
-      // Step 7: Notify parent component after a brief delay
-      setTimeout(() => {
-        onSealComplete();
-        toast({
-          title: "Capsule Sealed! 🎉",
-          description: `"${capsuleTitle}" is now locked until its unlock date`,
-        });
-      }, 1000);
+      setAnimationComplete(false);
     } catch (error) {
       console.error("Error sealing capsule:", error);
       toast({
@@ -185,6 +218,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
         variant: "destructive",
       });
       setIsSealing(false);
+      setShowAnimation(false);
     }
   };
 
@@ -194,11 +228,12 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
     setIsSealing(false);
     setIsSealed(false);
     setShowAnimation(false);
+    setAnimationComplete(false);
   };
 
   // Handle modal close
   const handleClose = () => {
-    if (isSealing) return; // Prevent closing during sealing process
+    if (isSealing || showAnimation) return; // Prevent closing during sealing process
 
     resetModal();
     onClose();
@@ -218,13 +253,14 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
               loop={false}
               autoplay={true}
               className="w-full h-full"
-              onComplete={() => {
-                // Animation completion handled in handleSealCapsule
-              }}
+              onComplete={handleAnimationComplete}
+              onLoopComplete={handleAnimationComplete}
             />
             <div className="absolute bottom-8 left-0 right-0 text-center">
               <p className="text-white/80 text-lg font-medium animate-pulse">
-                Sealing your memories for the future...
+                {animationComplete
+                  ? "Sealing complete!"
+                  : "Sealing your memories for the future..."}
               </p>
             </div>
           </div>
@@ -252,7 +288,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                 </div>
               </div>
 
-              {!isSealing && !isSealed && (
+              {!isSealing && !isSealed && !showAnimation && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -336,7 +372,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                       variant="ghost"
                       size="sm"
                       onClick={clearSignature}
-                      disabled={isSignatureEmpty || isSealing}
+                      disabled={isSignatureEmpty || isSealing || showAnimation}
                       className="text-[#5D2A42] hover:text-[#FB6376]"
                     >
                       <RotateCcw className="w-4 h-4 mr-2" />
@@ -384,7 +420,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                     type="button"
                     variant="outline"
                     onClick={handleClose}
-                    disabled={isSealing}
+                    disabled={isSealing || showAnimation}
                     className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFDCCC]"
                   >
                     Cancel
@@ -395,7 +431,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                       type="button"
                       variant="outline"
                       onClick={clearSignature}
-                      disabled={isSignatureEmpty || isSealing}
+                      disabled={isSignatureEmpty || isSealing || showAnimation}
                       className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFDCCC]"
                     >
                       Clear & Restart
@@ -404,8 +440,8 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                     <Button
                       type="button"
                       onClick={handleSealCapsule}
-                      disabled={isSignatureEmpty || isSealing}
-                      className="relative overflow-hidden bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] text-white px-8 hover:shadow-xl hover:scale-105 transition-all"
+                      disabled={isSignatureEmpty || isSealing || showAnimation}
+                      className="relative overflow-hidden bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] text-white px-8 hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSealing ? (
                         <>

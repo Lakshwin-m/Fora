@@ -16,11 +16,10 @@ import {
   Unlock,
   ArrowLeft,
   Mail,
-  Share2,
   Feather,
-  Paperclip,
   Stamp,
   BookOpen,
+  MapPin,
 } from "lucide-react";
 
 interface TimeRemaining {
@@ -45,7 +44,8 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
     null
   );
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [showAsLetter, setShowAsLetter] = useState(true);
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Find the capsule in both sent and received capsules
   const capsule = [...capsules, ...receivedCapsules].find((c) => c.id === id);
@@ -59,6 +59,36 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
 
     return () => unsubscribe();
   }, [auth]);
+
+  // Fetch signature from capsule if it exists
+  useEffect(() => {
+    if (!capsule) return;
+
+    console.log("Capsule object from context:", capsule);
+    console.log("Has signature property?", "signature" in capsule);
+    console.log("Signature value:", (capsule as any).signature);
+
+    // Check if signature exists in the capsule object from context
+    if ((capsule as any).signature) {
+      setSignatureData((capsule as any).signature);
+    } else {
+      // If not in context, you might need to fetch it separately
+      // This depends on how your context loads capsules
+      console.warn("Signature not found in capsule context object");
+
+      // Try to extract signature from nested properties
+      const capsuleAny = capsule as any;
+      const possibleSignature =
+        capsuleAny.signatureData ||
+        capsuleAny.signature ||
+        capsuleAny.sealSignature ||
+        capsuleAny.signedData;
+
+      if (possibleSignature) {
+        setSignatureData(possibleSignature);
+      }
+    }
+  }, [capsule]);
 
   // Update time every second for countdown
   useEffect(() => {
@@ -133,38 +163,11 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
     if (capsule && !capsule.isUnlocked) {
       markCapsuleAsOpened(capsule.id);
       setIsUnlocked(true);
-      setShowAsLetter(true);
       toast({
         title: "Capsule Unlocked! 🎉",
         description: "You can now view the contents of this time capsule.",
       });
     }
-  };
-
-  const handleShare = async () => {
-    if (!capsule) return;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: capsule.title,
-          text: capsule.content.substring(0, 100) + "...",
-          url: window.location.href,
-        });
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        toast({
-          title: "Link copied!",
-          description: "Capsule link has been copied to clipboard.",
-        });
-      }
-    } catch (error) {
-      console.error("Error sharing:", error);
-    }
-  };
-
-  const toggleLetterView = () => {
-    setShowAsLetter(!showAsLetter);
   };
 
   if (!capsule) {
@@ -192,12 +195,16 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   const TriggerIcon = getTriggerIcon(capsule.triggerType);
   const isReceived = receivedCapsules.some((c) => c.id === capsule.id);
   const isSentToSelf = capsule.recipientType === "self";
+  const hasSignature = !!signatureData;
+
+  // Paper texture SVG data URL (properly escaped)
+  const paperTexture = `data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%238B5A2B' fill-opacity='0.05'/%3E%3C/svg%3E`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF9EC] via-[#FFF5E1] to-[#FFF0D4]">
+    <div className="min-h-screen bg-gradient-to-br from-[#F5EBDC] via-[#F0E6D2] to-[#E8DEC9]">
       <Navigation />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
@@ -205,450 +212,325 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
               variant="ghost"
               size="sm"
               onClick={() => navigate("/dashboard")}
-              className="hover:bg-[#FFDCCC]/50 text-[#5D2A42] border border-[#5D2A42]/20 backdrop-blur-sm bg-white/70"
+              className="hover:bg-[#D4B59E]/30 text-[#5D2A42] border border-[#5D2A42]/30 backdrop-blur-sm bg-white/70 shadow-sm"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
+              Back
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-[#5D2A42]">
-                Time Capsule
+              <h1 className="text-2xl font-bold text-[#5D2A42]">
+                {capsule.title}
               </h1>
-              <p className="text-[#5D2A42]/60">
-                {isUnlocked
-                  ? "Unlocked and ready to view"
-                  : "Locked - Coming soon"}
+              <p className="text-[#5D2A42]/70 flex items-center text-sm">
+                <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                {new Date(capsule.deliveryDate).toLocaleDateString("en-US", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
               </p>
             </div>
           </div>
 
           {isUnlocked && (
-            <div className="flex items-center space-x-2">
-              <Button
-                onClick={toggleLetterView}
-                variant="outline"
-                className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFDCCC] backdrop-blur-sm bg-white/70"
-              >
-                <BookOpen className="w-4 h-4 mr-2" />
-                {showAsLetter ? "Simple View" : "Letter View"}
-              </Button>
-              <Button
-                onClick={handleShare}
-                variant="outline"
-                className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFDCCC] backdrop-blur-sm bg-white/70"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                Share
-              </Button>
-            </div>
+            <Badge className="bg-gradient-to-r from-[#A67B5B] to-[#8B5A2B] text-white border-none px-3 py-1.5 shadow-sm">
+              <Unlock className="w-3.5 h-3.5 mr-1.5" />
+              Unlocked
+            </Badge>
           )}
         </div>
 
-        {/* Main Capsule Card */}
-        <Card className="border-[#5D2A42]/15 bg-gradient-to-br from-white/90 to-[#FFF9EC]/90 hover:shadow-xl transition-all duration-300 overflow-hidden backdrop-blur-sm">
-          <CardHeader className="pb-4 bg-gradient-to-r from-[#FFDCCC]/30 to-[#FCB1A6]/20 border-b border-[#5D2A42]/10">
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-3">
-                <div
-                  className={`w-12 h-12 ${
-                    isUnlocked ? "bg-[#FCB1A6]" : "bg-[#FB6376]"
-                  } rounded-xl flex items-center justify-center shadow-lg backdrop-blur-sm`}
-                >
-                  {isUnlocked ? (
-                    <Unlock className="w-6 h-6 text-[#5D2A42]" />
-                  ) : (
-                    <Lock className="w-6 h-6 text-[#5D2A42]" />
-                  )}
-                </div>
-                <div>
-                  <CardTitle className="text-xl font-semibold text-[#5D2A42]">
-                    {capsule.title}
-                  </CardTitle>
-                  {isReceived && capsule.username && (
-                    <p className="text-sm text-[#5D2A42]/70 flex items-center mt-1">
-                      <User className="w-4 h-4 mr-1" />
-                      From {capsule.username}
-                    </p>
-                  )}
-                  {isSentToSelf && !isReceived && (
-                    <p className="text-sm text-[#5D2A42]/70 flex items-center mt-1">
-                      <User className="w-4 h-4 mr-1" />
-                      To my future self
-                    </p>
-                  )}
-                </div>
-              </div>
-              <Badge
-                variant="outline"
-                className={`${
-                  isUnlocked
-                    ? "bg-[#FCB1A6]/30 text-[#5D2A42] border-[#FCB1A6]/50 backdrop-blur-sm"
-                    : "bg-[#FB6376]/15 text-[#5D2A42] border-[#FB6376]/30 backdrop-blur-sm"
-                } font-medium px-3 py-1 shadow-sm`}
-              >
-                {isUnlocked ? "unlocked" : "locked"}
-              </Badge>
-            </div>
-
-            <div className="flex items-center space-x-4 text-sm text-[#5D2A42]/70">
-              <div className="flex items-center backdrop-blur-sm bg-white/50 px-3 py-1.5 rounded-full">
-                <TriggerIcon className="w-4 h-4 mr-1.5" />
-                <span className="font-medium capitalize">
-                  {capsule.triggerType} Trigger
-                </span>
-              </div>
-              <div className="flex items-center backdrop-blur-sm bg-white/50 px-3 py-1.5 rounded-full">
-                <Calendar className="w-4 h-4 mr-1.5" />
-                <span className="font-medium">
-                  Delivers:{" "}
-                  {new Date(capsule.deliveryDate).toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="pt-8 bg-gradient-to-b from-white/95 to-[#FFF9EC]/95">
-            {/* Locked State */}
-            {!isUnlocked && timeRemaining && (
-              <div className="text-center py-12">
-                <div className="relative mb-8">
-                  <div className="blur-md opacity-40">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-[#5D2A42] mb-2">
-                        {capsule.title}
-                      </h3>
-                      <p className="text-[#5D2A42]/60 line-clamp-3">
-                        {capsule.content}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="bg-white/95 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-[#5D2A42]/10 max-w-md">
-                      <div className="relative">
-                        <Lock className="w-20 h-20 text-[#FB6376] mx-auto mb-6 drop-shadow-lg" />
-                        <div className="absolute -top-2 -right-2 w-10 h-10 bg-[#FFDCCC] rounded-full animate-pulse"></div>
-                      </div>
-                      <h3 className="text-2xl font-bold text-[#5D2A42] mb-2">
-                        Capsule Sealed
-                      </h3>
-                      <p className="text-[#5D2A42]/70 mb-6">
-                        This time capsule will unlock in:
-                      </p>
-                      <div className="bg-gradient-to-r from-[#FFDCCC] to-[#FCB1A6] rounded-2xl p-6 border border-[#FB6376]/20 shadow-inner mb-6">
-                        <div className="text-3xl font-mono font-bold text-[#5D2A42] tracking-tight">
-                          {formatTimeRemaining(timeRemaining)}
-                        </div>
-                      </div>
-                      <p className="text-sm text-[#5D2A42]/60 mt-4">
-                        <Calendar className="w-4 h-4 inline mr-1" />
-                        Unlocks on{" "}
-                        {new Date(capsule.deliveryDate).toLocaleString()}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Manual unlock button for edge cases */}
-                {currentUser && capsule.userId === currentUser.uid && (
-                  <Button
-                    onClick={handleUnlock}
-                    variant="outline"
-                    className="border-[#FB6376] text-[#FB6376] hover:bg-[#FB6376] hover:text-white shadow-md backdrop-blur-sm bg-white/80"
-                  >
-                    <Unlock className="w-4 h-4 mr-2" />
-                    Unlock Now (Creator)
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* Unlocked State - Letter View */}
-            {isUnlocked && showAsLetter && (
-              <div className="space-y-6">
-                {/* Modern Letter Container */}
+        {/* Locked State */}
+        {!isUnlocked && timeRemaining && (
+          <div className="text-center py-12">
+            <div className="relative">
+              <div className="absolute inset-0 blur-sm opacity-60">
                 <div className="max-w-3xl mx-auto">
-                  {/* Decorative letter header with seal */}
-                  <div className="text-center mb-10 relative">
-                    <div className="absolute left-1/2 -translate-x-1/2 -top-6">
-                      <div className="w-12 h-12 bg-gradient-to-br from-[#FCB1A6] to-[#FB6376] rounded-full flex items-center justify-center shadow-xl border-2 border-white/50"></div>
+                  <div className="bg-gradient-to-br from-[#F5EBDC] to-[#E8DEC9] p-12 rounded-2xl border-2 border-[#8B5A2B]/20">
+                    {/* Simulated paper lines */}
+                    <div className="space-y-8">
+                      {[...Array(10)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="h-px bg-gradient-to-r from-transparent via-[#8B5A2B]/10 to-transparent"
+                        />
+                      ))}
                     </div>
-                    <div className="pt-8">
-                      <div className="inline-flex items-center justify-center px-6 py-2 bg-gradient-to-r from-[#FFDCCC]/50 to-[#FCB1A6]/50 rounded-full mb-4">
-                        <Feather className="w-5 h-5 text-[#5D2A42] mr-2" />
-                        <span className="text-sm font-medium text-[#5D2A42]/80">
-                          Personal Letter
+                  </div>
+                </div>
+              </div>
+              <div className="relative z-10">
+                <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-12 shadow-2xl border-2 border-[#8B5A2B]/20 max-w-2xl mx-auto">
+                  <div className="relative">
+                    <Lock className="w-20 h-20 text-[#8B5A2B] mx-auto mb-8 drop-shadow-lg" />
+                    <div className="absolute -top-4 -right-4 w-12 h-12 bg-[#D4B59E] rounded-full animate-pulse shadow-lg"></div>
+                  </div>
+                  <h3 className="text-3xl font-bold text-[#5D2A42] mb-4">
+                    Capsule Sealed
+                  </h3>
+                  <p className="text-[#5D2A42]/80 mb-8 text-lg">
+                    This time capsule will unlock in:
+                  </p>
+                  <div className="bg-gradient-to-br from-[#D4B59E] to-[#8B5A2B] rounded-2xl p-8 border-2 border-[#8B5A2B]/30 shadow-inner mb-8">
+                    <div className="text-4xl font-serif font-bold text-white tracking-tight">
+                      {formatTimeRemaining(timeRemaining)}
+                    </div>
+                  </div>
+                  <p className="text-[#5D2A42]/70 text-sm">
+                    <Calendar className="w-4 h-4 inline mr-2" />
+                    Unlocks on {new Date(capsule.deliveryDate).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Unlocked State - Old Paper Letter */}
+        {isUnlocked && (
+          <div className="space-y-8">
+            {/* Vintage Paper Container */}
+            <div className="max-w-3xl mx-auto">
+              <div className="relative">
+                {/* Paper Shadow Effect */}
+                <div className="absolute -inset-4 bg-gradient-to-br from-[#8B5A2B]/20 to-transparent blur-xl rounded-3xl"></div>
+
+                {/* Main Paper */}
+                <div className="relative bg-gradient-to-br from-[#F5EBDC] via-[#F0E6D2] to-[#E8DEC9] rounded-2xl p-8 md:p-12 shadow-2xl border-2 border-[#8B5A2B]/30 overflow-hidden">
+                  {/* Paper Texture Overlay */}
+                  <div
+                    className="absolute inset-0 pointer-events-none opacity-[0.03]"
+                    style={{ backgroundImage: `url("${paperTexture}")` }}
+                  ></div>
+
+                  {/* Decorative Corners */}
+                  <div className="absolute top-0 left-0 w-16 h-16">
+                    <div className="absolute top-4 left-4 w-8 h-8 border-t-2 border-l-2 border-[#8B5A2B]/40 rounded-tl-lg"></div>
+                  </div>
+                  <div className="absolute top-0 right-0 w-16 h-16">
+                    <div className="absolute top-4 right-4 w-8 h-8 border-t-2 border-r-2 border-[#8B5A2B]/40 rounded-tr-lg"></div>
+                  </div>
+                  <div className="absolute bottom-0 left-0 w-16 h-16">
+                    <div className="absolute bottom-4 left-4 w-8 h-8 border-b-2 border-l-2 border-[#8B5A2B]/40 rounded-bl-lg"></div>
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-16 h-16">
+                    <div className="absolute bottom-4 right-4 w-8 h-8 border-b-2 border-r-2 border-[#8B5A2B]/40 rounded-br-lg"></div>
+                  </div>
+
+                  {/* Paper Writing Lines */}
+                  <div className="absolute inset-0 pointer-events-none pt-20 pb-32 px-8 md:px-12">
+                    <div className="h-full flex flex-col justify-between">
+                      {[...Array(20)].map((_, i) => (
+                        <div
+                          key={i}
+                          className="h-px bg-gradient-to-r from-transparent via-[#8B5A2B]/15 to-transparent"
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Letter Content */}
+                  <div className="relative z-10 font-serif">
+                    {/* Letter Header */}
+                    <div className="text-center mb-12">
+                      <div className="inline-flex items-center justify-center px-6 py-2 bg-gradient-to-r from-[#D4B59E]/40 to-[#8B5A2B]/20 rounded-full mb-6 border border-[#8B5A2B]/20">
+                        <Feather className="w-4 h-4 text-[#8B5A2B] mr-2" />
+                        <span className="text-sm font-medium text-[#5D2A42]/80 tracking-wide">
+                          TIME CAPSULE LETTER
                         </span>
                       </div>
-                      <h2 className="text-3xl font-bold bg-gradient-to-r from-[#5D2A42] to-[#7A3A5E] bg-clip-text text-transparent">
-                        {capsule.title}
+                      <h2 className="text-3xl md:text-4xl font-bold text-[#5D2A42] tracking-wider">
+                        {capsule.title.toUpperCase()}
                       </h2>
-                      <p className="text-[#5D2A42]/70 mt-2">
-                        A message from the past, delivered to your present
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Letter Paper with Modern Design */}
-                  <div className="bg-gradient-to-br from-white via-white to-[#FFFCF5] rounded-2xl p-8 md:p-12 shadow-xl border border-[#5D2A42]/10 relative overflow-hidden">
-                    {/* Subtle paper texture and decorative elements */}
-                    <div className="absolute inset-0 pointer-events-none">
-                      {/* Grid lines for writing paper effect */}
-                      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#5D2A42]/5 to-transparent"></div>
-                      <div className="absolute inset-x-0 top-1/4 h-px bg-gradient-to-r from-transparent via-[#5D2A42]/3 to-transparent"></div>
-                      <div className="absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-[#5D2A42]/3 to-transparent"></div>
-                      <div className="absolute inset-x-0 top-3/4 h-px bg-gradient-to-r from-transparent via-[#5D2A42]/3 to-transparent"></div>
-
-                      {/* Corner decorations */}
-                      <div className="absolute top-6 left-6 w-16 h-16 border-t border-l border-[#5D2A42]/10 rounded-tl-lg"></div>
-                      <div className="absolute top-6 right-6 w-16 h-16 border-t border-r border-[#5D2A42]/10 rounded-tr-lg"></div>
-                      <div className="absolute bottom-6 left-6 w-16 h-16 border-b border-l border-[#5D2A42]/10 rounded-bl-lg"></div>
-                      <div className="absolute bottom-6 right-6 w-16 h-16 border-b border-r border-[#5D2A42]/10 rounded-br-lg"></div>
-                    </div>
-
-                    {/* Letter Content Container */}
-                    <div className="relative z-10">
-                      {/* Date Stamp */}
-                      <div className="flex justify-between items-center mb-10 pb-4 border-b border-[#5D2A42]/10">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-[#FFDCCC] to-[#FCB1A6] rounded-lg flex items-center justify-center">
-                            <Calendar className="w-5 h-5 text-[#5D2A42]" />
-                          </div>
-                          <div>
-                            <p className="text-sm text-[#5D2A42]/60">
-                              Date Written
-                            </p>
-                            <p className="font-semibold text-[#5D2A42]">
-                              {new Date(
-                                capsule.createdAt || new Date()
-                              ).toLocaleDateString("en-US", {
-                                month: "long",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
-                            </p>
-                          </div>
+                      <div className="mt-4 flex items-center justify-center space-x-6 text-sm text-[#5D2A42]/70">
+                        <div className="flex items-center">
+                          <MapPin className="w-3.5 h-3.5 mr-1.5" />
+                          <span>Digital Archive</span>
                         </div>
+                        <div className="flex items-center">
+                          <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                          <span>
+                            {new Date(
+                              capsule.createdAt || new Date()
+                            ).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-                        <div className="text-right">
-                          <p className="text-sm text-[#5D2A42]/60">
-                            Date Opened
+                    {/* Date and Address Block */}
+                    <div className="mb-12">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <p className="text-[#5D2A42]/70 text-sm">
+                            Date Written:
                           </p>
-                          <p className="font-semibold text-[#5D2A42]">
-                            {new Date().toLocaleDateString("en-US", {
+                          <p className="text-lg font-semibold text-[#5D2A42]">
+                            {new Date(
+                              capsule.createdAt || new Date()
+                            ).toLocaleDateString("en-US", {
                               month: "long",
                               day: "numeric",
                               year: "numeric",
                             })}
                           </p>
                         </div>
-                      </div>
-
-                      {/* Greeting with decorative underline */}
-                      <div className="mb-8">
-                        <div className="relative">
-                          <p className="text-2xl font-light text-[#5D2A42] mb-2">
+                        <div className="text-right">
+                          <p className="text-[#5D2A42]/70 text-sm">To:</p>
+                          <p className="text-lg font-semibold text-[#5D2A42]">
                             {isReceived
-                              ? `Dear ${currentUser?.displayName || "Friend"},`
-                              : "Dear Future Me,"}
+                              ? `${currentUser?.displayName || "Dear Friend"}`
+                              : "My Future Self"}
                           </p>
-                          <div className="w-24 h-0.5 bg-gradient-to-r from-[#FCB1A6] to-transparent"></div>
-                        </div>
-                      </div>
-
-                      {/* Letter Content with better typography */}
-                      <div className="space-y-6 mb-10">
-                        {capsule.content
-                          .split(/\n\s*\n/)
-                          .map((paragraph, index) => (
-                            <div key={index} className="relative">
-                              {index === 0 && (
-                                <span className="absolute -left-6 top-0 text-2xl font-serif text-[#5D2A42]/30">
-                                  ¶
-                                </span>
-                              )}
-                              <p className="text-[#5D2A42] leading-relaxed text-lg font-light tracking-wide pl-4">
-                                {paragraph || (
-                                  <span className="h-4 block"></span>
-                                )}
-                              </p>
-                            </div>
-                          ))}
-                      </div>
-
-                      {/* Closing Signature with wax seal effect */}
-                      <div className="mt-12 pt-8 border-t border-[#5D2A42]/10 relative">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-xl font-light text-[#5D2A42] mb-1">
-                              {isReceived ? "With warm regards," : "Sincerely,"}
-                            </p>
-                            <div className="flex items-center space-x-2">
-                              <div className="w-0.5 h-6 bg-gradient-to-b from-[#FCB1A6] to-transparent"></div>
-                              <p className="text-lg font-semibold text-[#5D2A42]">
-                                {isReceived
-                                  ? capsule.username ||
-                                    "A friend from your past"
-                                  : "Your past self"}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Wax Seal Decoration */}
-                          <div className="relative group">
-                            <div className="w-16 h-16 bg-gradient-to-br from-[#FB6376] to-[#5D2A42] rounded-full flex items-center justify-center shadow-lg border-4 border-white transform group-hover:scale-110 transition-transform duration-300">
-                              <Stamp className="w-8 h-8 text-white" />
-                            </div>
-                            <div className="absolute inset-0 animate-ping opacity-20">
-                              <div className="w-full h-full bg-[#FB6376] rounded-full"></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Time Travel Note */}
-                      <div className="mt-10 p-4 bg-gradient-to-r from-[#FFDCCC]/20 to-[#FCB1A6]/10 rounded-xl border border-[#5D2A42]/10">
-                        <div className="flex items-center space-x-3">
-                          <Clock className="w-5 h-5 text-[#5D2A42]/70" />
-                          <div>
-                            <p className="text-sm text-[#5D2A42]/70">
-                              This letter traveled through time for{" "}
-                              {(() => {
-                                const created = new Date(
-                                  capsule.createdAt || new Date()
-                                );
-                                const delivered = new Date();
-                                const diffYears =
-                                  delivered.getFullYear() -
-                                  created.getFullYear();
-                                const diffMonths =
-                                  delivered.getMonth() - created.getMonth();
-                                const totalMonths = diffYears * 12 + diffMonths;
-
-                                if (totalMonths >= 12) {
-                                  const years = Math.floor(totalMonths / 12);
-                                  const months = totalMonths % 12;
-                                  return months > 0
-                                    ? `${years} year${
-                                        years > 1 ? "s" : ""
-                                      } and ${months} month${
-                                        months > 1 ? "s" : ""
-                                      }`
-                                    : `${years} year${years > 1 ? "s" : ""}`;
-                                }
-                                return `${totalMonths} month${
-                                  totalMonths > 1 ? "s" : ""
-                                }`;
-                              })()}{" "}
-                              to reach you.
-                            </p>
-                          </div>
+                          <p className="text-sm text-[#5D2A42]/60">
+                            Present Day
+                          </p>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* View Toggle Button */}
-                <div className="text-center pt-6">
-                  <Button
-                    onClick={toggleLetterView}
-                    variant="outline"
-                    className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFDCCC] backdrop-blur-sm bg-white/80"
-                  >
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Switch to Simple View
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Unlocked State - Simple View */}
-            {isUnlocked && !showAsLetter && (
-              <div className="space-y-8">
-                {/* Content Card */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 border border-[#5D2A42]/10 shadow-lg">
-                  <div className="flex items-center space-x-3 mb-6">
-                    <div className="w-12 h-12 bg-gradient-to-br from-[#FFDCCC] to-[#FCB1A6] rounded-xl flex items-center justify-center">
-                      <Mail className="w-6 h-6 text-[#5D2A42]" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-[#5D2A42]">
-                        Message Content
-                      </h3>
-                      <p className="text-sm text-[#5D2A42]/60">
-                        From your past to your present
+                    {/* Salutation */}
+                    <div className="mb-8 ml-4">
+                      <p className="text-xl text-[#5D2A42]">
+                        {isReceived
+                          ? `Dear ${
+                              currentUser?.displayName?.split(" ")[0] ||
+                              "Friend"
+                            },`
+                          : "Dear Future Me,"}
                       </p>
                     </div>
-                  </div>
 
-                  <div className="bg-gradient-to-b from-[#FFF9EC] to-white rounded-xl p-6 border border-[#5D2A42]/10">
-                    <p className="text-[#5D2A42] leading-relaxed whitespace-pre-wrap text-lg">
-                      {capsule.content}
-                    </p>
-                  </div>
-                </div>
+                    {/* Letter Body */}
+                    <div className="space-y-8 mb-12">
+                      {capsule.content
+                        .split(/\n\s*\n/)
+                        .filter((para) => para.trim())
+                        .map((paragraph, index) => (
+                          <div key={index} className="relative">
+                            <p className="text-[#5D2A42] leading-relaxed text-lg tracking-wide pl-4">
+                              {paragraph}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
 
-                {/* Metadata Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-gradient-to-br from-white/90 to-[#FFDCCC]/20 rounded-2xl p-6 border border-[#5D2A42]/10 shadow-lg">
-                    <h3 className="text-lg font-semibold text-[#5D2A42] mb-4 flex items-center">
-                      <Calendar className="w-5 h-5 mr-2" />
-                      Timeline
-                    </h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-white/50 rounded-xl">
-                        <span className="text-[#5D2A42]/70">Created</span>
-                        <span className="font-medium text-[#5D2A42]">
-                          {capsule.createdAt
-                            ? new Date(capsule.createdAt).toLocaleDateString()
-                            : "Unknown"}
-                        </span>
+                    {/* Closing Section */}
+                    <div className="mt-16">
+                      <div className="mb-8">
+                        <p className="text-xl text-[#5D2A42] mb-2">
+                          {isReceived ? "With warm regards," : "Sincerely,"}
+                        </p>
+
+                        {/* Signature Display */}
+                        <div className="mt-8">
+                          <p className="text-[#5D2A42]/70 text-sm mb-2">
+                            Original Signature:
+                          </p>
+                          <div className="relative">
+                            {/* Signature Canvas Display */}
+                            {hasSignature && signatureData ? (
+                              <div className="bg-white/80 rounded-lg p-4 border border-[#8B5A2B]/20 shadow-inner">
+                                <img
+                                  src={signatureData}
+                                  alt="Signature"
+                                  className="max-w-xs h-auto"
+                                  style={{
+                                    filter: "sepia(0.3) contrast(1.1)",
+                                    maxHeight: "120px",
+                                  }}
+                                  onError={(e) => {
+                                    console.error(
+                                      "Failed to load signature image"
+                                    );
+                                    e.currentTarget.style.display = "none";
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div className="italic text-[#5D2A42]/50 text-sm p-4 bg-white/50 rounded-lg border border-[#8B5A2B]/20">
+                                No signature was provided for this capsule
+                              </div>
+                            )}
+
+                            {/* Signature Line */}
+                            <div className="w-64 h-px bg-gradient-to-r from-[#8B5A2B] to-transparent mt-4"></div>
+                          </div>
+                        </div>
+
+                        {/* Sender Info */}
+                        <div className="mt-6">
+                          <p className="text-lg font-semibold text-[#5D2A42]">
+                            {isReceived
+                              ? capsule.username || "A friend from your past"
+                              : "Your past self"}
+                          </p>
+                          <p className="text-sm text-[#5D2A42]/60">
+                            {capsule.createdAt
+                              ? new Date(capsule.createdAt).getFullYear()
+                              : "The Past"}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-white/50 rounded-xl">
-                        <span className="text-[#5D2A42]/70">Unlocked</span>
-                        <span className="font-medium text-[#5D2A42]">
-                          {new Date().toLocaleDateString()}
-                        </span>
+
+                      {/* Decorative Seal */}
+                      <div className="absolute bottom-8 right-8">
+                        <div className="relative group">
+                          <div className="w-20 h-20 bg-gradient-to-br from-[#8B5A2B] to-[#5D2A42] rounded-full flex items-center justify-center shadow-xl border-4 border-[#F5EBDC] transform group-hover:scale-110 transition-transform duration-300">
+                            <Stamp className="w-10 h-10 text-[#F5EBDC]" />
+                          </div>
+                          <div className="absolute inset-0 animate-ping opacity-10">
+                            <div className="w-full h-full bg-[#8B5A2B] rounded-full"></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Time Travel Note */}
+                    <div className="mt-20 pt-6 border-t border-[#8B5A2B]/20">
+                      <div className="flex items-center space-x-3">
+                        <Clock className="w-5 h-5 text-[#8B5A2B]/60" />
+                        <div>
+                          <p className="text-sm text-[#8B5A2B]/70 italic">
+                            This letter traveled through time for{" "}
+                            {(() => {
+                              const created = new Date(
+                                capsule.createdAt || new Date()
+                              );
+                              const delivered = new Date();
+                              const diffYears =
+                                delivered.getFullYear() - created.getFullYear();
+                              const diffMonths =
+                                delivered.getMonth() - created.getMonth();
+                              const totalMonths = diffYears * 12 + diffMonths;
+
+                              if (totalMonths >= 12) {
+                                const years = Math.floor(totalMonths / 12);
+                                const months = totalMonths % 12;
+                                return months > 0
+                                  ? `${years} year${
+                                      years > 1 ? "s" : ""
+                                    } and ${months} month${
+                                      months > 1 ? "s" : ""
+                                    }`
+                                  : `${years} year${years > 1 ? "s" : ""}`;
+                              }
+                              return `${totalMonths} month${
+                                totalMonths > 1 ? "s" : ""
+                              }`;
+                            })()}{" "}
+                            to reach you today.
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-
-                  <div className="bg-gradient-to-br from-white/90 to-[#FCB1A6]/20 rounded-2xl p-6 border border-[#5D2A42]/10 shadow-lg">
-                    <h3 className="text-lg font-semibold text-[#5D2A42] mb-4 flex items-center">
-                      Details
-                    </h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-white/50 rounded-xl">
-                        <span className="text-[#5D2A42]/70">Trigger Type</span>
-                        <Badge className="bg-gradient-to-r from-[#FFDCCC] to-[#FCB1A6] text-[#5D2A42] border-none capitalize">
-                          {capsule.triggerType}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-white/50 rounded-xl">
-                        <span className="text-[#5D2A42]/70">Status</span>
-                        <Badge className="bg-gradient-to-r from-[#FCB1A6] to-[#FB6376] text-white border-none">
-                          Unlocked
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* View Toggle Button */}
-                <div className="text-center pt-4">
-                  <Button
-                    onClick={toggleLetterView}
-                    variant="outline"
-                    className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFDCCC] backdrop-blur-sm bg-white/80"
-                  >
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Switch to Letter View
-                  </Button>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

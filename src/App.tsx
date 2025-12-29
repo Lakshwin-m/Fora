@@ -18,7 +18,7 @@ import CapsuleDetailPage from "./pages/CapsuleDetailPage";
 import UserCapsulesPage from "./pages/UserCapsulesPage";
 import { useEffect } from "react";
 import { getFCMToken, onForegroundMessage } from "./notifications.js";
-
+import { PricingDemo } from "./pages/PricingPage";
 function App() {
   useEffect(() => {
     getFCMToken().then((token) => {
@@ -106,6 +106,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <UserCapsulesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/pricing"
+            element={
+              <ProtectedRoute>
+                <PricingDemo />
               </ProtectedRoute>
             }
           />

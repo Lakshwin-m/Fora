@@ -42,6 +42,7 @@ export interface Capsule {
   isUnlocked?: boolean;
   userId?: string;
   username?: string;
+  signature?: string;
   isReceived?: boolean;
 }
 
@@ -177,6 +178,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       isUnlocked: data.isUnlocked || false,
       userId: data.userId,
       username: data.username,
+      signature: data.signature || null, // ADD THIS LINE - important!
       isReceived: isReceived,
     };
   };
