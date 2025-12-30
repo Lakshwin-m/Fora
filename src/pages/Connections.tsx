@@ -17,17 +17,24 @@ import { toast } from "@/hooks/use-toast";
 import {
   UserPlus,
   Search,
-  Mail,
   Check,
   X,
   Users,
   Clock,
-  MessageCircle,
   MoreHorizontal,
   UserMinus,
   Loader2,
   Sparkles,
   ArrowLeft,
+  UserCheck,
+  Send,
+  Mail,
+  Filter,
+  ChevronRight,
+  Plus,
+  Shield,
+  Eye,
+  MessageCircle,
 } from "lucide-react";
 import {
   sendFriendRequest,
@@ -48,6 +55,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "react-router-dom";
@@ -59,6 +67,7 @@ const Connections = () => {
   const [loading, setLoading] = useState(true);
   const [searchLoading, setSearchLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("connections");
 
   // State for data
   const [friends, setFriends] = useState<FriendWithProfile[]>([]);
@@ -167,7 +176,6 @@ const Connections = () => {
         });
         setInviteEmail("");
         setSearchResults([]);
-        // Refresh suggestions to remove the user we just sent a request to
         if (
           suggestions.friendsOfFriends.length > 0 ||
           suggestions.popularUsers.length > 0
@@ -341,11 +349,16 @@ const Connections = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FFF9EC]">
+      <div className="min-h-screen bg-white">
         <Navigation />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="flex items-center justify-center h-64">
-            <Loader2 className="w-8 h-8 animate-spin text-[#FB6376]" />
+            <div className="flex flex-col items-center space-y-4">
+              <div className="relative">
+                <div className="w-12 h-12 border-2 border-[#FFDCCC] border-t-[#FB6376] rounded-full animate-spin"></div>
+              </div>
+              <p className="text-[#5D2A42]/60">Loading your network...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -353,615 +366,484 @@ const Connections = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF9EC]">
+    <div className="min-h-screen bg-white">
       <Navigation />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/dashboard")}
-              className="hover:bg-[#FFDCCC]/50 text-[#5D2A42] border border-[#5D2A42]/20"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Minimal Header */}
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-[#5D2A42]">Connections</h1>
-              <p className="text-[#5D2A42]/60">
-                Manage your network and share time capsules with friends and
-                family
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/dashboard")}
+                className="mb-6 text-[#5D2A42] hover:bg-[#FFF9EC] hover:text-[#5D2A42]"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Dashboard
+              </Button>
+              <div className="flex items-baseline space-x-4">
+                <h1 className="text-4xl font-bold text-[#5D2A42]">
+                  Connections
+                </h1>
+                <Badge className="bg-[#FFF9EC] text-[#5D2A42] border border-[#5D2A42]/20">
+                  {friends.length} people
+                </Badge>
+              </div>
+              <p className="text-[#5D2A42]/60 mt-2">
+                Manage your personal and professional network
               </p>
             </div>
+            <Button
+              onClick={() => setActiveTab("suggestions")}
+              variant="outline"
+              className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFF9EC] hover:border-[#5D2A42]/30"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Discover
+            </Button>
+          </div>
+
+          {/* Modern Search */}
+          <div className="relative mb-8">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-[#5D2A42]/40" />
+            </div>
+            <Input
+              type="text"
+              placeholder="Search connections by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 border-[#5D2A42]/20 bg-white h-12 text-lg placeholder:text-[#5D2A42]/40 focus:border-[#FB6376] focus:ring-1 focus:ring-[#FB6376]/20"
+            />
           </div>
         </div>
 
-        {/* Invite Section */}
-        <Card className="border-[#5D2A42]/20 bg-[#FFF9EC] hover:shadow-lg transition-all duration-200 mb-8">
-          <CardHeader className="pb-4 bg-[#FFDCCC]/30 border-b border-[#5D2A42]/10">
-            <CardTitle className="flex items-center space-x-3 text-[#5D2A42]">
-              <div className="w-10 h-10 bg-[#FB6376] rounded-xl flex items-center justify-center shadow-sm">
-                <UserPlus className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="text-lg font-semibold">Find & Connect</div>
-                <CardDescription className="text-[#5D2A42]/70">
-                  Search for users by name or email to send connection requests
-                </CardDescription>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6 bg-white">
-            <div className="flex space-x-3">
-              <div className="flex-1 space-y-2">
-                <Label
-                  htmlFor="invite-email"
-                  className="text-[#5D2A42] font-medium"
-                >
-                  Name or Email
-                </Label>
-                <Input
-                  id="invite-email"
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearchUsers()}
-                  className="border-[#5D2A42]/20 bg-[#FFF9EC] focus:border-[#FB6376] text-[#5D2A42]"
-                />
-              </div>
-              <div className="flex items-end">
-                <Button
-                  onClick={handleSearchUsers}
-                  disabled={searchLoading || !inviteEmail.trim()}
-                  className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white shadow-lg hover:shadow-xl transition-all"
-                >
-                  {searchLoading ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Search className="w-4 h-4 mr-2" />
-                  )}
-                  Search
-                </Button>
-              </div>
-            </div>
-
-            {/* Search Results */}
-            {searchResults.length > 0 && (
-              <div className="mt-6 space-y-3">
-                <p className="text-sm font-medium text-[#5D2A42]">
-                  Search Results ({searchResults.length})
-                </p>
-                {searchResults.map((user) => (
-                  <Card
-                    key={user.uid}
-                    className="border-[#5D2A42]/20 bg-[#FFF9EC] hover:shadow-md transition-all"
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="w-10 h-10">
-                            <AvatarImage src={user.photoURL} alt={user.name} />
-                            <AvatarFallback className="bg-[#FB6376] text-white">
-                              {getInitials(user.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h4 className="font-medium text-[#5D2A42]">
-                              {user.name}
-                            </h4>
-                            <p className="text-sm text-[#5D2A42]/60">
-                              {user.email}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => handleSendRequest(user.uid)}
-                          disabled={actionLoading === user.uid}
-                          className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white"
-                        >
-                          {actionLoading === user.uid ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <UserPlus className="w-4 h-4 mr-2" />
-                          )}
-                          Connect
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Connections Tabs */}
-        <Tabs defaultValue="connections" className="w-full">
-          <TabsList className="grid w-full md:w-fit grid-cols-3 mb-8 bg-white border border-[#5D2A42]/20 p-1 shadow-sm">
-            <TabsTrigger
-              value="connections"
-              className="data-[state=active]:bg-[#FB6376] data-[state=active]:text-white text-[#5D2A42]"
-            >
-              My Connections
-            </TabsTrigger>
-            <TabsTrigger
-              value="pending"
-              className="data-[state=active]:bg-[#FCB1A6] data-[state=active]:text-[#5D2A42] text-[#5D2A42]"
-            >
-              Pending
-              {allPendingRequests.length > 0 && (
-                <Badge className="ml-2 h-5 w-5 rounded-full p-0 text-xs bg-[#FB6376] text-white">
-                  {allPendingRequests.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="suggestions"
-              onClick={loadSuggestions}
-              className="data-[state=active]:bg-[#FFDCCC] data-[state=active]:text-[#5D2A42] text-[#5D2A42]"
-            >
-              Suggestions
-            </TabsTrigger>
-          </TabsList>
-
-          {/* My Connections */}
-          <TabsContent value="connections" className="space-y-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#5D2A42]/60" />
-                <Input
-                  placeholder="Search connections..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-[#5D2A42]/20 bg-[#FFF9EC] focus:border-[#FB6376] text-[#5D2A42]"
-                />
-              </div>
-            </div>
-
-            {filteredConnections.length === 0 ? (
-              <Card className="border-[#5D2A42]/20 bg-[#FFF9EC]">
-                <CardContent className="p-16 text-center">
-                  <div className="w-20 h-20 mx-auto mb-6 bg-[#FFDCCC] rounded-2xl flex items-center justify-center">
-                    <Users className="w-10 h-10 text-[#5D2A42]/40" />
+        {/* Two Column Layout */}
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Main Content - 70% width */}
+          <div className="lg:w-3/4">
+            <div className="mb-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-4">
+                  <div className="w-8 h-8 rounded-lg bg-[#FFF9EC] flex items-center justify-center">
+                    <Users className="w-4 h-4 text-[#FB6376]" />
                   </div>
-                  <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">
-                    No connections yet
-                  </h3>
-                  <p className="text-[#5D2A42]/60 max-w-md mx-auto leading-relaxed">
-                    Start by searching for friends above to build your network
-                    and share time capsules.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredConnections.map((friend) => (
-                  <Card
-                    key={friend.id}
-                    className="border-[#5D2A42]/20 bg-[#FFF9EC] hover:shadow-lg cursor-pointer transition-all duration-200 overflow-hidden group"
+                  <h2 className="text-2xl font-semibold text-[#5D2A42]">
+                    Your Network
+                  </h2>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-[#5D2A42] hover:bg-[#FFF9EC]"
                   >
-                    <CardHeader className="pb-4 bg-[#FFDCCC]/30 border-b border-[#5D2A42]/10">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="w-12 h-12">
-                            <AvatarImage
-                              src={friend.profile.photoURL}
-                              alt={friend.profile.name}
-                            />
-                            <AvatarFallback className="bg-[#FB6376] text-white">
-                              {getInitials(friend.profile.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <CardTitle className="text-base font-semibold text-[#5D2A42] group-hover:text-[#FB6376] transition-colors">
-                              {friend.profile.name}
-                            </CardTitle>
-                            <p className="text-xs text-[#5D2A42]/60">
-                              {friend.profile.email}
-                            </p>
+                    <Filter className="w-4 h-4 mr-2" />
+                    Sort
+                  </Button>
+                </div>
+              </div>
+
+              {/* Connections Grid */}
+              {filteredConnections.length === 0 ? (
+                <Card className="border-[#5D2A42]/10">
+                  <CardContent className="p-12 text-center">
+                    <div className="w-20 h-20 mx-auto mb-6 bg-[#FFF9EC] rounded-full flex items-center justify-center">
+                      <Users className="w-10 h-10 text-[#5D2A42]/30" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-[#5D2A42] mb-3">
+                      Your network is empty
+                    </h3>
+                    <p className="text-[#5D2A42]/60 mb-6">
+                      Start connecting with people to build your network
+                    </p>
+                    <Button
+                      onClick={() => setActiveTab("suggestions")}
+                      className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white"
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Find People
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {filteredConnections.map((friend) => (
+                    <Card
+                      key={friend.id}
+                      className="border-[#5D2A42]/10 hover:border-[#5D2A42]/20 transition-all duration-200 group hover:shadow-sm"
+                    >
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-start space-x-3">
+                            <div className="relative">
+                              <Avatar className="w-12 h-12 border border-[#5D2A42]/10">
+                                <AvatarImage
+                                  src={friend.profile.photoURL}
+                                  alt={friend.profile.name}
+                                />
+                                <AvatarFallback className="bg-[#FFF9EC] text-[#5D2A42]">
+                                  {getInitials(friend.profile.name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-[#5D2A42] group-hover:text-[#FB6376] transition-colors">
+                                {friend.profile.name}
+                              </h4>
+                              <p className="text-xs text-[#5D2A42]/60 mt-1">
+                                {friend.profile.connections} connections
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-[#5D2A42] hover:bg-[#FFDCCC]"
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#FFF9EC] text-[#5D2A42]"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-48 border-[#5D2A42]/10 bg-white"
                             >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="border-[#5D2A42]/20 bg-[#FFF9EC]"
-                          >
-                            <DropdownMenuItem
-                              className="text-[#FB6376] focus:text-[#FB6376] focus:bg-[#FFDCCC]"
-                              onClick={() =>
-                                handleRemoveFriend(
-                                  friend.id!,
-                                  friend.profile.name
-                                )
-                              }
-                              disabled={actionLoading === friend.id}
-                            >
-                              <UserMinus className="w-4 h-4 mr-2" />
-                              Remove Friend
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-4 bg-white">
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-[#5D2A42]/60">
-                            Connections:
-                          </span>
-                          <span className="font-medium text-[#5D2A42]">
-                            {friend.profile.connections}
-                          </span>
+                              <DropdownMenuItem className="text-[#5D2A42] hover:bg-[#FFF9EC]">
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Profile
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-[#5D2A42] hover:bg-[#FFF9EC]">
+                                <MessageCircle className="w-4 h-4 mr-2" />
+                                Message
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="bg-[#5D2A42]/10" />
+                              <DropdownMenuItem
+                                className="text-red-600 hover:bg-red-50"
+                                onClick={() =>
+                                  handleRemoveFriend(
+                                    friend.id!,
+                                    friend.profile.name
+                                  )
+                                }
+                                disabled={actionLoading === friend.id}
+                              >
+                                <UserMinus className="w-4 h-4 mr-2" />
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         {friend.profile.bio && (
-                          <p className="text-xs text-[#5D2A42]/60 line-clamp-2 mt-2">
+                          <p className="text-sm text-[#5D2A42]/60 line-clamp-2 mb-4">
                             {friend.profile.bio}
                           </p>
                         )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Pending Requests */}
-          <TabsContent value="pending" className="space-y-6">
-            {allPendingRequests.length === 0 ? (
-              <Card className="border-[#5D2A42]/20 bg-[#FFF9EC]">
-                <CardContent className="p-16 text-center">
-                  <div className="w-20 h-20 mx-auto mb-6 bg-[#FFDCCC] rounded-2xl flex items-center justify-center">
-                    <Clock className="w-10 h-10 text-[#5D2A42]/40" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">
-                    No pending requests
-                  </h3>
-                  <p className="text-[#5D2A42]/60 max-w-md mx-auto leading-relaxed">
-                    When you send or receive connection requests, they'll appear
-                    here.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-6">
-                {/* Received Requests */}
-                {receivedRequests.length > 0 && (
-                  <>
-                    <h3 className="text-sm font-semibold text-[#5D2A42] uppercase tracking-wide">
-                      Received Requests ({receivedRequests.length})
-                    </h3>
-                    {receivedRequests.map((request) => (
-                      <Card
-                        key={request.id}
-                        className="border-[#5D2A42]/20 bg-[#FFF9EC] hover:shadow-lg transition-all duration-200"
-                      >
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start space-x-4">
-                              <Avatar className="w-12 h-12">
-                                <AvatarImage
-                                  src={request.profile.photoURL}
-                                  alt={request.profile.name}
-                                />
-                                <AvatarFallback className="bg-[#FCB1A6] text-[#5D2A42]">
-                                  {getInitials(request.profile.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className="font-semibold text-[#5D2A42]">
-                                    {request.profile.name}
-                                  </h3>
-                                  <Badge className="bg-[#FCB1A6]/30 text-[#5D2A42] border-[#FCB1A6]/40">
-                                    Incoming
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-[#5D2A42]/60 mb-2">
-                                  {request.profile.email}
-                                </p>
-                                {request.profile.bio && (
-                                  <p className="text-sm text-[#5D2A42]">
-                                    {request.profile.bio}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex space-x-2">
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  handleAcceptRequest(
-                                    request.id!,
-                                    request.profile.name
-                                  )
-                                }
-                                disabled={actionLoading === request.id}
-                                className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white"
-                              >
-                                {actionLoading === request.id ? (
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                ) : (
-                                  <Check className="w-4 h-4 mr-2" />
-                                )}
-                                Accept
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  handleRejectRequest(
-                                    request.id!,
-                                    request.profile.name
-                                  )
-                                }
-                                disabled={actionLoading === request.id}
-                                className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFDCCC]"
-                              >
-                                <X className="w-4 h-4 mr-2" />
-                                Decline
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </>
-                )}
-
-                {/* Sent Requests */}
-                {sentRequests.length > 0 && (
-                  <>
-                    <h3 className="text-sm font-semibold text-[#5D2A42] uppercase tracking-wide mt-8">
-                      Sent Requests ({sentRequests.length})
-                    </h3>
-                    {sentRequests.map((request) => (
-                      <Card
-                        key={request.id}
-                        className="border-[#5D2A42]/20 bg-[#FFF9EC] hover:shadow-lg transition-all duration-200"
-                      >
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start space-x-4">
-                              <Avatar className="w-12 h-12">
-                                <AvatarImage
-                                  src={request.profile.photoURL}
-                                  alt={request.profile.name}
-                                />
-                                <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42]">
-                                  {getInitials(request.profile.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className="font-semibold text-[#5D2A42]">
-                                    {request.profile.name}
-                                  </h3>
-                                  <Badge className="bg-[#FFDCCC] text-[#5D2A42] border-[#5D2A42]/20">
-                                    Sent
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-[#5D2A42]/60 mb-2">
-                                  {request.profile.email}
-                                </p>
-                                <p className="text-xs text-[#5D2A42]/60">
-                                  Sent{" "}
-                                  {request.createdAt
-                                    .toDate()
-                                    .toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                handleCancelRequest(
-                                  request.id!,
-                                  request.profile.name
-                                )
-                              }
-                              disabled={actionLoading === request.id}
-                              className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFDCCC]"
-                            >
-                              {actionLoading === request.id ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              ) : (
-                                <X className="w-4 h-4 mr-2" />
-                              )}
-                              Cancel
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-          </TabsContent>
-
-          {/* Suggestions Tab */}
-          <TabsContent value="suggestions" className="space-y-6">
-            {loadingSuggestions ? (
-              <div className="flex items-center justify-center p-12">
-                <Loader2 className="w-8 h-8 animate-spin text-[#FB6376]" />
-              </div>
-            ) : (
-              <>
-                {/* Friends of Friends */}
-                {suggestions.friendsOfFriends.length > 0 && (
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-2">
-                      <Users className="w-5 h-5 text-[#FB6376]" />
-                      <h3 className="text-lg font-semibold text-[#5D2A42]">
-                        People You May Know
-                      </h3>
-                    </div>
-                    <p className="text-sm text-[#5D2A42]/60">
-                      Based on mutual connections
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {suggestions.friendsOfFriends.map((user) => (
-                        <Card
-                          key={user.uid}
-                          className="border-[#5D2A42]/20 bg-[#FFF9EC] hover:shadow-lg cursor-pointer transition-all duration-200"
-                        >
-                          <CardContent className="p-5">
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start space-x-3 flex-1">
-                                <Avatar className="w-12 h-12">
-                                  <AvatarImage
-                                    src={user.photoURL}
-                                    alt={user.name}
-                                  />
-                                  <AvatarFallback className="bg-[#FCB1A6] text-[#5D2A42]">
-                                    {getInitials(user.name)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-[#5D2A42] truncate">
-                                    {user.name}
-                                  </h4>
-                                  <p className="text-sm text-[#5D2A42]/60 truncate">
-                                    {user.email}
-                                  </p>
-                                  <p className="text-xs text-[#FB6376] font-medium mt-1">
-                                    {user.mutualFriends} mutual friend
-                                    {user.mutualFriends !== 1 ? "s" : ""}
-                                  </p>
-                                  {user.bio && (
-                                    <p className="text-xs text-[#5D2A42]/60 line-clamp-2 mt-2">
-                                      {user.bio}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                              <Button
-                                size="sm"
-                                onClick={() => handleSendRequest(user.uid)}
-                                disabled={actionLoading === user.uid}
-                                className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white"
-                              >
-                                {actionLoading === user.uid ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <UserPlus className="w-4 h-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Popular Users */}
-                {suggestions.popularUsers.length > 0 && (
-                  <div className="space-y-4 mt-8">
-                    <div className="flex items-center space-x-2">
-                      <Sparkles className="w-5 h-5 text-[#FB6376]" />
-                      <h3 className="text-lg font-semibold text-[#5D2A42]">
-                        Popular on Forá
-                      </h3>
-                    </div>
-                    <p className="text-sm text-[#5D2A42]/60">
-                      Users with many connections
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {suggestions.popularUsers.map((user) => (
-                        <Card
-                          key={user.uid}
-                          className="border-[#5D2A42]/20 bg-[#FFF9EC] hover:shadow-lg cursor-pointer transition-all duration-200"
-                        >
-                          <CardContent className="p-5">
-                            <div className="flex items-start justify-between">
-                              <div className="flex items-start space-x-3 flex-1">
-                                <Avatar className="w-12 h-12">
-                                  <AvatarImage
-                                    src={user.photoURL}
-                                    alt={user.name}
-                                  />
-                                  <AvatarFallback className="bg-[#FB6376] text-white">
-                                    {getInitials(user.name)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-[#5D2A42] truncate">
-                                    {user.name}
-                                  </h4>
-                                  <p className="text-sm text-[#5D2A42]/60 truncate">
-                                    {user.email}
-                                  </p>
-                                  <p className="text-xs text-[#5D2A42]/60 mt-1">
-                                    {user.connections} connections
-                                  </p>
-                                  {user.bio && (
-                                    <p className="text-xs text-[#5D2A42]/60 line-clamp-2 mt-2">
-                                      {user.bio}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                              <Button
-                                size="sm"
-                                onClick={() => handleSendRequest(user.uid)}
-                                disabled={actionLoading === user.uid}
-                                className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white"
-                              >
-                                {actionLoading === user.uid ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <UserPlus className="w-4 h-4" />
-                                )}
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Empty State */}
-                {suggestions.friendsOfFriends.length === 0 &&
-                  suggestions.popularUsers.length === 0 && (
-                    <Card className="border-[#5D2A42]/20 bg-[#FFF9EC]">
-                      <CardContent className="p-16 text-center">
-                        <div className="w-20 h-20 mx-auto mb-6 bg-[#FFDCCC] rounded-2xl flex items-center justify-center">
-                          <Users className="w-10 h-10 text-[#5D2A42]/40" />
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-[#5D2A42]/40">
+                            {friend.profile.email}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs text-[#FB6376] hover:text-[#FB6376]/80 hover:bg-[#FFF9EC]"
+                          >
+                            View
+                          </Button>
                         </div>
-                        <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">
-                          No Suggestions Yet
-                        </h3>
-                        <p className="text-[#5D2A42]/60 max-w-md mx-auto leading-relaxed">
-                          Connect with more people to see personalized
-                          suggestions
-                        </p>
                       </CardContent>
                     </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Quick Add Section */}
+            <div className="mt-12">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#FFF9EC] flex items-center justify-center">
+                    <Plus className="w-4 h-4 text-[#FB6376]" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-[#5D2A42]">
+                    Quick Add
+                  </h3>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={loadSuggestions}
+                  className="text-[#5D2A42] hover:bg-[#FFF9EC]"
+                >
+                  Refresh
+                </Button>
+              </div>
+
+              {/* Suggestions Carousel */}
+              {suggestions.friendsOfFriends.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                  {suggestions.friendsOfFriends.slice(0, 3).map((user) => (
+                    <Card
+                      key={user.uid}
+                      className="border-[#5D2A42]/10 hover:border-[#5D2A42]/20 transition-all duration-200"
+                    >
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <Avatar className="w-10 h-10">
+                              <AvatarImage
+                                src={user.photoURL}
+                                alt={user.name}
+                              />
+                              <AvatarFallback className="bg-[#FCB1A6] text-[#5D2A42]">
+                                {getInitials(user.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <h4 className="font-medium text-[#5D2A42]">
+                                {user.name}
+                              </h4>
+                              <p className="text-xs text-[#5D2A42]/60">
+                                {user.mutualFriends} mutual
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => handleSendRequest(user.uid)}
+                            disabled={actionLoading === user.uid}
+                            className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white"
+                          >
+                            {actionLoading === user.uid ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              "Add"
+                            )}
+                          </Button>
+                        </div>
+                        {user.bio && (
+                          <p className="text-sm text-[#5D2A42]/60 line-clamp-2">
+                            {user.bio}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Side Panel - 30% width */}
+          <div className="lg:w-1/4 space-y-8">
+            {/* Add Connection Card */}
+            <Card className="border-[#5D2A42]/10 sticky top-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg font-semibold text-[#5D2A42]">
+                  Add Connection
+                </CardTitle>
+                <CardDescription className="text-[#5D2A42]/60">
+                  Connect with new people
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-sm text-[#5D2A42]">
+                    Email address
+                  </Label>
+                  <div className="flex space-x-2">
+                    <Input
+                      placeholder="name@example.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleSearchUsers()
+                      }
+                      className="border-[#5D2A42]/20"
+                    />
+                    <Button
+                      onClick={handleSearchUsers}
+                      disabled={searchLoading || !inviteEmail.trim()}
+                      size="icon"
+                      className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white"
+                    >
+                      {searchLoading ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Search className="w-4 h-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => setActiveTab("suggestions")}
+                  variant="outline"
+                  className="w-full border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFF9EC]"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Discover Suggestions
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Pending Requests */}
+            <Card className="border-[#5D2A42]/10">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-semibold text-[#5D2A42]">
+                    Pending
+                  </CardTitle>
+                  {allPendingRequests.length > 0 && (
+                    <Badge className="bg-[#FCB1A6] text-[#5D2A42]">
+                      {allPendingRequests.length}
+                    </Badge>
                   )}
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {allPendingRequests.length === 0 ? (
+                  <div className="text-center py-4">
+                    <Clock className="w-8 h-8 text-[#5D2A42]/20 mx-auto mb-2" />
+                    <p className="text-sm text-[#5D2A42]/60">
+                      No pending requests
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {receivedRequests.slice(0, 3).map((request) => (
+                      <div
+                        key={request.id}
+                        className="flex items-center justify-between p-3 rounded-lg hover:bg-[#FFF9EC] transition-colors"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage
+                              src={request.profile.photoURL}
+                              alt={request.profile.name}
+                            />
+                            <AvatarFallback className="bg-[#FCB1A6] text-[#5D2A42] text-xs">
+                              {getInitials(request.profile.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[#5D2A42] truncate">
+                              {request.profile.name}
+                            </p>
+                            <p className="text-xs text-[#5D2A42]/60">
+                              Incoming
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex space-x-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() =>
+                              handleRejectRequest(
+                                request.id!,
+                                request.profile.name
+                              )
+                            }
+                            disabled={actionLoading === request.id}
+                            className="h-8 w-8 hover:bg-red-50 text-red-600"
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() =>
+                              handleAcceptRequest(
+                                request.id!,
+                                request.profile.name
+                              )
+                            }
+                            disabled={actionLoading === request.id}
+                            className="h-8 w-8 hover:bg-green-50 text-green-600"
+                          >
+                            <Check className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {sentRequests.slice(0, 2).map((request) => (
+                      <div
+                        key={request.id}
+                        className="flex items-center justify-between p-3 rounded-lg hover:bg-[#FFF9EC] transition-colors"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="w-8 h-8">
+                            <AvatarImage
+                              src={request.profile.photoURL}
+                              alt={request.profile.name}
+                            />
+                            <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-xs">
+                              {getInitials(request.profile.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-[#5D2A42] truncate">
+                              {request.profile.name}
+                            </p>
+                            <p className="text-xs text-[#5D2A42]/60">Sent</p>
+                          </div>
+                        </div>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() =>
+                            handleCancelRequest(
+                              request.id!,
+                              request.profile.name
+                            )
+                          }
+                          disabled={actionLoading === request.id}
+                          className="h-8 w-8 hover:bg-[#FFF9EC] text-[#5D2A42]"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                    {(receivedRequests.length > 3 ||
+                      sentRequests.length > 2) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setActiveTab("pending")}
+                        className="w-full text-[#5D2A42] hover:bg-[#FFF9EC]"
+                      >
+                        View all requests
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Security Note */}
+            <Card className="border-[#5D2A42]/10 bg-[#FFF9EC]/50">
+              <CardContent className="p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center">
+                    <Shield className="w-4 h-4 text-[#5D2A42]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-[#5D2A42] mb-1">
+                      Your privacy matters
+                    </p>
+                    <p className="text-xs text-[#5D2A42]/60">
+                      Only share capsules with trusted connections
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

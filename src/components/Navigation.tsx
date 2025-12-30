@@ -11,7 +11,15 @@ import {
   Menu,
   X,
   Archive,
-  DollarSign,
+  Home,
+  MessageSquare,
+  Calendar,
+  Box,
+  Gift,
+  Heart,
+  Camera,
+  Sparkles,
+  ChevronRight,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebase";
@@ -22,6 +30,7 @@ const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [activeItem, setActiveItem] = useState(location.pathname);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -40,16 +49,51 @@ const Navigation = () => {
     }
   }, [isMobile]);
 
+  useEffect(() => {
+    setActiveItem(location.pathname);
+  }, [location]);
+
   const navItems = [
-    { path: "/dashboard", label: "My Capsules", icon: Clock },
-    { path: "/community", label: "Community", icon: Archive },
-    { path: "/connections", label: "Connections", icon: Users },
-    { path: "/profile", label: "Profile", icon: User },
-    { path: "/settings", label: "Settings", icon: Settings },
-    { path: "/pricing", label: "Pricing", icon: DollarSign },
+    {
+      path: "/dashboard",
+      label: "Dashboard",
+      icon: Home,
+    },
+    {
+      path: "/create",
+      label: "Create",
+      icon: Plus,
+      highlight: true,
+    },
+    {
+      path: "/connections",
+      label: "Connections",
+      icon: Users,
+    },
+    {
+      path: "/community",
+      label: "Community",
+      icon: Heart,
+    },
+
+    {
+      path: "/profile",
+      label: "Profile",
+      icon: User,
+    },
+    {
+      path: "/settings",
+      label: "Settings",
+      icon: Settings,
+    },
+    {
+      path: "/pricing",
+      label: "Pricing",
+      icon: Box,
+    },
   ];
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => activeItem === path;
 
   const handleLogout = async () => {
     try {
@@ -60,194 +104,239 @@ const Navigation = () => {
     }
   };
 
-  const sidebarWidth = isMobile ? 280 : isOpen || isHovered ? 280 : 80;
+  const NavItem = ({ item }) => {
+    const Icon = item.icon;
+    const isItemActive = isActive(item.path);
+
+    return (
+      <div className="relative mb-2">
+        <Link
+          to={item.path}
+          onClick={() => isMobile && setIsOpen(false)}
+          className="block"
+        >
+          <div
+            className={`
+              relative flex items-center px-4 py-3.5 rounded-xl transition-all duration-80 ease-in-out
+              ${
+                isItemActive
+                  ? "bg-white text-[#FB6376]"
+                  : "text-white hover:bg-white/10"
+              }
+              ${isHovered || isOpen ? "" : "justify-center"}
+              group
+            `}
+          >
+            {/* Background circle for compact state */}
+            {!isHovered && !isOpen && (
+              <div
+                className={`
+                absolute inset-0 rounded-xl transition-all duration-300
+                ${
+                  isItemActive
+                    ? "bg-white"
+                    : "opacity-0 group-hover:bg-white/10"
+                }
+              `}
+              />
+            )}
+
+            {/* Icon */}
+            <div
+              className={`relative transition-transform duration-300 ${
+                isItemActive ? "scale-110" : "group-hover:scale-110"
+              }`}
+            >
+              <Icon className="w-5 h-5" />
+              {item.highlight && isHovered && (
+                <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-400" />
+              )}
+            </div>
+
+            {/* Label */}
+            {(isHovered || isOpen) && (
+              <div className="ml-4 flex-1 flex items-center justify-between">
+                <span className="font-medium text-sm tracking-wide">
+                  {item.label}
+                </span>
+                {isItemActive && (
+                  <ChevronRight className="w-4 h-4 ml-2 opacity-50" />
+                )}
+              </div>
+            )}
+          </div>
+        </Link>
+      </div>
+    );
+  };
+
+  const sidebarWidth = isMobile ? 280 : isHovered ? 240 : 88;
 
   return (
     <>
       {/* Mobile Menu Button */}
-      {!isOpen && isMobile && (
+      {isMobile && (
         <Button
           variant="ghost"
           size="icon"
-          className="fixed top-4 left-4 z-50 bg-[#FB6376] text-white hover:bg-white/20"
-          onClick={() => setIsOpen(true)}
+          className="fixed top-6 left-6 z-50 bg-white shadow-lg text-[#FB6376] hover:bg-white/90 border border-gray-100"
+          onClick={() => setIsOpen(!isOpen)}
         >
-          <Menu className="w-5 h-5" />
+          {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </Button>
       )}
 
       {/* Desktop Sidebar */}
       <div
-        className={`hidden md:flex flex-col flex-shrink-0 fixed left-0 top-0 h-screen z-30 transition-all duration-300 bg-[#FB6376]  border-white/20`}
+        className={`hidden md:flex flex-col fixed left-0 top-0 h-screen z-30 transition-all duration-500 ease-in-out
+          bg-[#FB6376] shadow-xl
+          ${isHovered ? "border-r border-white/10" : ""}`}
         style={{ width: `${sidebarWidth}px` }}
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
       >
         <div className="flex flex-col h-full">
           {/* Logo Section */}
-          <div className="flex items-center justify-center h-16 border-b border-white/20 px-4 flex-shrink-0">
+          <div className="flex items-center justify-center h-24 px-4">
             <Link
               to="/dashboard"
-              className="flex items-center justify-center w-full"
+              className={`
+                flex items-center transition-all duration-300
+                ${isHovered ? "justify-start w-full" : "justify-center"}
+              `}
             >
-              <span className="text-2xl font-bold text-white">
-                {isOpen || isHovered ? "Forá" : "F"}
-              </span>
+              <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
+                <Gift className="w-6 h-6 text-white" />
+              </div>
+
+              {isHovered && (
+                <div className="ml-4">
+                  <h1 className="text-xl font-bold text-white tracking-tight">
+                    Forá
+                  </h1>
+                  <p className="text-xs text-white/60 mt-0.5">Time Capsules</p>
+                </div>
+              )}
             </Link>
           </div>
 
           {/* Navigation Items */}
-          <div className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            {navItems.map(({ path, label, icon: Icon }) => (
-              <div key={path} className="mb-1">
-                <Link to={path}>
-                  <Button
-                    variant={isActive(path) ? "default" : "ghost"}
-                    className={`w-full justify-start transition-all duration-200 rounded-lg ${
-                      isActive(path)
-                        ? "bg-white/20 shadow-lg text-white border border-white/30"
-                        : "text-white/90 hover:bg-white/10 hover:text-white"
-                    } ${isOpen || isHovered ? "px-4 py-3" : "px-3 py-3"}`}
-                    size={isOpen || isHovered ? "default" : "icon"}
-                  >
-                    <div className="flex items-center">
-                      <Icon className="w-5 h-5" />
-                      {(isOpen || isHovered) && (
-                        <span className="ml-3 font-medium whitespace-nowrap">
-                          {label}
-                        </span>
-                      )}
-                    </div>
-                  </Button>
-                </Link>
-              </div>
+          <div className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
+            {navItems.map((item) => (
+              <NavItem key={item.path} item={item} />
             ))}
           </div>
 
-          {/* Bottom Actions Section */}
-          <div className="px-4 py-6 border-t border-white/20 space-y-3 flex-shrink-0">
-            {/* Create Button */}
-            <div>
-              <Link to="/create">
-                <Button
-                  className={`w-full bg-white text-[#FB6376] hover:bg-white/90 hover:text-[#FB6376] transition-all duration-200 font-medium ${
-                    isOpen || isHovered ? "px-4 py-3" : "px-3 py-3"
-                  }`}
-                  size={isOpen || isHovered ? "default" : "icon"}
-                >
-                  <Plus className="w-5 h-5" />
-                  {(isOpen || isHovered) && (
-                    <span className="ml-3 whitespace-nowrap">Create</span>
-                  )}
-                </Button>
-              </Link>
-            </div>
+          {/* Bottom Section */}
+          <div className="px-4 py-6 border-t border-white/10">
+            {/* User Info */}
+            {isHovered && auth.currentUser && (
+              <div className="mb-6 px-3 py-2">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                    <User className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="ml-3 flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {auth.currentUser.displayName?.split(" ")[0] || "User"}
+                    </p>
+                    <p className="text-xs text-white/50 truncate">
+                      {auth.currentUser.email?.split("@")[0]}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Logout Button */}
-            <div>
-              <Button
-                variant="ghost"
-                className={`w-full justify-start text-white/90 hover:text-white hover:bg-white/10 transition-all duration-200 ${
-                  isOpen || isHovered ? "px-4 py-3" : "px-3 py-3"
-                }`}
-                size={isOpen || isHovered ? "default" : "icon"}
-                onClick={handleLogout}
-              >
-                <LogOut className="w-5 h-5" />
-                {(isOpen || isHovered) && (
-                  <span className="ml-3 font-medium whitespace-nowrap">
-                    Sign Out
-                  </span>
-                )}
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              className={`
+                w-full justify-start text-white hover:bg-white/10 rounded-xl transition-all duration-300
+                ${isHovered ? "px-4 py-3" : "px-3 py-3 justify-center"}
+              `}
+              onClick={handleLogout}
+            >
+              <LogOut className="w-5 h-5" />
+              {isHovered && (
+                <span className="ml-4 font-medium text-sm">Sign Out</span>
+              )}
+            </Button>
+
+            {/* Capsule Count */}
+            {isHovered && (
+              <div className="mt-4 pt-4 border-t border-white/10">
+                <p className="text-xs text-white/40 text-center">
+                  Preserving memories
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Mobile Sidebar Overlay */}
-      {isOpen && isMobile && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
       {/* Mobile Sidebar */}
       <div
-        className={`fixed left-0 top-0 h-screen z-50 transition-transform duration-300 ${
-          isOpen ? "translate-x-0" : "-translate-x-full"
-        } bg-gradient-to-b from-[#FB6376] to-[#FF8B9A] border-r border-white/20 w-72`}
+        className={`
+          fixed left-0 top-0 h-screen z-40 transition-transform duration-500 ease-in-out
+          bg-[#FB6376] shadow-2xl w-72
+          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+        `}
       >
         <div className="flex flex-col h-full">
           {/* Mobile Header */}
-          <div className="flex items-center justify-between h-16 border-b border-white/20 px-6 flex-shrink-0">
-            <Link
-              to="/dashboard"
-              className="flex items-center"
-              onClick={() => setIsOpen(false)}
-            >
-              <span className="text-2xl font-bold text-white">Forá</span>
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20"
-              onClick={() => setIsOpen(false)}
-            >
-              <X className="w-5 h-5" />
-            </Button>
+          <div className="flex items-center justify-between h-24 px-6 border-b border-white/10">
+            <div className="flex items-center">
+              <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
+                <Gift className="w-6 h-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <h1 className="text-xl font-bold text-white tracking-tight">
+                  Forá
+                </h1>
+                <p className="text-xs text-white/60">Time Capsules</p>
+              </div>
+            </div>
           </div>
 
-          {/* Mobile Navigation Items */}
-          <div className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            {navItems.map(({ path, label, icon: Icon }) => (
-              <div key={path} className="mb-1">
-                <Link to={path} onClick={() => setIsOpen(false)}>
-                  <Button
-                    variant={isActive(path) ? "default" : "ghost"}
-                    className={`w-full justify-start transition-all duration-200 rounded-lg px-4 py-3 ${
-                      isActive(path)
-                        ? "bg-white/20 shadow-lg text-white border border-white/30"
-                        : "text-white/90 hover:bg-white/10 hover:text-white"
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <Icon className="w-5 h-5" />
-                      <span className="ml-3 font-medium whitespace-nowrap">
-                        {label}
-                      </span>
-                    </div>
-                  </Button>
-                </Link>
-              </div>
+          {/* Mobile Navigation */}
+          <div className="flex-1 px-4 py-6 space-y-1">
+            {navItems.map((item) => (
+              <NavItem key={item.path} item={item} />
             ))}
           </div>
 
-          {/* Mobile Bottom Actions */}
-          <div className="px-4 py-6 border-t border-white/20 space-y-3 flex-shrink-0">
-            <div>
-              <Link to="/create" onClick={() => setIsOpen(false)}>
-                <Button className="w-full bg-white text-[#FB6376] hover:bg-white/90 hover:text-[#FB6376] px-4 py-3 font-medium">
-                  <Plus className="w-5 h-5 mr-3" />
-                  Create Capsule
-                </Button>
-              </Link>
-            </div>
+          {/* Mobile Bottom */}
+          <div className="px-4 py-6 border-t border-white/10">
+            {auth.currentUser && (
+              <div className="mb-6 px-3 py-2">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="ml-3 flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white">
+                      {auth.currentUser.displayName || "User"}
+                    </p>
+                    <p className="text-xs text-white/50">
+                      {auth.currentUser.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-            <div>
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-white/90 hover:text-white hover:bg-white/10 px-4 py-3"
-                onClick={() => {
-                  setIsOpen(false);
-                  handleLogout();
-                }}
-              >
-                <LogOut className="w-5 h-5 mr-3" />
-                <span className="font-medium">Sign Out</span>
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-white hover:bg-white/10 px-4 py-3 rounded-xl"
+              onClick={() => {
+                setIsOpen(false);
+                setTimeout(handleLogout, 300);
+              }}
+            >
+              <LogOut className="w-5 h-5 mr-4" />
+              <span className="font-medium text-sm">Sign Out</span>
+            </Button>
           </div>
         </div>
       </div>
