@@ -505,7 +505,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#FFF9EC]">
       <Navigation />
 
       <main className="ml-0 md:ml-20">
