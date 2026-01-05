@@ -6,56 +6,76 @@ import {
   ReactNode,
 } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import {
-  getFirestore,
-  collection,
-  query,
-  where,
-  getDocs,
-  Timestamp,
-  doc,
-  updateDoc,
-  deleteDoc,
-} from "firebase/firestore";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
+/* ================= TYPES ================= */
+
+/**
+ * Media attachment metadata ONLY
+ * ❌ No URLs
+ * ❌ No blobs
+ * ✅ Firebase Storage paths
+ */
 export interface Attachment {
   id: string;
-  url: string;
+  storagePath: string; // e.g. capsules/{capsuleId}/image_1.enc
   type: "image" | "video" | "audio";
   name: string;
   size: number;
+  encrypted: true;
   uploadedAt: string;
 }
 
 export interface Capsule {
   id: string;
   title: string;
-  content: string;
-  deliveryDate: string;
+  content?: string;
+
+  unlockDate?: any;
+  deliveryDate?: string;
+
   recipients: string[];
   recipientNames?: string[];
-  recipientType?: "self" | "friends";
-  status: "scheduled" | "delivered" | "opened";
+  recipientType?: "self" | "friends" | "public";
+
   triggerType: "time" | "event" | "connection";
+
   attachments?: Attachment[];
-  createdAt: string;
+
+  createdAt?: any;
+  sealedAt?: any;
+
+  status?: "scheduled" | "delivered" | "opened";
   isUnlocked?: boolean;
+
   userId?: string;
   username?: string;
   signature?: string;
+
+  visibility?: "public" | "private";
   isReceived?: boolean;
 }
+
+/* ================= CONTEXT TYPE ================= */
 
 interface CapsuleContextType {
   capsules: Capsule[];
   receivedCapsules: Capsule[];
-  addCapsule: (capsule: Omit<Capsule, "id" | "createdAt" | "status">) => void;
+
   updateCapsule: (id: string, updates: Partial<Capsule>) => void;
   deleteCapsule: (id: string) => Promise<void>;
   markCapsuleAsOpened: (id: string) => Promise<void>;
   refreshCapsules: () => Promise<void>;
+
+  /** Media-safe helpers */
+  capsuleHasMedia: (capsule: Capsule) => boolean;
+  getMediaCount: (capsule: Capsule) => number;
+
   loading: boolean;
 }
+
+/* ================= CONTEXT ================= */
 
 const CapsuleContext = createContext<CapsuleContextType | undefined>(undefined);
 
@@ -67,214 +87,108 @@ export const useCapsules = () => {
   return context;
 };
 
+/* ================= DATE HELPERS ================= */
+
+export const toDate = (value: any): Date | null => {
+  if (!value) return null;
+
+  try {
+    if (value?.toDate) return value.toDate(); // Firestore Timestamp
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+};
+
+const safeISOString = (date: Date | null): string => {
+  if (!date) return new Date(0).toISOString();
+  return date.toISOString();
+};
+
+/* ================= PROVIDER ================= */
+
 export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
+  const auth = getAuth();
+
   const [capsules, setCapsules] = useState<Capsule[]>([]);
   const [receivedCapsules, setReceivedCapsules] = useState<Capsule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const auth = getAuth();
-  const db = getFirestore();
 
-  const convertFirestoreDoc = (
-    doc: any,
-    isReceived: boolean = false
-  ): Capsule => {
-    const data = doc.data();
+  /* ---------- AUTH HEADERS ---------- */
 
-    const deliveryDate =
-      data.unlockDate instanceof Timestamp
-        ? data.unlockDate.toDate().toISOString()
-        : data.unlockDate;
-
-    const createdAt =
-      data.createdAt instanceof Timestamp
-        ? data.createdAt.toDate().toISOString()
-        : new Date().toISOString();
-
-    let processedAttachments: Attachment[] = [];
-
-    if (data.attachments && Array.isArray(data.attachments)) {
-      if (typeof data.attachments[0] === "string") {
-        const getFileTypeFromUrl = (
-          url: string
-        ): "image" | "video" | "audio" => {
-          if (!url) return "image";
-          const extension = url.split(".").pop()?.toLowerCase();
-
-          if (
-            ["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(
-              extension || ""
-            )
-          ) {
-            return "image";
-          } else if (
-            ["mp4", "mov", "avi", "webm", "mkv"].includes(extension || "")
-          ) {
-            return "video";
-          } else if (["mp3", "wav", "ogg", "m4a"].includes(extension || "")) {
-            return "audio";
-          }
-
-          return "image";
-        };
-
-        processedAttachments = data.attachments.map(
-          (url: string, index: number) => ({
-            id: `legacy-${index}`,
-            url: url,
-            type: getFileTypeFromUrl(url),
-            name: `Attachment ${index + 1}`,
-            size: 0,
-            uploadedAt: createdAt,
-          })
-        );
-      } else {
-        const getFileTypeFromUrl = (
-          url: string
-        ): "image" | "video" | "audio" => {
-          if (!url) return "image";
-          const extension = url.split(".").pop()?.toLowerCase();
-
-          if (
-            ["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(
-              extension || ""
-            )
-          ) {
-            return "image";
-          } else if (
-            ["mp4", "mov", "avi", "webm", "mkv"].includes(extension || "")
-          ) {
-            return "video";
-          } else if (["mp3", "wav", "ogg", "m4a"].includes(extension || "")) {
-            return "audio";
-          }
-
-          return "image";
-        };
-
-        processedAttachments = data.attachments.map((att: any) => ({
-          id: att.id || `att-${Date.now()}-${Math.random()}`,
-          url: att.url,
-          type: att.type || getFileTypeFromUrl(att.url),
-          name: att.name || `Attachment`,
-          size: att.size || 0,
-          uploadedAt: att.uploadedAt || createdAt,
-        }));
-      }
+  const getAuthHeaders = async () => {
+    if (!auth.currentUser) {
+      throw new Error("User not authenticated");
     }
 
+    const token = await auth.currentUser.getIdToken(true);
     return {
-      id: doc.id,
-      title: data.title,
-      content: data.content,
-      deliveryDate: deliveryDate,
-      recipients: data.recipients || [],
-      recipientNames: data.recipientNames || [],
-      recipientType: data.recipientType || "self",
-      status: data.status || "scheduled",
-      triggerType: data.triggerType || "time",
-      attachments: processedAttachments,
-      createdAt: createdAt,
-      isUnlocked: data.isUnlocked || false,
-      userId: data.userId,
-      username: data.username,
-      signature: data.signature || null, // ADD THIS LINE - important!
-      isReceived: isReceived,
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
     };
   };
 
-  const markCapsuleAsOpened = async (id: string) => {
-    try {
-      const capsuleRef = doc(db, "capsules", id);
-      await updateDoc(capsuleRef, {
-        isUnlocked: true,
-        status: "opened",
-      });
-      // Update local state
-      updateCapsule(id, { isUnlocked: true, status: "opened" });
-    } catch (error) {
-      console.error("Error marking capsule as opened:", error);
-    }
+  /* ================= NORMALIZER ================= */
+
+  const normalizeCapsule = (c: Capsule): Capsule => {
+    const unlockSource =
+      c.unlockDate ?? c.deliveryDate ?? c.sealedAt ?? c.createdAt ?? null;
+
+    const unlockDateObj = toDate(unlockSource);
+    const createdAtObj = toDate(c.createdAt);
+
+    const finalDate = unlockDateObj ?? createdAtObj ?? new Date(0);
+
+    return {
+      ...c,
+      attachments: Array.isArray(c.attachments)
+        ? c.attachments.filter(
+            (a) =>
+              a.storagePath &&
+              a.size > 0 &&
+              ["image", "video", "audio"].includes(a.type)
+          )
+        : [],
+      deliveryDate: safeISOString(finalDate),
+      isUnlocked: c.isUnlocked ?? finalDate.getTime() <= Date.now(),
+    };
   };
 
+  /* ================= FETCH CAPSULES ================= */
+
   const refreshCapsules = async () => {
-    if (!currentUserId) {
-      setCapsules([]);
-      setReceivedCapsules([]);
-      return;
-    }
+    if (!auth.currentUser) return;
 
+    setLoading(true);
     try {
-      const capsulesRef = collection(db, "capsules");
+      const headers = await getAuthHeaders();
 
-      const createdByUserQuery = query(
-        capsulesRef,
-        where("userId", "==", currentUserId)
-      );
-
-      const receivedByUserQuery = query(
-        capsulesRef,
-        where("recipients", "array-contains", currentUserId)
-      );
-
-      const [createdSnapshot, receivedSnapshot] = await Promise.all([
-        getDocs(createdByUserQuery),
-        getDocs(receivedByUserQuery),
+      const [mineRes, receivedRes] = await Promise.all([
+        fetch(`${API_BASE}/getMyCapsules`, { headers }),
+        fetch(`${API_BASE}/getReceivedCapsules`, { headers }),
       ]);
 
-      const loadedCapsules: Capsule[] = [];
-      createdSnapshot.forEach((doc) => {
-        loadedCapsules.push(convertFirestoreDoc(doc, false));
-      });
-
-      loadedCapsules.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-
-      const loadedReceivedCapsules: Capsule[] = [];
-      receivedSnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.userId !== currentUserId) {
-          loadedReceivedCapsules.push(convertFirestoreDoc(doc, true));
-        }
-      });
-
-      loadedReceivedCapsules.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-
-      // Check for capsules that should be automatically unlocked
-      const currentTime = new Date().getTime();
-      const capsulesToUpdate: string[] = [];
-
-      [...loadedCapsules, ...loadedReceivedCapsules].forEach((capsule) => {
-        const deliveryTime = new Date(capsule.deliveryDate).getTime();
-        if (deliveryTime <= currentTime && !capsule.isUnlocked) {
-          capsulesToUpdate.push(capsule.id);
-        }
-      });
-
-      // Update capsules that have reached their unlock time
-      if (capsulesToUpdate.length > 0) {
-        const updatePromises = capsulesToUpdate.map((id) =>
-          updateDoc(doc(db, "capsules", id), {
-            isUnlocked: true,
-            status: "delivered",
-          })
-        );
-        await Promise.all(updatePromises);
-
-        // Update local state
-        capsulesToUpdate.forEach((id) => {
-          updateCapsule(id, { isUnlocked: true, status: "delivered" });
-        });
+      if (!mineRes.ok || !receivedRes.ok) {
+        throw new Error("Capsule fetch failed");
       }
 
-      setCapsules(loadedCapsules);
-      setReceivedCapsules(loadedReceivedCapsules);
-    } catch (error) {
+      const mineRaw = await mineRes.json();
+      const receivedRaw = await receivedRes.json();
+
+      const mine = Array.isArray(mineRaw) ? mineRaw.map(normalizeCapsule) : [];
+
+      const received = Array.isArray(receivedRaw)
+        ? receivedRaw.map((c) => ({
+            ...normalizeCapsule(c),
+            isReceived: true,
+          }))
+        : [];
+
+      setCapsules(mine);
+      setReceivedCapsules(received);
+    } catch (err) {
+      console.error("refreshCapsules failed:", err);
       setCapsules([]);
       setReceivedCapsules([]);
     } finally {
@@ -282,14 +196,66 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  /* ================= MUTATIONS ================= */
+
+  const updateCapsule = (id: string, updates: Partial<Capsule>) => {
+    setCapsules((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+    );
+    setReceivedCapsules((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+    );
+  };
+
+  const markCapsuleAsOpened = async (id: string) => {
+    try {
+      const headers = await getAuthHeaders();
+
+      await fetch(`${API_BASE}/openCapsule`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ capsuleId: id }),
+      });
+
+      updateCapsule(id, { status: "opened", isUnlocked: true });
+    } catch (error) {
+      console.error("markCapsuleAsOpened failed:", error);
+    }
+  };
+
+  const deleteCapsule = async (id: string) => {
+    try {
+      const headers = await getAuthHeaders();
+
+      await fetch(`${API_BASE}/deleteCapsule`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ capsuleId: id }),
+      });
+
+      setCapsules((prev) => prev.filter((c) => c.id !== id));
+      setReceivedCapsules((prev) => prev.filter((c) => c.id !== id));
+    } catch (error) {
+      console.error("deleteCapsule failed:", error);
+      throw error;
+    }
+  };
+
+  /* ================= MEDIA HELPERS ================= */
+
+  const capsuleHasMedia = (capsule: Capsule): boolean =>
+    Array.isArray(capsule.attachments) && capsule.attachments.length > 0;
+
+  const getMediaCount = (capsule: Capsule): number =>
+    capsule.attachments?.length ?? 0;
+
+  /* ================= AUTH SYNC ================= */
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        setCurrentUserId(user.uid);
-        setLoading(true);
         await refreshCapsules();
       } else {
-        setCurrentUserId(null);
         setCapsules([]);
         setReceivedCapsules([]);
         setLoading(false);
@@ -299,74 +265,22 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (currentUserId) {
-      refreshCapsules();
-    }
-  }, [currentUserId]);
-
-  // Periodic refresh to check for capsules that should unlock
-  useEffect(() => {
-    if (!currentUserId) return;
-
-    const interval = setInterval(() => {
-      refreshCapsules();
-    }, 60000); // Check every minute
-
-    return () => clearInterval(interval);
-  }, [currentUserId]);
-
-  const addCapsule = (
-    capsuleData: Omit<Capsule, "id" | "createdAt" | "status">
-  ) => {
-    const newCapsule: Capsule = {
-      ...capsuleData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-      status: "scheduled",
-    };
-    setCapsules((prev) => [newCapsule, ...prev]);
-  };
-
-  const updateCapsule = (id: string, updates: Partial<Capsule>) => {
-    setCapsules((prev) =>
-      prev.map((capsule) =>
-        capsule.id === id ? { ...capsule, ...updates } : capsule
-      )
-    );
-    setReceivedCapsules((prev) =>
-      prev.map((capsule) =>
-        capsule.id === id ? { ...capsule, ...updates } : capsule
-      )
-    );
-  };
-
-  const deleteCapsule = async (id: string) => {
-    try {
-      // Delete from Firestore
-      await deleteDoc(doc(db, "capsules", id));
-
-      // Delete from local state
-      setCapsules((prev) => prev.filter((capsule) => capsule.id !== id));
-      setReceivedCapsules((prev) =>
-        prev.filter((capsule) => capsule.id !== id)
-      );
-    } catch (error) {
-      console.error("Error deleting capsule:", error);
-      throw error;
-    }
-  };
+  /* ================= PROVIDER ================= */
 
   return (
     <CapsuleContext.Provider
       value={{
         capsules,
         receivedCapsules,
-        addCapsule,
+
         updateCapsule,
         deleteCapsule,
         markCapsuleAsOpened,
         refreshCapsules,
+
+        capsuleHasMedia,
+        getMediaCount,
+
         loading,
       }}
     >

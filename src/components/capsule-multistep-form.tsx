@@ -127,10 +127,10 @@ export const CapsuleMultistepForm = ({
   deliveryDate,
   deliveryTime,
   recipientType,
-  selectedFriends,
+  selectedFriends = [],
   capsuleCategory,
-  attachments,
-  friends,
+  attachments = [],
+  friends = [],
   username,
 
   onTitleChange,
@@ -940,9 +940,9 @@ export const CapsuleMultistepForm = ({
         className="mt-4 text-center text-sm text-black/70"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
       >
-        Step {currentStep + 1} of {steps.length}: {steps[currentStep].title}
+        Step {currentStep + 1} of {steps.length}:{" "}
+        {steps[currentStep]?.title ?? ""}
       </motion.div>
     </div>
   );
