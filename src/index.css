@@ -2,193 +2,141 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Forá Design System - Blush Memory (Solid Edition)
-Premium, modern, and emotionally warm.
-All colors use HSL.
-*/
+/* =========================================================
+   Forá Design System – Obsidian Bloom Edition
+   TRUE DARK MODE
+   ❌ No light colors
+   ❌ No grey / ivory / off-white
+   ✅ Blacks, plums, roses only
+   ========================================================= */
+
 @layer base {
   :root {
-    /* Brand Palette in HSL */
-    --deep-plum: 331 38% 26%; /* #5D2A42 */
-    --coral-pink: 355 94% 68%; /* #FB6376 */
-    --blush: 10 91% 82%; /* #FCB1A6 */
-    --peach-cream: 26 100% 89%; /* #FFDCCC */
-    --ivory-light: 44 100% 96%; /* #FFF9EC */
+    /* ================= CORE BACKGROUNDS ================= */
 
-    /* Application Layout Colors */
-    --background: var(--deep-plum);
-    --foreground: var(--ivory-light);
+    --black-void: 0 0% 4%; /* Absolute base */
+    --plum-black: 331 35% 10%; /* Main app bg */
+    --plum-surface: 331 38% 14%; /* Cards / modals */
+    --plum-elevated: 331 40% 18%; /* Hover / raised */
 
-    /* Card System */
-    --card: 331 38% 20%;
-    --card-foreground: var(--ivory-light);
+    /* ================= BRAND ================= */
 
-    /* Popover */
-    --popover: 331 38% 22%;
-    --popover-foreground: var(--ivory-light);
+    --coral-pink: 355 94% 60%; /* Primary action */
+    --rose-deep: 345 65% 45%; /* Secondary accent */
 
-    /* Primary */
+    /* ================= TEXT (NO LIGHT) ================= */
+
+    --text-primary: 0 0% 88%; /* Near-black white (NOT light) */
+    --text-secondary: 331 20% 60%; /* Muted plum */
+    --text-subtle: 331 15% 45%; /* Metadata */
+
+    /* ================= SEMANTICS ================= */
+
+    --background: var(--plum-black);
+    --foreground: var(--text-primary);
+
+    --card: var(--plum-surface);
+    --card-foreground: var(--text-primary);
+
+    --popover: var(--plum-surface);
+    --popover-foreground: var(--text-primary);
+
     --primary: var(--coral-pink);
-    --primary-foreground: var(--deep-plum);
+    --primary-foreground: var(--black-void);
 
-    /* Secondary */
-    --secondary: var(--blush);
-    --secondary-foreground: var(--deep-plum);
+    --secondary: var(--rose-deep);
+    --secondary-foreground: var(--black-void);
 
-    /* Accent */
-    --accent: var(--peach-cream);
-    --accent-foreground: var(--deep-plum);
+    --muted: var(--plum-elevated);
+    --muted-foreground: var(--text-secondary);
 
-    /* Muted */
-    --muted: 331 20% 18%;
-    --muted-foreground: 331 20% 70%;
+    /* ================= STATUS ================= */
 
-    /* Status Colors */
-    --destructive: 0 68% 46%;
-    --destructive-foreground: var(--ivory-light);
+    --success: 150 55% 38%;
+    --success-foreground: var(--text-primary);
 
-    --success: 142 32% 45%;
-    --success-foreground: var(--ivory-light);
+    --warning: 38 90% 48%;
+    --warning-foreground: var(--black-void);
 
-    --warning: 38 70% 55%;
-    --warning-foreground: var(--deep-plum);
+    --destructive: 0 70% 44%;
+    --destructive-foreground: var(--text-primary);
 
-    /* UI Elements */
-    --border: 331 25% 25%;
-    --input: 331 25% 20%;
-    --ring: 355 94% 68%;
+    /* ================= UI ================= */
 
-    /* Shadows (soft and minimal) */
-    --shadow-card: 0 8px 32px hsl(331 38% 10% / 0.15);
-    --shadow-soft: 0 4px 12px hsl(331 38% 10% / 0.1);
+    --border: 331 30% 22%;
+    --input: 331 30% 16%;
+    --ring: var(--coral-pink);
 
-    /* Transitions */
+    /* ================= SHADOWS ================= */
+
+    --shadow-card: 0 16px 48px hsl(0 0% 0% / 0.6);
+    --shadow-soft: 0 6px 20px hsl(0 0% 0% / 0.45);
+
+    /* ================= MOTION ================= */
+
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-    /* Radius */
     --radius: 1rem;
-
-    /* Sidebar (Light variant for contrast) */
-    --sidebar-background: var(--ivory-light);
-    --sidebar-foreground: var(--deep-plum);
-    --sidebar-primary: var(--coral-pink);
-    --sidebar-primary-foreground: var(--deep-plum);
-    --sidebar-accent: var(--peach-cream);
-    --sidebar-accent-foreground: var(--deep-plum);
-    --sidebar-border: 331 20% 80%;
   }
 }
 
+/* ================= UTILITIES ================= */
+
 @layer utilities {
-  /* Solid Background Utilities */
-  .bg-deep-plum {
-    background-color: hsl(var(--deep-plum));
+  /* Backgrounds */
+  .bg-black {
+    background-color: hsl(var(--black-void));
+  }
+  .bg-plum {
+    background-color: hsl(var(--plum-black));
+  }
+  .bg-surface {
+    background-color: hsl(var(--plum-surface));
+  }
+  .bg-elevated {
+    background-color: hsl(var(--plum-elevated));
   }
 
-  .bg-coral-pink {
-    background-color: hsl(var(--coral-pink));
+  /* Text */
+  .text-primary {
+    color: hsl(var(--text-primary));
   }
-
-  .bg-blush {
-    background-color: hsl(var(--blush));
+  .text-secondary {
+    color: hsl(var(--text-secondary));
   }
-
-  .bg-peach-cream {
-    background-color: hsl(var(--peach-cream));
+  .text-subtle {
+    color: hsl(var(--text-subtle));
   }
-
-  .bg-ivory-light {
-    background-color: hsl(var(--ivory-light));
-  }
-
-  /* Text Utilities */
-  .text-deep-plum {
-    color: hsl(var(--deep-plum));
-  }
-
-  .text-coral-pink {
+  .text-coral {
     color: hsl(var(--coral-pink));
   }
-
-  .text-blush {
-    color: hsl(var(--blush));
-  }
-
-  .text-peach-cream {
-    color: hsl(var(--peach-cream));
-  }
-
-  .text-ivory-light {
-    color: hsl(var(--ivory-light));
+  .text-rose {
+    color: hsl(var(--rose-deep));
   }
 
   /* Shadows */
   .shadow-card {
     box-shadow: var(--shadow-card);
   }
-
   .shadow-soft {
     box-shadow: var(--shadow-soft);
   }
 
-  /* Transitions */
+  /* Motion */
   .transition-smooth {
     transition: var(--transition-smooth);
   }
-
   .transition-bounce {
     transition: var(--transition-bounce);
   }
-
-  /* Hover States */
-  .hover-glow {
-    @apply transition-smooth;
-  }
-
-  .hover-glow:hover {
-    box-shadow: var(--shadow-card);
-  }
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-/* Forá Design System - Blush Memory + Modern Font Edition
-Soft, elegant, and premium aesthetic with Satoshi font.
-*/
+/* ================= BASE ================= */
 
 @layer base {
-  @import url('https://fonts.googleapis.com/css2?family=Satoshi:wght@400;500;700&display=swap');
+  @import url("https://fonts.googleapis.com/css2?family=Satoshi:wght@400;500;600;700&display=swap");
 
-  :root {
-    /* Brand Palette in HSL */
-    --deep-plum: 331 38% 26%; /* #5D2A42 */
-    --coral-pink: 355 94% 68%; /* #FB6376 */
-    --blush: 10 91% 82%; /* #FCB1A6 */
-    --peach-cream: 26 100% 89%; /* #FFDCCC */
-    --ivory-light: 44 100% 96%; /* #FFF9EC */
-
-    /* Main Layout */
-    --background: var(--deep-plum);
-    --foreground: var(--ivory-light);
-
-    /* UI */
-    --card: 331 38% 20%;
-    --card-foreground: var(--ivory-light);
-    --border: 331 25% 25%;
-    --input: 331 25% 20%;
-    --ring: 355 94% 68%;
-  }
-
-  /* Global font and spacing setup */
   * {
     @apply border-border;
     font-family: "Satoshi", "Inter", sans-serif;
@@ -197,8 +145,9 @@ Soft, elegant, and premium aesthetic with Satoshi font.
 
   body {
     @apply bg-background text-foreground;
+    color: hsl(var(--text-primary));
     font-weight: 400;
-    line-height: 1.6;
+    line-height: 1.7;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -210,7 +159,17 @@ Soft, elegant, and premium aesthetic with Satoshi font.
   h5,
   h6 {
     font-weight: 600;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.04em;
+    color: hsl(var(--text-primary));
+  }
+
+  p {
+    color: hsl(var(--text-secondary));
+  }
+
+  small {
+    font-size: 0.85rem;
+    color: hsl(var(--text-subtle));
   }
 
   button,
@@ -218,9 +177,100 @@ Soft, elegant, and premium aesthetic with Satoshi font.
     font-weight: 500;
     @apply transition-all duration-200 ease-in-out;
   }
+}
 
-  small {
-    font-size: 0.85rem;
-    letter-spacing: 0.01em;
+/* ================= CURSORS ================= */
+
+.cursor-shovel {
+  cursor: url("/shovel-cursor.png") 16 16, pointer !important;
+}
+.cursor-shovel * {
+  cursor: inherit;
+}
+.cursor-shovel .flower-clickable {
+  cursor: pointer !important;
+}
+
+/* ================= ANIMATIONS ================= */
+
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
   }
+  25% {
+    transform: rotate(2deg);
+  }
+  75% {
+    transform: rotate(-2deg);
+  }
+}
+.animate-sway {
+  animation: sway 3s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes drift {
+  from {
+    transform: translateX(-150px);
+  }
+  to {
+    transform: translateX(calc(100vw + 150px));
+  }
+}
+.cloud {
+  position: absolute;
+  animation: drift linear infinite;
+  will-change: transform;
+}
+
+/* Glow uses SATURATION, not brightness */
+@keyframes soft-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 14px rgba(251, 99, 118, 0.45))
+      drop-shadow(0 0 32px rgba(93, 42, 66, 0.7));
+  }
+  50% {
+    filter: drop-shadow(0 0 22px rgba(251, 99, 118, 0.65))
+      drop-shadow(0 0 48px rgba(93, 42, 66, 0.9));
+  }
+}
+.animate-new-flower {
+  animation: soft-glow 2.5s ease-in-out 5;
+}
+.animate-viewing-flower {
+  animation: soft-glow 2.5s ease-in-out infinite;
+}
+
+/* ================= MODALS & TOASTS ================= */
+
+[data-sonner-toast] [data-description] {
+  color: hsl(var(--text-secondary)) !important;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes modal-slide-from-bottom-right {
+  from {
+    opacity: 0;
+    transform: translate(200px, 200px) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+.animate-modal-fade-in {
+  animation: modal-fade-in 0.3s ease-out forwards;
+}
+.animate-modal-slide-from-bottom-right {
+  animation: modal-slide-from-bottom-right 0.6s
+    cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }

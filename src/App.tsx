@@ -14,11 +14,12 @@ import Connections from "./pages/Connections";
 import Settings from "./pages/Settings";
 import CapsuleDetail from "./components/CapsuleDetail";
 import ExploreCapsulesPage from "./pages/ExploreCapsulesPage";
-import CapsuleDetailPage from "./pages/CapsuleDetailPage";
+
 import UserCapsulesPage from "./pages/UserCapsulesPage";
 import { useEffect } from "react";
 import { getFCMToken, onForegroundMessage } from "./notifications.js";
 import { PricingDemo } from "./pages/PricingPage";
+import Garden from "./pages/Garden.tsx";
 function App() {
   useEffect(() => {
     getFCMToken().then((token) => {
@@ -85,30 +86,24 @@ function App() {
           />
 
           {/* Community Routes */}
+
           <Route
-            path="/community"
+            path="/garden"
             element={
               <ProtectedRoute>
-                <ExploreCapsulesPage />
+                <Garden />
               </ProtectedRoute>
             }
           />
           <Route
-            path="/community/capsule/:id"
+            path="/flower/:slug"
             element={
               <ProtectedRoute>
-                <CapsuleDetailPage />
+                <Garden />
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/community/user/:userId"
-            element={
-              <ProtectedRoute>
-                <UserCapsulesPage />
-              </ProtectedRoute>
-            }
-          />
+
           <Route
             path="/pricing"
             element={

@@ -24,6 +24,13 @@ interface LocalAttachment {
   size: number;
 }
 
+interface Friend {
+  id: string;
+  name: string;
+  email: string;
+  photoURL?: string;
+}
+
 /* ================= COMPONENT ================= */
 
 const CreateCapsule = () => {
@@ -31,10 +38,20 @@ const CreateCapsule = () => {
   const { refreshCapsules } = useCapsules();
   const auth = getAuth();
   const storage = getStorage();
+  /* ---------- PLAN ---------- */
+  const [plan, setPlan] = useState<{
+    tier: "free" | "starter" | "pro";
+    capsuleLimit: number | null;
+    usedCapsules: number;
+  } | null>(null);
 
   /* ---------- USER ---------- */
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [username, setUsername] = useState<string>("");
+
+  /* ---------- FRIENDS ---------- */
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
 
   /* ---------- FORM ---------- */
   const [title, setTitle] = useState("");
@@ -64,7 +81,7 @@ const CreateCapsule = () => {
     };
   };
 
-  /* ================= AUTH ================= */
+  /* ================= AUTH + FRIENDS ================= */
 
   useEffect(() => {
     const unsub = auth.onAuthStateChanged(async (user) => {
@@ -77,11 +94,35 @@ const CreateCapsule = () => {
 
       try {
         const headers = await getAuthHeaders();
-        const res = await fetch(`${API_BASE}/getMyProfile`, { headers });
-        const data = await res.json();
-        setUsername(data?.username || user.email || "Anonymous");
-      } catch {
-        setUsername(user.email || "Anonymous");
+
+        // 🔹 Load profile
+        const profileRes = await fetch(`${API_BASE}/getMyProfile`, { headers });
+        const profile = await profileRes.json();
+        setUsername(profile?.name || user.email || "Anonymous");
+        setPlan(profile?.plan || null);
+        // 🔹 Load friends
+        setFriendsLoading(true);
+        const friendsRes = await fetch(`${API_BASE}/getFriends`, { headers });
+        const friendsData = await friendsRes.json();
+        const normalizedFriends = friendsData.map((f: any) => ({
+          id: f.profile?.uid || f.id,
+          name: f.profile?.name || f.profile?.email?.split("@")[0] || "Unknown",
+          email: f.profile?.email || "",
+          photoURL: f.profile?.photoURL,
+        }));
+
+        setFriends(normalizedFriends); // ✅ THIS is the source of truth
+
+        setFriends(normalizedFriends || []);
+      } catch (err) {
+        console.error(err);
+        toast({
+          title: "Error",
+          description: "Failed to load profile or friends",
+          variant: "destructive",
+        });
+      } finally {
+        setFriendsLoading(false);
       }
     });
 
@@ -119,9 +160,6 @@ const CreateCapsule = () => {
     capsuleId: string,
     attachment: LocalAttachment
   ) => {
-    // 🔐 PLACEHOLDER FOR FUTURE ENCRYPTION
-    // const encryptedBlob = await encryptFile(attachment.file, capsuleKey);
-
     const storagePath = `capsules/${capsuleId}/${attachment.id}`;
     const storageRef = ref(storage, storagePath);
 
@@ -180,8 +218,20 @@ const CreateCapsule = () => {
 
     return true;
   };
-
+  const hasReachedLimit =
+    plan &&
+    plan.capsuleLimit !== null &&
+    plan.usedCapsules >= plan.capsuleLimit;
   const handleFormSubmit = () => {
+    if (hasReachedLimit) {
+      toast({
+        title: "Capsule limit reached",
+        description: "Upgrade your plan to create more capsules",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (validateForm()) setShowSealModal(true);
   };
 
@@ -259,15 +309,9 @@ const CreateCapsule = () => {
       </div>
     );
   }
-  /* ================= STEPS ================= */
 
-  const nextStep = () => {
-    setCurrentStep((prev) => prev + 1);
-  };
-
-  const prevStep = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 0));
-  };
+  const nextStep = () => setCurrentStep((p) => p + 1);
+  const prevStep = () => setCurrentStep((p) => Math.max(p - 1, 0));
 
   return (
     <div className="min-h-screen bg-[#FFF9EC]">
@@ -283,6 +327,24 @@ const CreateCapsule = () => {
             Create a <span className="text-[#FB6376]">Forá</span> Capsule
           </h1>
         </div>
+        {plan && (
+          <div className="mb-6 rounded-xl border bg-white p-4 flex items-center justify-between">
+            <div>
+              <p className="font-semibold capitalize">{plan.tier} plan</p>
+              <p className="text-sm text-muted-foreground">
+                {plan.capsuleLimit === null
+                  ? "Unlimited capsules"
+                  : `${plan.usedCapsules} / ${plan.capsuleLimit} capsules used`}
+              </p>
+            </div>
+
+            {hasReachedLimit && (
+              <span className="text-sm font-medium text-red-600">
+                Limit reached
+              </span>
+            )}
+          </div>
+        )}
 
         <CapsuleMultistepForm
           title={title}
@@ -292,6 +354,8 @@ const CreateCapsule = () => {
           deliveryTime={deliveryTime}
           recipientType={recipientType}
           selectedFriends={selectedFriends}
+          friends={friends}
+          loadingFriends={friendsLoading}
           capsuleCategory={capsuleCategory}
           attachments={attachments}
           username={username}
@@ -311,6 +375,7 @@ const CreateCapsule = () => {
           currentStep={currentStep}
           onSubmit={handleFormSubmit}
           isSubmitting={isSubmitting}
+          isBlocked={hasReachedLimit}
         />
       </div>
 

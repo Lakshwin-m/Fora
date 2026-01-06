@@ -25,7 +25,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { AnimatedStatsCard } from "@/components/ui/card-4";
-
+import { parseFirebaseDate, formatFirebaseDate } from "@/lib/date";
+import { PlanBadge } from "@/components/PlanBadge";
 import {
   Clock,
   Calendar,
@@ -60,13 +61,8 @@ import {
 } from "lucide-react";
 import gsap from "gsap";
 
+import { usePlan } from "@/hooks/usePlan";
 /* ===================== HELPERS ===================== */
-
-const toDate = (value: any): Date => {
-  if (!value) return new Date(0);
-  if (value.toDate) return value.toDate(); // Firestore Timestamp
-  return new Date(value); // ISO string
-};
 
 /* ===================== TYPES ===================== */
 
@@ -175,7 +171,9 @@ const getTriggerIcon = (triggerType?: string) => {
 /* ===================== DATE HELPERS ===================== */
 
 const getCountdown = (unlockDate: any, now: Date) => {
-  const diff = toDate(unlockDate).getTime() - now.getTime();
+  const date = parseFirebaseDate(unlockDate);
+  if (!date) return "Invalid date";
+  const diff = date.getTime() - now.getTime();
   if (diff <= 0) return "Ready to open";
 
   const days = Math.floor(diff / 86400000);
@@ -186,13 +184,6 @@ const getCountdown = (unlockDate: any, now: Date) => {
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
 };
-
-const formatDate = (value: any) =>
-  toDate(value).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 
 /* ===================== CAPSULE CARD ===================== */
 
@@ -207,7 +198,9 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const unlockDate = toDate(capsule.unlockDate || capsule.deliveryDate);
+  const unlockDate =
+    parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ??
+    new Date(0);
   const isUnlocked =
     unlockDate.getTime() <= currentTime.getTime() || capsule.isUnlocked;
   const isSentToSelf = capsule.recipientType === "self";
@@ -258,7 +251,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
       setIsDialogOpen(false);
     }
   };
-
+  const planNames = ["Arki", "Kyklos", "Aion"];
   return (
     <div ref={cardRef} className="group relative">
       <Card
@@ -388,7 +381,9 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                   <EyeOff className="w-4 h-4 mt-1 flex-shrink-0" />
                   <span>
                     Contents sealed until{" "}
-                    {formatDate(capsule.unlockDate || capsule.deliveryDate)}
+                    {formatFirebaseDate(
+                      capsule.unlockDate || capsule.deliveryDate
+                    )}
                   </span>
                 </span>
               )}
@@ -430,7 +425,9 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                       </div>
                       <div className="text-xs text-[#666666]">
                         Unlocks{" "}
-                        {formatDate(capsule.unlockDate || capsule.deliveryDate)}
+                        {formatFirebaseDate(
+                          capsule.unlockDate || capsule.deliveryDate
+                        )}
                       </div>
                     </div>
                   </>
@@ -455,7 +452,9 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
               {/* Creation date */}
               <div className="text-sm text-[#999999]">
                 Created{" "}
-                {formatDate(capsule.createdAt || new Date().toISOString())}
+                {formatFirebaseDate(
+                  capsule.createdAt || new Date().toISOString()
+                )}
               </div>
             </div>
 
@@ -551,12 +550,13 @@ const EmptyState = ({ type }: { type: "sent" | "received" }) => {
 /* ===================== DASHBOARD ===================== */
 
 const Dashboard = () => {
+  const { plan, loading: planLoading } = usePlan();
   const navigate = useNavigate();
   const { capsules, receivedCapsules, loading } = useCapsules();
   const [activeTab, setActiveTab] = useState("sent");
   const [currentTime, setCurrentTime] = useState(new Date());
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
-
+  const planNames = ["Arki", "Kyklos", "Aion"];
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -631,15 +631,27 @@ const Dashboard = () => {
                 <AnimatedStatsCard
                   title="Unlocked Capsules"
                   primaryValue={
-                    [...sent, ...received].filter(
-                      (c) =>
-                        toDate(c.unlockDate || c.deliveryDate).getTime() <=
-                          Date.now() || c.isUnlocked
-                    ).length
+                    [...sent, ...received].filter((c) => {
+                      const d = parseFirebaseDate(
+                        c.unlockDate || c.deliveryDate
+                      );
+                      return d
+                        ? d.getTime() <= Date.now() || c.isUnlocked
+                        : false;
+                    }).length
                   }
                 />
               </div>
             </div>
+            {!planLoading && plan && (
+              <div className="absolute top-4 right-4 z-20 scale-[0.85] origin-top-left">
+                <PlanBadge
+                  tier={plan.tier}
+                  usedCapsules={plan.usedCapsules}
+                  capsuleLimit={plan.capsuleLimit}
+                />
+              </div>
+            )}
 
             {/* Tabs */}
             <Tabs

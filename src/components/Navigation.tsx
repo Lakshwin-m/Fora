@@ -20,6 +20,7 @@ import {
   Camera,
   Sparkles,
   ChevronRight,
+  Fence,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebase";
@@ -63,24 +64,24 @@ const Navigation = () => {
       path: "/create",
       label: "Create",
       icon: Plus,
-      highlight: true,
     },
     {
       path: "/connections",
       label: "Connections",
       icon: Users,
     },
-    {
-      path: "/community",
-      label: "Community",
-      icon: Heart,
-    },
 
+    {
+      path: "/garden",
+      label: "Garden",
+      icon: Fence,
+    },
     {
       path: "/profile",
       label: "Profile",
       icon: User,
     },
+
     {
       path: "/settings",
       label: "Settings",
@@ -206,7 +207,7 @@ const Navigation = () => {
               `}
             >
               <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
-                <Gift className="w-6 h-6 text-white" />
+                <span className="font-bold">Forá</span>
               </div>
 
               {isHovered && (
