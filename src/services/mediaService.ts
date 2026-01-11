@@ -43,7 +43,10 @@ export async function fetchMediaBlob(
 ): Promise<Blob> {
   if (!isUnlocked) {
     throw new Error("Capsule is locked. Media access denied.");
-  }
+  }await uploadBytes(storageRef, attachment.file, {
+  contentType: attachment.file.type,
+});
+
 
   // Return cached blob if exists
   if (blobCache.has(attachment.storagePath)) {

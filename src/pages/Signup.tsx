@@ -10,17 +10,10 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import {
-  IconBrandGoogleFilled,
-  IconCheck,
-  IconX,
-  IconAlertCircle,
-} from "@tabler/icons-react";
+import { SunIcon as Sunburst } from "lucide-react";
+import { IconCheck, IconX, IconAlertCircle } from "@tabler/icons-react";
 
-export function SignupLoginForm() {
+export function SignUpLoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -224,7 +217,7 @@ export function SignupLoginForm() {
   // Password validation component - ALL RED INITIALLY
   const PasswordValidation = () => (
     <div className="mt-3 space-y-2">
-      <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+      <p className="text-sm font-medium text-gray-700">
         Password must contain:
       </p>
       <div className="grid grid-cols-1 gap-2">
@@ -254,288 +247,365 @@ export function SignupLoginForm() {
 
   if (showUsernameStep) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f5f1ed] px-4">
-        <div className="mx-auto w-full max-w-md py-12">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-neutral-800 dark:text-neutral-200 mb-2">
-              Choose Your Username
-            </h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              This will be displayed on your profile
-            </p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+        <div className="w-full max-w-5xl bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col md:flex-row">
+          {/* Left Side */}
+          <div className="md:w-1/2 bg-red- p-8 md:p-12 relative overflow-hidden">
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+
+            {/* Gradient stripes */}
+            <div className="absolute inset-0 flex">
+              {[...Array(6)].map((_, i) => (
+                <div
+                  key={i}
+                  className="h-full w-16 opacity-20"
+                  style={{
+                    background: `linear-gradient(90deg, 
+                      rgba(255,255,255,0) 0%, 
+                      rgba(0,0,0,0.8) 50%, 
+                      rgba(255,255,255,0.2) 100%)`,
+                    marginRight: i < 5 ? "0.5rem" : "0",
+                  }}
+                ></div>
+              ))}
+            </div>
+
+            {/* Content */}
+            <div className="relative z-10">
+              <h1 className="text-2xl md:text-3xl font-medium leading-tight text-white">
+                Welcome to Time Capsule
+              </h1>
+              <p className="mt-4 text-gray-300">
+                Just one more step to complete your profile and start creating
+                memories
+              </p>
+            </div>
           </div>
 
-          {error && (
-            <div className="mb-6 flex items-center gap-3 rounded-xl bg-red-50 p-4 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-              <IconAlertCircle className="h-5 w-5 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <form className="space-y-4" onSubmit={handleUsernameSubmit}>
-            <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-              <LabelInputContainer>
-                <Input
-                  id="firstname"
-                  placeholder="First name"
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="h-12 text-sm"
-                />
-              </LabelInputContainer>
-              <LabelInputContainer>
-                <Input
-                  id="lastname"
-                  placeholder="Last name"
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="h-12 text-sm"
-                />
-              </LabelInputContainer>
+          {/* Right Side - Username Form */}
+          <div className="md:w-1/2 p-8 md:p-12 flex flex-col">
+            <div className="flex flex-col mb-8">
+              <div className="text-orange-500 mb-4">
+                <Sunburst className="h-10 w-10" />
+              </div>
+              <h2 className="text-3xl font-medium mb-2 tracking-tight">
+                Complete Your Profile
+              </h2>
+              <p className="text-gray-600">
+                Choose how you'll appear to others
+              </p>
             </div>
 
-            <LabelInputContainer>
-              <Input
-                id="username"
-                placeholder="Username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                minLength={3}
-                className="h-12 text-sm"
-              />
-            </LabelInputContainer>
+            {error && (
+              <div className="mb-6 flex items-center gap-3 rounded-lg bg-red-50 p-4 text-sm text-red-600">
+                <IconAlertCircle className="h-5 w-5 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
 
-            <button
-              className={`relative flex h-12 w-full items-center justify-center rounded-lg bg-[#d4a59a] font-medium text-white text-sm transition-all ${
-                loading ? "opacity-50 cursor-not-allowed" : "hover:bg-[#c89485]"
-              }`}
-              type="submit"
-              disabled={loading}
+            <form
+              className="flex flex-col gap-4"
+              onSubmit={handleUsernameSubmit}
             >
-              {loading ? "Creating profile..." : "Continue"}
-            </button>
-          </form>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="firstname"
+                    className="block text-sm mb-2 text-gray-700"
+                  >
+                    First name
+                  </label>
+                  <input
+                    type="text"
+                    id="firstname"
+                    placeholder="First name"
+                    className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="lastname"
+                    className="block text-sm mb-2 text-gray-700"
+                  >
+                    Last name
+                  </label>
+                  <input
+                    type="text"
+                    id="lastname"
+                    placeholder="Last name"
+                    className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="username"
+                  className="block text-sm mb-2 text-gray-700"
+                >
+                  Username *
+                </label>
+                <input
+                  type="text"
+                  id="username"
+                  placeholder="Choose a username"
+                  className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  minLength={3}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
+              >
+                {loading ? "Creating profile..." : "Complete Sign Up"}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f5f1ed] px-4">
-      <div className="mx-auto w-full max-w-md py-12">
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-neutral-800 dark:text-neutral-200 mb-2">
-            {isLogin ? "Welcome Back" : "Create Account"}
-          </h2>
-          <p className="text-sm text-neutral-600 dark:text-neutral-300">
-            {isLogin
-              ? "There you are shall we make more moments worth saving?"
-              : "Join our community to create and share time capsules"}
-          </p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+      <div className="w-full max-w-5xl bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col md:flex-row">
+        <div className="md:w-1/2 relative overflow-hidden">
+          {/* Content */}
+          <div className="relative z-10 p-8 md:p-12 h-full flex flex-col justify-center bg-red-500">
+            <h1 className="text-2xl md:text-3xl font-medium leading-tight text-white">
+              Messages for the moments
+              <br />
+              that matter most.
+            </h1>
+            <p className="mt-4 text-gray-300">
+              {isLogin
+                ? "There you are. Shall we make more moments worth saving?"
+                : "Join our community to create and share memories that last forever"}
+            </p>
+          </div>
         </div>
 
-        {error && (
-          <div className="mb-6 flex items-center gap-3 rounded-xl bg-red-50 p-4 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-            <IconAlertCircle className="h-5 w-5 flex-shrink-0" />
-            <span>{error}</span>
+        {/* Right Side - Auth Form */}
+        <div className="md:w-1/2 p-8 md:p-12 flex flex-col">
+          <div className="flex flex-col mb-8">
+            <h2 className="text-3xl font-medium mb-2 tracking-tight">
+              {isLogin ? "Welcome Back" : "Get Started"}
+            </h2>
+            <p className="text-gray-600">
+              {isLogin
+                ? "Sign in to continue your journey"
+                : "Create an account to start your journey"}
+            </p>
           </div>
-        )}
 
-        <form className="space-y-4" onSubmit={handleEmailAuth}>
-          {isLogin && (
-            <>
-              <button
-                className={`relative flex h-12 w-full items-center justify-center space-x-2 rounded-lg border border-neutral-300 bg-white font-medium text-neutral-700 text-sm transition-all ${
-                  loading
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-neutral-50"
-                }`}
-                type="button"
-                onClick={handleGoogleSignIn}
-                disabled={loading}
-              >
-                <img
-                  src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg"
-                  alt="Google logo"
-                  className="w-5 h-5"
-                />
-                <span>Continue with Google</span>
-              </button>
+          {error && (
+            <div className="mb-6 flex items-center gap-3 rounded-lg bg-red-50 p-4 text-sm text-red-600">
+              <IconAlertCircle className="h-5 w-5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-neutral-300"></div>
+          <form className="flex flex-col gap-4" onSubmit={handleEmailAuth}>
+            {isLogin && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                  className="w-full border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                >
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg"
+                    alt="Google logo"
+                    className="w-5 h-5"
+                  />
+                  Continue with Google
+                </button>
+
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-white px-4 text-gray-500 uppercase">
+                      OR
+                    </span>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="bg-[#f5f1ed] px-4 text-neutral-500 uppercase">
-                    OR
-                  </span>
+              </>
+            )}
+
+            {!isLogin && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label
+                    htmlFor="firstname"
+                    className="block text-sm mb-2 text-gray-700"
+                  >
+                    First name *
+                  </label>
+                  <input
+                    type="text"
+                    id="firstname"
+                    placeholder="First name"
+                    className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required={!isLogin}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="lastname"
+                    className="block text-sm mb-2 text-gray-700"
+                  >
+                    Last name *
+                  </label>
+                  <input
+                    type="text"
+                    id="lastname"
+                    placeholder="Last name"
+                    className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required={!isLogin}
+                  />
                 </div>
               </div>
-            </>
-          )}
+            )}
 
-          {!isLogin && (
-            <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-              <LabelInputContainer>
-                <Input
-                  id="firstname"
-                  placeholder="First name"
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  required={!isLogin}
-                  className="h-12 text-sm"
-                />
-              </LabelInputContainer>
-              <LabelInputContainer>
-                <Input
-                  id="lastname"
-                  placeholder="Last name"
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  required={!isLogin}
-                  className="h-12 text-sm"
-                />
-              </LabelInputContainer>
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm mb-2 text-gray-700"
+              >
+                Email *
+              </label>
+              <input
+                type="email"
+                id="email"
+                placeholder="you@example.com"
+                className={`w-full py-2 px-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                  error.includes("email") ? "border-red-500" : "border-gray-300"
+                }`}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
             </div>
-          )}
 
-          <LabelInputContainer>
-            <Input
-              id="email"
-              placeholder="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className={`h-12 text-sm ${
-                error.includes("email")
-                  ? "border-red-500 dark:border-red-500"
-                  : ""
-              }`}
-            />
-          </LabelInputContainer>
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm mb-2 text-gray-700"
+              >
+                {isLogin ? "Password *" : "Create Password *"}
+              </label>
+              <input
+                type="password"
+                id="password"
+                placeholder={
+                  isLogin ? "Your password" : "At least 8 characters"
+                }
+                className={`w-full py-2 px-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
+                  error.includes("password") || error.includes("Password")
+                    ? "border-red-500"
+                    : "border-gray-300"
+                }`}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              {!isLogin && <PasswordValidation />}
+            </div>
 
-          <LabelInputContainer>
-            <Input
-              id="password"
-              placeholder={
-                !isLogin ? "Password (min. 8 characters)" : "Password"
-              }
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className={`h-12 text-sm ${
-                error.includes("password") || error.includes("Password")
-                  ? "border-red-500 dark:border-red-500"
-                  : ""
-              }`}
-            />
-            {!isLogin && <PasswordValidation />}
-          </LabelInputContainer>
+            {isLogin && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  className="text-sm text-gray-600 hover:text-gray-800"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
 
-          {isLogin && (
-            <div className="text-center">
+            <button
+              type="submit"
+              className="w-full bg-red-600 hover:bg-orange-600 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || (!isLogin && !isPasswordValid)}
+            >
+              {loading
+                ? isLogin
+                  ? "Signing in..."
+                  : "Creating account..."
+                : isLogin
+                ? "Sign In"
+                : "Create Account"}
+            </button>
+
+            <div className="text-center text-xs text-gray-600 py-2">
+              By continuing, you agree to our{" "}
               <button
                 type="button"
-                className="text-sm text-neutral-600 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
+                className="underline hover:text-gray-800"
+                onClick={() => {
+                  /* Add terms modal */
+                }}
               >
-                Forgot password?
+                Terms of Service
+              </button>{" "}
+              and{" "}
+              <button
+                type="button"
+                className="underline hover:text-gray-800"
+                onClick={() => {
+                  /* Add privacy modal */
+                }}
+              >
+                Privacy Policy
               </button>
             </div>
-          )}
 
-          <button
-            className={`relative flex h-12 w-full items-center justify-center rounded-lg bg-[#5b2941] font-medium text-white text-sm transition-all ${
-              loading ? "opacity-50 cursor-not-allowed" : "hover:bg-[#5b2940]"
-            } ${
-              !isLogin && !isPasswordValid
-                ? "opacity-50 cursor-not-allowed"
-                : ""
-            }`}
-            type="submit"
-            disabled={loading || (!isLogin && !isPasswordValid)}
-          >
-            {loading
-              ? isLogin
-                ? "Logging in..."
-                : "Creating account..."
-              : `${isLogin ? "Sign In" : "Create Account"}`}
-          </button>
-
-          <div className="text-center text-xs text-neutral-600 dark:text-neutral-300 py-2">
-            By continuing, you agree to our{" "}
-            <button
-              type="button"
-              className="underline hover:text-neutral-800 dark:hover:text-neutral-200"
-            >
-              Terms of Service
-            </button>{" "}
-            and{" "}
-            <button
-              type="button"
-              className="underline hover:text-neutral-800 dark:hover:text-neutral-200"
-            >
-              Privacy Policy
-            </button>
-          </div>
-
-          <p className="text-center text-sm text-neutral-600 dark:text-neutral-300">
-            {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError("");
-                setPassword("");
-                if (!isLogin) {
-                  setPasswordValidation({
-                    minLength: false,
-                    hasUppercase: false,
-                    hasLowercase: false,
-                    hasNumber: false,
-                    hasSpecialChar: false,
-                  });
-                }
-              }}
-              className="font-semibold text-[#c89485] hover:text-[#b58475] underline"
-            >
-              {isLogin ? "Sign up" : "Sign in"}
-            </button>
-          </p>
-        </form>
+            <div className="text-center text-sm text-gray-600">
+              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setError("");
+                  setPassword("");
+                  if (!isLogin) {
+                    setPasswordValidation({
+                      minLength: false,
+                      hasUppercase: false,
+                      hasLowercase: false,
+                      hasNumber: false,
+                      hasSpecialChar: false,
+                    });
+                  }
+                }}
+                className="font-semibold text-orange-500 hover:text-orange-600 underline"
+              >
+                {isLogin ? "Sign up" : "Sign in"}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
 }
-
-const BottomGradient = () => {
-  return (
-    <>
-      <span className="absolute inset-x-0 -bottom-px block h-px w-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-0 transition duration-500 group-hover/btn:opacity-100" />
-      <span className="absolute inset-x-10 -bottom-px mx-auto block h-px w-1/2 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-0 blur-sm transition duration-500 group-hover/btn:opacity-100" />
-    </>
-  );
-};
-
-const LabelInputContainer = ({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) => {
-  return (
-    <div className={cn("flex w-full flex-col", className)}>{children}</div>
-  );
-};
 
 const ValidationItem = ({
   isValid,
@@ -546,19 +616,13 @@ const ValidationItem = ({
   text: string;
   className?: string;
 }) => (
-  <div className={cn("flex items-center gap-2", className)}>
+  <div className={`flex items-center gap-2 ${className}`}>
     {isValid ? (
       <IconCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
     ) : (
       <IconX className="h-4 w-4 text-red-500 flex-shrink-0" />
     )}
-    <span
-      className={`text-sm ${
-        isValid
-          ? "text-green-600 dark:text-green-400"
-          : "text-red-500 dark:text-red-400"
-      }`}
-    >
+    <span className={`text-sm ${isValid ? "text-green-600" : "text-red-500"}`}>
       {text}
     </span>
   </div>

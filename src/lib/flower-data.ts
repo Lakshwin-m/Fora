@@ -37,6 +37,62 @@ export const FLOWER_METADATA: Record<FlowerType, FlowerMetadata> = {
     tags: ["Vibrant", "Confident", "Energetic"],
     image: "/lily.png",
   },
+
+  lavender: {
+    name: "Lavender",
+    description: "Planted for calm, healing, and quiet peace.",
+    tags: ["Peaceful", "Healing", "Soft"],
+    image: "/lavender.png",
+  },
+
+  lotus: {
+    name: "Lotus",
+    description: "Represents strength, resilience, and rising above.",
+    tags: ["Resilient", "Grounded", "Hopeful"],
+    image: "/lotus.png",
+  },
+
+  "cherry-blossom": {
+    name: "Cherry Blossom",
+    description: "A reminder of beauty that is gentle and fleeting.",
+    tags: ["Gentle", "Fragile", "Tender"],
+    image: "/cherry_blossom.png",
+  },
+
+  "red-poppy": {
+    name: "Poppy",
+    description: "Planted in silence to honor loss and remembrance.",
+    tags: ["Memory", "Respectful", "Still"],
+    image: "/poppy.png",
+  },
+
+  "white-daisy": {
+    name: "Daisy",
+    description: "Symbolizes innocence, simplicity, and fresh beginnings.",
+    tags: ["Pure", "Light", "Fresh"],
+    image: "/daisy.png",
+  },
+
+  "blue-iris": {
+    name: "Iris",
+    description: "Represents trust, hope, and unspoken messages.",
+    tags: ["Faith", "Connection", "Hopeful"],
+    image: "/iris.png",
+  },
+
+  camellia: {
+    name: "Camellia",
+    description: "Given to express admiration without words.",
+    tags: ["Graceful", "Reserved", "Elegant"],
+    image: "/camellia.png",
+  },
+
+  anemone: {
+    name: "Anemone",
+    description: "A symbol of acceptance and letting go.",
+    tags: ["Release", "Quiet", "Open"],
+    image: "/anemone.png",
+  },
 };
 
 // Helper to generate URL-friendly slug from title with UUID suffix

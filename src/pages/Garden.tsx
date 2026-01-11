@@ -124,7 +124,7 @@ export default function GardenPage() {
     setOffset(preZoomOffset);
     setSelectedFlower(null);
     setUserState("normal");
-    navigate("/");
+    navigate("/garden ");
   }, [preZoomOffset]);
 
   const handleGrassClick = useCallback(

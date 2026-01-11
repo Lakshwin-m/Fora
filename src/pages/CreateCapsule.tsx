@@ -259,7 +259,6 @@ const CreateCapsule = () => {
         )}T${deliveryTime}:00`;
         unlockDate = new Date(dateTime);
       }
-
       const res = await fetch(`${API_BASE}/createCapsule`, {
         method: "POST",
         headers,

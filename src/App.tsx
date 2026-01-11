@@ -4,7 +4,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { SignupLoginForm } from "./pages/Signup";
+import { SignUpLoginForm } from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import ProtectedRoute from "./pages/ProtectedRoutes";
@@ -32,8 +32,8 @@ function App() {
     <CapsuleProvider>
       <Router>
         <Routes>
-          <Route path="/signup" element={<SignupLoginForm />} />
-          <Route path="/login" element={<SignupLoginForm />} />
+          <Route path="/signup" element={<SignUpLoginForm />} />
+          <Route path="/login" element={<SignUpLoginForm />} />
 
           {/* Protected Routes */}
           <Route

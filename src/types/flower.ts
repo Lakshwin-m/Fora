@@ -1,10 +1,18 @@
 export type FlowerType =
   | "red-tulip"
-  | "yellow-sunflower"
-  | "blue-forget-me-not"
   | "white-rose"
+  | "yellow-sunflower"
   | "pink-carnation"
-  | "orange-lily";
+  | "blue-forget-me-not"
+  | "orange-lily"
+  | "lavender"
+  | "lotus"
+  | "cherry-blossom"
+  | "red-poppy"
+  | "white-daisy"
+  | "blue-iris"
+  | "camellia"
+  | "anemone";
 
 export interface Flower {
   id: string;

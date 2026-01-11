@@ -38,16 +38,19 @@ const corsHandler = cors({
    AUTH HELPER
    ============================================================ */
 
-async function verifyAuth(req: any) {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
-    throw new HttpsError("unauthenticated", "Missing token");
+export const verifyAuth = async (req: any) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    throw new Error("Missing token");
   }
 
-  const token = header.split("Bearer ")[1];
-  return admin.auth().verifyIdToken(token);
-}
+  const token = authHeader.substring(7); // remove "Bearer "
 
+  const decodedToken = await admin.auth().verifyIdToken(token);
+
+  return decodedToken;
+};
 /* ============================================================
    EXISTING BACKEND LOGIC (UNCHANGED)
    ============================================================ */
@@ -152,39 +155,39 @@ export const createCapsule = onRequest((req, res) => {
 
       await db.runTransaction(async (tx) => {
         const userSnap = await tx.get(userRef);
-        if (!userSnap.exists) {
-          throw new Error("User not found");
-        }
+        if (!userSnap.exists) throw new Error("User not found");
 
         const userData = userSnap.data();
         const plan = userData?.plan;
+        if (!plan) throw new Error("No plan assigned");
 
-        if (!plan) {
-          throw new Error("No plan assigned");
-        }
-
-        const { capsuleLimit, resetInterval, lastResetAt } = plan;
+        const capsuleLimit = plan.capsuleLimit ?? null;
+        let usedCapsules = plan.usedCapsules ?? 0;
 
         // 🔁 Monthly reset (starter)
-        if (resetInterval === "monthly" && lastResetAt) {
+        if (
+          plan.resetInterval === "monthly" &&
+          plan.lastResetAt &&
+          typeof plan.lastResetAt.toDate === "function"
+        ) {
           const now = admin.firestore.Timestamp.now();
-          const last = lastResetAt.toDate();
+          const last = plan.lastResetAt.toDate();
 
           const isNewMonth =
             now.toDate().getMonth() !== last.getMonth() ||
             now.toDate().getFullYear() !== last.getFullYear();
 
           if (isNewMonth) {
+            usedCapsules = 0;
             tx.update(userRef, {
               "plan.usedCapsules": 0,
               "plan.lastResetAt": now,
             });
-            plan.usedCapsules = 0;
           }
         }
 
-        // 🚫 ENFORCEMENT
-        if (capsuleLimit !== null && plan.usedCapsules >= capsuleLimit) {
+        // 🚫 ENFORCEMENT (ONLY THIS)
+        if (capsuleLimit !== null && usedCapsules >= capsuleLimit) {
           throw new Error("CAPSULE_LIMIT_REACHED");
         }
 
@@ -207,14 +210,13 @@ export const createCapsule = onRequest((req, res) => {
           isUnlocked: false,
         });
 
-        // 🔢 Increment usage
+        // 🔢 Increment usage (single source of truth)
         tx.update(userRef, {
           "plan.usedCapsules": admin.firestore.FieldValue.increment(1),
         });
       });
 
       res.json({ success: true });
-      return; // ✅ IMPORTANT
     } catch (e: any) {
       console.error("createCapsule error:", e.message);
 
@@ -223,11 +225,10 @@ export const createCapsule = onRequest((req, res) => {
           error: "Capsule limit reached. Upgrade your plan.",
           code: "LIMIT_REACHED",
         });
-        return; // ✅ IMPORTANT
+        return;
       }
 
       res.status(401).json({ error: e.message });
-      return; // ✅ IMPORTANT
     }
   });
 });
