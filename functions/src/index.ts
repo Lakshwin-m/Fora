@@ -21,6 +21,15 @@ type FlowerDoc = {
 // Limit instances (cost + safety)
 setGlobalOptions({ maxInstances: 10 });
 
+export {
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+  getPaymentHistory,
+  cancelSubscription,
+  checkExpiredSubscriptions,
+  razorpayWebhook,
+} from "./payment-funtion";
+
 /* ============================================================
    CORS CONFIG (FOR BROWSER CALLS)
    ============================================================ */

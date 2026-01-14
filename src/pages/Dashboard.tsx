@@ -556,7 +556,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("sent");
   const [currentTime, setCurrentTime] = useState(new Date());
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
-  const planNames = ["Arki", "Kyklos", "Aion"];
+  const planNames = ["Arki", "Kyklos"];
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());

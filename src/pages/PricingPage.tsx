@@ -32,7 +32,7 @@ const DEMO_PLANS: PricingPlan[] = [
   {
     name: "Kyklos (Starter)",
     subtitle: "(kee-klos · cycle)",
-    monthlyPrice: 99,
+    monthlyPrice: 199,
     yearlyPrice: 999,
     features: [
       "5 Capsules Every Month",
@@ -48,7 +48,7 @@ const DEMO_PLANS: PricingPlan[] = [
   {
     name: "Aion (Pro)",
     subtitle: "(eye-on · forever)",
-    monthlyPrice: 199,
+    monthlyPrice: 399,
     yearlyPrice: 1999,
     features: [
       "Unlimited Capsules",

@@ -11,97 +11,57 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navigation from "@/components/Navigation";
 import { toast } from "@/hooks/use-toast";
 import { auth, db } from "@/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { updateProfile as updateAuthProfile, updateEmail } from "firebase/auth";
 import {
-  doc,
-  getDoc,
-  updateDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-  orderBy,
-  limit,
-} from "firebase/firestore";
-import { updateProfile as updateAuthProfile } from "firebase/auth";
-import {
-  User,
   Mail,
-  Calendar,
   MapPin,
   Edit,
   Save,
   Camera,
-  Clock,
-  Users,
-  Zap,
-  FileText,
   Shield,
-  Globe,
-  Bell,
-  Link,
   Key,
-  Trash2,
+  Bell,
   Loader2,
-  Plus,
+  User,
+  Globe,
+  Lock,
   Eye,
   EyeOff,
+  Smartphone,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("profile");
+
   const [profile, setProfile] = useState({
     name: "",
+    username: "",
     email: "",
     photoURL: "",
     bio: "",
-    joinDate: "",
     location: "",
-    website: "",
-    socialLinks: {
-      twitter: "",
-      instagram: "",
-      linkedin: "",
-    },
-    privacySettings: {
-      profileVisible: true,
-      emailVisible: false,
-      activityVisible: true,
-    },
   });
 
-  const [stats, setStats] = useState({
-    capsulesCreated: 0,
-    capsulesReceived: 0,
-    capsulesOpened: 0,
-    connectionsCount: 0,
+  const [settings, setSettings] = useState({
+    notifications: true,
+    emailNotifications: true,
+    twoFactorEnabled: false,
+    profileVisibility: "public",
   });
-
-  const [recentCapsules, setRecentCapsules] = useState<any[]>([]);
-  const [connections, setConnections] = useState<any[]>([]);
-  const [isLoadingCapsules, setIsLoadingCapsules] = useState(false);
-  const [isLoadingConnections, setIsLoadingConnections] = useState(false);
 
   useEffect(() => {
     fetchUserProfile();
   }, []);
-
-  useEffect(() => {
-    if (activeTab === "capsules" && !recentCapsules.length) {
-      fetchRecentCapsules();
-    }
-    if (activeTab === "connections" && !connections.length) {
-      fetchConnections();
-    }
-  }, [activeTab]);
 
   const fetchUserProfile = async () => {
     try {
@@ -124,62 +84,44 @@ const Profile = () => {
         const userData = userSnap.data();
         setProfile({
           name: userData.name || user.displayName || "User",
-          email: user.email || "",
+          username: userData.username || "",
+          email: userData.email || user.email || "",
           photoURL: userData.photoURL || user.photoURL || "",
           bio: userData.bio || "",
-          joinDate:
-            userData.joinDate ||
-            user.metadata.creationTime ||
-            new Date().toISOString(),
           location: userData.location || "",
-          website: userData.website || "",
-          socialLinks: userData.socialLinks || {
-            twitter: "",
-            instagram: "",
-            linkedin: "",
-          },
-          privacySettings: userData.privacySettings || {
-            profileVisible: true,
-            emailVisible: false,
-            activityVisible: true,
-          },
         });
 
-        // Fetch stats
-        await fetchUserStats(user.uid);
+        if (userData.settings) {
+          setSettings(userData.settings);
+        }
       } else {
+        // Set default profile from auth
         setProfile({
           name: user.displayName || "User",
+          username:
+            user.displayName?.toLowerCase().replace(/\s+/g, "") || "user",
           email: user.email || "",
           photoURL: user.photoURL || "",
           bio: "",
-          joinDate: user.metadata.creationTime || new Date().toISOString(),
           location: "",
-          website: "",
-          socialLinks: {
-            twitter: "",
-            instagram: "",
-            linkedin: "",
-          },
-          privacySettings: {
-            profileVisible: true,
-            emailVisible: false,
-            activityVisible: true,
-          },
         });
 
         // Create initial user document
         try {
           await updateDoc(userRef, {
             name: user.displayName || "User",
+            username:
+              user.displayName?.toLowerCase().replace(/\s+/g, "") || "user",
             email: user.email || "",
             photoURL: user.photoURL || "",
-            joinDate: user.metadata.creationTime || new Date().toISOString(),
+            location: "",
+            bio: "",
             createdAt: new Date().toISOString(),
-            privacySettings: {
-              profileVisible: true,
-              emailVisible: false,
-              activityVisible: true,
+            settings: {
+              notifications: true,
+              emailNotifications: true,
+              twoFactorEnabled: false,
+              profileVisibility: "public",
             },
           });
         } catch (error) {
@@ -198,109 +140,62 @@ const Profile = () => {
     }
   };
 
-  const fetchUserStats = async (userId: string) => {
+  const handleSaveProfile = async () => {
     try {
-      // Fetch capsules created by user
-      const capsulesQuery = query(
-        collection(db, "capsules"),
-        where("userId", "==", userId),
-        where("status", "!=", "deleted")
-      );
-      const capsulesSnap = await getDocs(capsulesQuery);
-
-      // Fetch connections
-      const connectionsQuery = query(
-        collection(db, "connections"),
-        where("userId", "==", userId),
-        where("status", "==", "connected")
-      );
-      const connectionsSnap = await getDocs(connectionsQuery);
-
-      // Calculate opened capsules
-      const openedCapsules = capsulesSnap.docs.filter(
-        (doc) => doc.data().status === "opened"
-      ).length;
-
-      // Calculate received capsules (capsules where user is a recipient)
-      const receivedQuery = query(
-        collection(db, "capsules"),
-        where("recipients", "array-contains", userId),
-        where("status", "!=", "deleted")
-      );
-      const receivedSnap = await getDocs(receivedQuery);
-
-      setStats({
-        capsulesCreated: capsulesSnap.size,
-        capsulesReceived: receivedSnap.size,
-        capsulesOpened: openedCapsules,
-        connectionsCount: connectionsSnap.size,
-      });
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    }
-  };
-
-  const fetchRecentCapsules = async () => {
-    try {
-      setIsLoadingCapsules(true);
+      setSaving(true);
       const user = auth.currentUser;
-      if (!user) return;
 
-      const capsulesQuery = query(
-        collection(db, "capsules"),
-        where("userId", "==", user.uid),
-        orderBy("createdAt", "desc"),
-        limit(5)
-      );
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "No user logged in.",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
 
-      const capsulesSnap = await getDocs(capsulesQuery);
-      const capsulesData = capsulesSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const userRef = doc(db, "users", user.uid);
 
-      setRecentCapsules(capsulesData);
-    } catch (error) {
-      console.error("Error fetching capsules:", error);
+      // Update profile data
+      await updateDoc(userRef, {
+        name: profile.name,
+        username: profile.username,
+        bio: profile.bio,
+        location: profile.location,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Update auth profile if name changed
+      if (profile.name !== user.displayName) {
+        await updateAuthProfile(user, {
+          displayName: profile.name,
+        });
+      }
+
+      // Update email if changed
+      if (profile.email !== user.email) {
+        await updateEmail(user, profile.email);
+      }
+
+      toast({
+        title: "Profile updated!",
+        description: "Your profile has been successfully updated.",
+      });
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
       toast({
         title: "Error",
-        description: "Failed to load capsules",
+        description: error.message || "Failed to update profile.",
         variant: "destructive",
       });
     } finally {
-      setIsLoadingCapsules(false);
+      setSaving(false);
     }
   };
 
-  const fetchConnections = async () => {
-    try {
-      setIsLoadingConnections(true);
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const connectionsQuery = query(
-        collection(db, "connections"),
-        where("userId", "==", user.uid),
-        where("status", "==", "connected"),
-        orderBy("connectedAt", "desc"),
-        limit(10)
-      );
-
-      const connectionsSnap = await getDocs(connectionsQuery);
-      const connectionsData = connectionsSnap.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      setConnections(connectionsData);
-    } catch (error) {
-      console.error("Error fetching connections:", error);
-    } finally {
-      setIsLoadingConnections(false);
-    }
-  };
-
-  const handleSave = async () => {
+  const handleSaveSettings = async () => {
     try {
       setSaving(true);
       const user = auth.currentUser;
@@ -318,32 +213,19 @@ const Profile = () => {
       const userRef = doc(db, "users", user.uid);
 
       await updateDoc(userRef, {
-        name: profile.name,
-        bio: profile.bio,
-        location: profile.location,
-        website: profile.website,
-        socialLinks: profile.socialLinks,
-        privacySettings: profile.privacySettings,
+        settings: settings,
         updatedAt: new Date().toISOString(),
       });
 
-      if (profile.name !== user.displayName) {
-        await updateAuthProfile(user, {
-          displayName: profile.name,
-        });
-      }
-
       toast({
-        title: "Profile updated!",
-        description: "Your profile has been successfully updated.",
+        title: "Settings updated!",
+        description: "Your settings have been saved.",
       });
-      setIsEditing(false);
-      fetchUserProfile();
     } catch (error) {
-      console.error("Error updating profile:", error);
+      console.error("Error updating settings:", error);
       toast({
         title: "Error",
-        description: "Failed to update profile.",
+        description: "Failed to update settings.",
         variant: "destructive",
       });
     } finally {
@@ -352,14 +234,12 @@ const Profile = () => {
   };
 
   const handleImageUpload = () => {
-    // Implement image upload functionality
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
     input.onchange = async (e: any) => {
       const file = e.target.files[0];
       if (file) {
-        // Here you would upload to Firebase Storage
         toast({
           title: "Coming Soon",
           description: "Image upload functionality will be available soon.",
@@ -378,42 +258,9 @@ const Profile = () => {
       .toUpperCase();
   };
 
-  const formatJoinDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    } catch (error) {
-      return "Unknown date";
-    }
-  };
-
-  const getCapsuleStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { color: string; label: string }> = {
-      active: { color: "bg-green-500", label: "Active" },
-      scheduled: { color: "bg-blue-500", label: "Scheduled" },
-      opened: { color: "bg-purple-500", label: "Opened" },
-      expired: { color: "bg-gray-500", label: "Expired" },
-      deleted: { color: "bg-red-500", label: "Deleted" },
-    };
-
-    const config = statusConfig[status] || {
-      color: "bg-gray-500",
-      label: status,
-    };
-    return (
-      <Badge className={`${config.color} text-white text-xs`}>
-        {config.label}
-      </Badge>
-    );
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-[#FFF9EC]">
         <Navigation />
         <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -423,846 +270,546 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-[#FFF9EC]">
       <Navigation />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header Section */}
-        <Card className="border-border bg-card/80 backdrop-blur-sm mb-8 overflow-hidden">
-          <div className="h-32 bg-gradient-to-r from-primary/20 to-accent/20"></div>
-          <CardContent className="relative px-8 pb-8">
-            <div className="flex flex-col md:flex-row items-start md:items-center -mt-16 space-y-6 md:space-y-0 md:space-x-8">
-              <div className="relative">
-                <Avatar className="w-32 h-32 border-4 border-background shadow-xl">
-                  <AvatarImage
-                    src={profile.photoURL}
-                    alt={profile.name}
-                    className="object-cover"
-                  />
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-2xl font-semibold">
-                    {getInitials(profile.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <Button
-                  size="sm"
-                  onClick={handleImageUpload}
-                  className="absolute -bottom-2 -right-2 rounded-full w-10 h-10 p-0 bg-gradient-accent hover:shadow-lg transition-all hover:scale-110"
-                  variant="default"
+        {/* Header with Profile Summary */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
+              <p className="text-gray-600 mt-2">
+                Manage your personal information and account settings
+              </p>
+            </div>
+            {!isEditing && activeTab === "profile" && (
+              <Button
+                onClick={() => setIsEditing(true)}
+                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-6 py-2 rounded-lg font-medium shadow-md hover:shadow-lg transition-all"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Profile
+              </Button>
+            )}
+          </div>
+          <Separator />
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Left Sidebar - Profile Card */}
+          <div className="lg:w-1/3">
+            <Card className="border-2 border-amber-100 bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="bg-gradient-to-r from-amber-400 to-orange-400 h-32"></div>
+              <CardContent className="pt-0 px-6 pb-6 relative">
+                <div className="flex flex-col items-center -mt-16 mb-6">
+                  <div className="relative">
+                    <Avatar className="w-32 h-32 border-4 border-white shadow-xl">
+                      <AvatarImage
+                        src={profile.photoURL}
+                        alt={profile.name}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-500 text-white text-2xl font-bold">
+                        {getInitials(profile.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <Button
+                      size="sm"
+                      onClick={handleImageUpload}
+                      className="absolute -bottom-2 -right-2 rounded-full w-10 h-10 p-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg transition-all"
+                      variant="default"
+                    >
+                      <Camera className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <div className="text-center mt-4">
+                    <h2 className="text-2xl font-bold text-gray-800">
+                      {profile.name}
+                    </h2>
+                    <p className="text-gray-600">@{profile.username}</p>
+                    {profile.location && (
+                      <div className="flex items-center justify-center mt-2 text-gray-500">
+                        <MapPin className="w-4 h-4 mr-1" />
+                        {profile.location}
+                      </div>
+                    )}
+                  </div>
+
+                  {profile.bio && (
+                    <div className="mt-4 text-center">
+                      <p className="text-gray-700 italic">"{profile.bio}"</p>
+                    </div>
+                  )}
+
+                  <div className="mt-6 w-full space-y-3">
+                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                      <div className="flex items-center">
+                        <Mail className="w-5 h-5 text-amber-600 mr-3" />
+                        <span className="text-gray-700">Email</span>
+                      </div>
+                      <span className="text-gray-800 font-medium">
+                        {profile.email}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                      <div className="flex items-center">
+                        <User className="w-5 h-5 text-amber-600 mr-3" />
+                        <span className="text-gray-700">Status</span>
+                      </div>
+                      <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                        Active
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                      <div className="flex items-center">
+                        <Globe className="w-5 h-5 text-amber-600 mr-3" />
+                        <span className="text-gray-700">Profile</span>
+                      </div>
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
+                        {settings.profileVisibility === "public"
+                          ? "Public"
+                          : "Private"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Content Area */}
+          <div className="lg:w-2/3">
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="space-y-6"
+            >
+              <TabsList className="w-full bg-white p-1 rounded-xl border border-amber-100">
+                <TabsTrigger
+                  value="profile"
+                  className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white rounded-lg"
                 >
-                  <Camera className="w-4 h-4" />
-                </Button>
-              </div>
+                  <User className="w-4 h-4 mr-2" />
+                  Profile
+                </TabsTrigger>
+                <TabsTrigger
+                  value="settings"
+                  className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white rounded-lg"
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Settings
+                </TabsTrigger>
+              </TabsList>
 
-              <div className="flex-1">
-                {isEditing ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="name" className="text-sm font-medium">
-                          Full Name *
-                        </Label>
-                        <Input
-                          id="name"
-                          value={profile.name}
-                          onChange={(e) =>
-                            setProfile({ ...profile, name: e.target.value })
-                          }
-                          className="border-border bg-input"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label
-                          htmlFor="location"
-                          className="text-sm font-medium"
-                        >
-                          Location
-                        </Label>
-                        <Input
-                          id="location"
-                          value={profile.location}
-                          onChange={(e) =>
-                            setProfile({ ...profile, location: e.target.value })
-                          }
-                          className="border-border bg-input"
-                          placeholder="City, Country"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="website" className="text-sm font-medium">
-                        Website
-                      </Label>
-                      <Input
-                        id="website"
-                        value={profile.website}
-                        onChange={(e) =>
-                          setProfile({ ...profile, website: e.target.value })
-                        }
-                        className="border-border bg-input"
-                        placeholder="https://yourwebsite.com"
-                        type="url"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="bio" className="text-sm font-medium">
-                        Bio
-                      </Label>
-                      <Textarea
-                        id="bio"
-                        value={profile.bio}
-                        onChange={(e) =>
-                          setProfile({ ...profile, bio: e.target.value })
-                        }
-                        className="border-border bg-input min-h-24"
-                        placeholder="Tell your story..."
-                        maxLength={500}
-                      />
-                      <div className="text-xs text-muted-foreground text-right">
-                        {profile.bio.length}/500
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label className="text-sm font-medium">
-                        Social Links
-                      </Label>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div className="space-y-2">
-                          <Label className="text-xs">Twitter</Label>
-                          <Input
-                            value={profile.socialLinks.twitter}
-                            onChange={(e) =>
-                              setProfile({
-                                ...profile,
-                                socialLinks: {
-                                  ...profile.socialLinks,
-                                  twitter: e.target.value,
-                                },
-                              })
-                            }
-                            placeholder="@username"
-                            className="border-border bg-input"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs">Instagram</Label>
-                          <Input
-                            value={profile.socialLinks.instagram}
-                            onChange={(e) =>
-                              setProfile({
-                                ...profile,
-                                socialLinks: {
-                                  ...profile.socialLinks,
-                                  instagram: e.target.value,
-                                },
-                              })
-                            }
-                            placeholder="@username"
-                            className="border-border bg-input"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs">LinkedIn</Label>
-                          <Input
-                            value={profile.socialLinks.linkedin}
-                            onChange={(e) =>
-                              setProfile({
-                                ...profile,
-                                socialLinks: {
-                                  ...profile.socialLinks,
-                                  linkedin: e.target.value,
-                                },
-                              })
-                            }
-                            placeholder="linkedin.com/in/username"
-                            className="border-border bg-input"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h1 className="text-3xl font-bold text-foreground mb-2">
-                          {profile.name}
-                        </h1>
-                        <div className="flex items-center flex-wrap gap-3 mb-4">
-                          {profile.location && (
-                            <Badge
-                              variant="secondary"
-                              className="flex items-center gap-1"
-                            >
-                              <MapPin className="w-3 h-3" />
-                              {profile.location}
-                            </Badge>
-                          )}
-                          {profile.website && (
-                            <Badge
-                              variant="outline"
-                              className="flex items-center gap-1"
-                            >
-                              <Globe className="w-3 h-3" />
-                              <a
-                                href={profile.website}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="hover:text-primary transition-colors"
-                              >
-                                Website
-                              </a>
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className="flex items-center gap-1"
-                      >
-                        <Calendar className="w-3 h-3" />
-                        Joined {formatJoinDate(profile.joinDate)}
-                      </Badge>
-                    </div>
-
-                    <p className="text-muted-foreground text-lg mb-6">
-                      {profile.bio ||
-                        "No bio yet. Click Edit Profile to add one!"}
-                    </p>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-3 text-sm">
-                        <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <span className="text-foreground">{profile.email}</span>
-                        {!profile.privacySettings.emailVisible && (
-                          <Badge
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                          >
-                            Private
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Social Links */}
-                      {(profile.socialLinks.twitter ||
-                        profile.socialLinks.instagram ||
-                        profile.socialLinks.linkedin) && (
-                        <div className="flex items-center space-x-4 pt-2">
-                          {profile.socialLinks.twitter && (
-                            <a
-                              href={`https://twitter.com/${profile.socialLinks.twitter.replace(
-                                "@",
-                                ""
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-muted-foreground hover:text-blue-500 transition-colors"
-                            >
-                              Twitter
-                            </a>
-                          )}
-                          {profile.socialLinks.instagram && (
-                            <a
-                              href={`https://instagram.com/${profile.socialLinks.instagram.replace(
-                                "@",
-                                ""
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-muted-foreground hover:text-pink-500 transition-colors"
-                            >
-                              Instagram
-                            </a>
-                          )}
-                          {profile.socialLinks.linkedin && (
-                            <a
-                              href={profile.socialLinks.linkedin}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-muted-foreground hover:text-blue-700 transition-colors"
-                            >
-                              LinkedIn
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="w-full md:w-auto">
-                {isEditing ? (
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      onClick={handleSave}
-                      className="bg-gradient-primary hover:shadow-lg transition-all"
-                      disabled={saving}
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Changes
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setIsEditing(false);
-                        fetchUserProfile();
-                      }}
-                      className="border-border"
-                      disabled={saving}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      onClick={() => setIsEditing(true)}
-                      className="bg-gradient-accent hover:shadow-lg transition-all"
-                    >
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit Profile
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setActiveTab("settings")}
-                      className="border-border"
-                    >
-                      <Shield className="w-4 h-4 mr-2" />
-                      Privacy
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Tabs Section */}
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="space-y-8"
-        >
-          <TabsList className="grid grid-cols-4 w-full">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="capsules">Capsules</TabsTrigger>
-            <TabsTrigger value="connections">Connections</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-8">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card className="border-border bg-card/80 backdrop-blur-sm hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Created</p>
-                      <p className="text-3xl font-bold text-foreground mt-2">
-                        {stats.capsulesCreated}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-primary/10 rounded-full">
-                      <FileText className="w-6 h-6 text-primary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border bg-card/80 backdrop-blur-sm hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Received</p>
-                      <p className="text-3xl font-bold text-foreground mt-2">
-                        {stats.capsulesReceived}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-secondary/10 rounded-full">
-                      <Clock className="w-6 h-6 text-secondary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border bg-card/80 backdrop-blur-sm hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Opened</p>
-                      <p className="text-3xl font-bold text-foreground mt-2">
-                        {stats.capsulesOpened}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-accent/10 rounded-full">
-                      <Zap className="w-6 h-6 text-accent" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-border bg-card/80 backdrop-blur-sm hover:shadow-lg transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Connections
-                      </p>
-                      <p className="text-3xl font-bold text-foreground mt-2">
-                        {stats.connectionsCount}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-success/10 rounded-full">
-                      <Users className="w-6 h-6 text-success" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Recent Activity & Quick Actions */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2">
-                <Card className="border-border bg-card/80 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle>Recent Capsules</CardTitle>
+              {/* Profile Tab Content */}
+              <TabsContent value="profile" className="space-y-6">
+                <Card className="border-2 border-amber-100 bg-white rounded-2xl shadow-lg">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-2xl text-gray-800">
+                      Profile Information
+                    </CardTitle>
                     <CardDescription>
-                      Your most recent time capsules
+                      {isEditing
+                        ? "Edit your profile details below"
+                        : "View your profile information"}
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {isLoadingCapsules ? (
-                      <div className="flex justify-center py-8">
-                        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-                      </div>
-                    ) : recentCapsules.length > 0 ? (
-                      <div className="space-y-4">
-                        {recentCapsules.map((capsule) => (
-                          <div
-                            key={capsule.id}
-                            className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/10 transition-colors"
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-medium text-foreground">
-                                  {capsule.title || "Untitled Capsule"}
-                                </h4>
-                                {getCapsuleStatusBadge(capsule.status)}
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                {capsule.description || "No description"}
-                              </p>
-                              {capsule.openDate && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Opens:{" "}
-                                  {new Date(
-                                    capsule.openDate
-                                  ).toLocaleDateString()}
-                                </p>
-                              )}
-                            </div>
-                            <Button variant="ghost" size="sm">
-                              <Eye className="w-4 h-4" />
-                            </Button>
+                    {isEditing ? (
+                      // Edit Mode
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-3">
+                            <Label
+                              htmlFor="name"
+                              className="text-sm font-medium text-gray-700"
+                            >
+                              Full Name *
+                            </Label>
+                            <Input
+                              id="name"
+                              value={profile.name}
+                              onChange={(e) =>
+                                setProfile({ ...profile, name: e.target.value })
+                              }
+                              className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
+                              required
+                            />
                           </div>
-                        ))}
+
+                          <div className="space-y-3">
+                            <Label
+                              htmlFor="username"
+                              className="text-sm font-medium text-gray-700"
+                            >
+                              Username *
+                            </Label>
+                            <Input
+                              id="username"
+                              value={profile.username}
+                              onChange={(e) =>
+                                setProfile({
+                                  ...profile,
+                                  username: e.target.value,
+                                })
+                              }
+                              className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label
+                            htmlFor="email"
+                            className="text-sm font-medium text-gray-700"
+                          >
+                            Email Address *
+                          </Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={profile.email}
+                            onChange={(e) =>
+                              setProfile({ ...profile, email: e.target.value })
+                            }
+                            className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label
+                            htmlFor="location"
+                            className="text-sm font-medium text-gray-700"
+                          >
+                            Location
+                          </Label>
+                          <Input
+                            id="location"
+                            value={profile.location}
+                            onChange={(e) =>
+                              setProfile({
+                                ...profile,
+                                location: e.target.value,
+                              })
+                            }
+                            className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
+                            placeholder="Enter your city or country"
+                          />
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label
+                            htmlFor="bio"
+                            className="text-sm font-medium text-gray-700"
+                          >
+                            Bio
+                          </Label>
+                          <Textarea
+                            id="bio"
+                            value={profile.bio}
+                            onChange={(e) =>
+                              setProfile({ ...profile, bio: e.target.value })
+                            }
+                            className="border-amber-200 focus:border-amber-500 focus:ring-amber-500 min-h-32"
+                            placeholder="Tell us about yourself..."
+                            maxLength={500}
+                          />
+                          <div className="text-xs text-gray-500 text-right">
+                            {profile.bio.length}/500 characters
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 pt-4">
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsEditing(false)}
+                            className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                            disabled={saving}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleSaveProfile}
+                            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-6"
+                            disabled={saving}
+                          >
+                            {saving ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="w-4 h-4 mr-2" />
+                                Save Changes
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     ) : (
-                      <div className="text-center py-8">
-                        <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground">No capsules yet</p>
-                        <Button className="mt-4">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Create Your First Capsule
-                        </Button>
+                      // View Mode
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-4">
+                            <div>
+                              <h3 className="text-sm font-medium text-gray-500 mb-2">
+                                Full Name
+                              </h3>
+                              <p className="text-lg font-semibold text-gray-800">
+                                {profile.name}
+                              </p>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-medium text-gray-500 mb-2">
+                                Email Address
+                              </h3>
+                              <div className="flex items-center">
+                                <Mail className="w-4 h-4 text-gray-400 mr-2" />
+                                <p className="text-lg font-semibold text-gray-800">
+                                  {profile.email}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div>
+                              <h3 className="text-sm font-medium text-gray-500 mb-2">
+                                Username
+                              </h3>
+                              <p className="text-lg font-semibold text-gray-800">
+                                @{profile.username}
+                              </p>
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-medium text-gray-500 mb-2">
+                                Location
+                              </h3>
+                              <div className="flex items-center">
+                                <MapPin className="w-4 h-4 text-gray-400 mr-2" />
+                                <p className="text-lg font-semibold text-gray-800">
+                                  {profile.location || "Not specified"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <h3 className="text-sm font-medium text-gray-500">
+                            Bio
+                          </h3>
+                          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                            <p className="text-gray-700 whitespace-pre-wrap">
+                              {profile.bio ||
+                                "No bio added yet. Add a bio to tell others about yourself."}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </CardContent>
                 </Card>
-              </div>
+              </TabsContent>
 
-              <div>
-                <Card className="border-border bg-card/80 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button className="w-full justify-start bg-gradient-primary hover:shadow-lg">
-                      <Plus className="w-4 h-4 mr-3" />
-                      Create New Capsule
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start border-border"
-                    >
-                      <Users className="w-4 h-4 mr-3" />
-                      Find Connections
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start border-border"
-                    >
-                      <Link className="w-4 h-4 mr-3" />
-                      Share Profile
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start border-border"
-                    >
-                      <FileText className="w-4 h-4 mr-3" />
-                      View Archive
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Capsules Tab */}
-          <TabsContent value="capsules">
-            <Card className="border-border bg-card/80 backdrop-blur-sm">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Your Time Capsules</CardTitle>
-                    <CardDescription>
-                      Manage all your time capsules
-                    </CardDescription>
-                  </div>
-                  <Button className="bg-gradient-accent">
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Capsule
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {isLoadingCapsules ? (
-                  <div className="flex justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                  </div>
-                ) : recentCapsules.length > 0 ? (
-                  <div className="space-y-4">
-                    {recentCapsules.map((capsule) => (
-                      <Card key={capsule.id} className="border-border">
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-semibold text-lg">
-                                  {capsule.title || "Untitled Capsule"}
-                                </h4>
-                                {getCapsuleStatusBadge(capsule.status)}
-                              </div>
-                              <p className="text-muted-foreground text-sm mb-3">
-                                {capsule.description ||
-                                  "No description provided"}
-                              </p>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <span>
-                                  Created:{" "}
-                                  {capsule.createdAt
-                                    ? new Date(
-                                        capsule.createdAt
-                                      ).toLocaleDateString()
-                                    : "Unknown"}
-                                </span>
-                                {capsule.openDate && (
-                                  <span>
-                                    Opens:{" "}
-                                    {new Date(
-                                      capsule.openDate
-                                    ).toLocaleDateString()}
-                                  </span>
-                                )}
-                                {capsule.recipientsCount > 0 && (
-                                  <span>
-                                    {capsule.recipientsCount} recipients
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex gap-2 ml-4">
-                              <Button variant="outline" size="sm">
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                              <Button variant="outline" size="sm">
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Clock className="w-12 h-12 text-primary" />
-                    </div>
-                    <h3 className="text-xl font-semibold mb-2">
-                      No Capsules Yet
-                    </h3>
-                    <p className="text-muted-foreground mb-6">
-                      Start preserving memories by creating your first time
-                      capsule
-                    </p>
-                    <Button size="lg" className="bg-gradient-primary">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Your First Capsule
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Connections Tab */}
-          <TabsContent value="connections">
-            <Card className="border-border bg-card/80 backdrop-blur-sm">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Connections</CardTitle>
-                    <CardDescription>
-                      People you're connected with
-                    </CardDescription>
-                  </div>
-                  <Button variant="outline">
-                    <Users className="w-4 h-4 mr-2" />
-                    Find New Connections
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {isLoadingConnections ? (
-                  <div className="flex justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                  </div>
-                ) : connections.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {connections.map((connection) => (
-                      <Card key={connection.id} className="border-border">
-                        <CardContent className="p-4">
-                          <div className="flex items-center space-x-4">
-                            <Avatar>
-                              <AvatarImage src={connection.photoURL} />
-                              <AvatarFallback>
-                                {getInitials(connection.name || "U")}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <h4 className="font-semibold">
-                                {connection.name}
-                              </h4>
-                              <p className="text-xs text-muted-foreground">
-                                Connected{" "}
-                                {connection.connectedAt
-                                  ? new Date(
-                                      connection.connectedAt
-                                    ).toLocaleDateString()
-                                  : "recently"}
-                              </p>
-                            </div>
-                            <Button variant="ghost" size="sm">
-                              <MessageSquare className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-secondary/10 flex items-center justify-center">
-                      <Users className="w-12 h-12 text-secondary" />
-                    </div>
-                    <h3 className="text-xl font-semibold mb-2">
-                      No Connections Yet
-                    </h3>
-                    <p className="text-muted-foreground mb-6">
-                      Connect with friends to share time capsules
-                    </p>
-                    <Button size="lg" variant="outline">
-                      <Users className="w-4 h-4 mr-2" />
-                      Discover People
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Settings Tab */}
-          <TabsContent value="settings">
-            <Card className="border-border bg-card/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle>Account Settings</CardTitle>
-                <CardDescription>
-                  Manage your account preferences and privacy
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Privacy Settings */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4 flex items-center">
-                    <Shield className="w-5 h-5 mr-2" />
-                    Privacy Settings
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">Profile Visibility</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Allow others to find your profile
-                        </p>
+              {/* Settings Tab Content */}
+              <TabsContent value="settings">
+                <div className="space-y-6">
+                  {/* Notification Settings */}
+                  <Card className="border-2 border-amber-100 bg-white rounded-2xl shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="text-xl text-gray-800 flex items-center">
+                        <Bell className="w-5 h-5 mr-2 text-amber-600" />
+                        Notification Settings
+                      </CardTitle>
+                      <CardDescription>
+                        Manage how you receive notifications
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl">
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor="push-notifications"
+                            className="font-medium text-gray-700"
+                          >
+                            Push Notifications
+                          </Label>
+                          <p className="text-sm text-gray-600">
+                            Receive push notifications for important updates
+                          </p>
+                        </div>
+                        <Switch
+                          id="push-notifications"
+                          checked={settings.notifications}
+                          onCheckedChange={(checked) =>
+                            setSettings({ ...settings, notifications: checked })
+                          }
+                          className="data-[state=checked]:bg-amber-500"
+                        />
                       </div>
-                      <Button
-                        variant={
-                          profile.privacySettings.profileVisible
-                            ? "default"
-                            : "outline"
-                        }
-                        size="sm"
-                        onClick={() =>
-                          setProfile({
-                            ...profile,
-                            privacySettings: {
-                              ...profile.privacySettings,
-                              profileVisible:
-                                !profile.privacySettings.profileVisible,
-                            },
-                          })
-                        }
-                      >
-                        {profile.privacySettings.profileVisible ? (
-                          <>
+
+                      <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl">
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor="email-notifications"
+                            className="font-medium text-gray-700"
+                          >
+                            Email Notifications
+                          </Label>
+                          <p className="text-sm text-gray-600">
+                            Receive email updates and newsletters
+                          </p>
+                        </div>
+                        <Switch
+                          id="email-notifications"
+                          checked={settings.emailNotifications}
+                          onCheckedChange={(checked) =>
+                            setSettings({
+                              ...settings,
+                              emailNotifications: checked,
+                            })
+                          }
+                          className="data-[state=checked]:bg-amber-500"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Security Settings */}
+                  <Card className="border-2 border-amber-100 bg-white rounded-2xl shadow-lg">
+                    <CardHeader>
+                      <CardTitle className="text-xl text-gray-800 flex items-center">
+                        <Lock className="w-5 h-5 mr-2 text-amber-600" />
+                        Security Settings
+                      </CardTitle>
+                      <CardDescription>
+                        Manage your account security preferences
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl">
+                        <div className="space-y-1">
+                          <Label
+                            htmlFor="two-factor"
+                            className="font-medium text-gray-700"
+                          >
+                            Two-Factor Authentication
+                          </Label>
+                          <p className="text-sm text-gray-600">
+                            Add an extra layer of security to your account
+                          </p>
+                        </div>
+                        <Switch
+                          id="two-factor"
+                          checked={settings.twoFactorEnabled}
+                          onCheckedChange={(checked) =>
+                            setSettings({
+                              ...settings,
+                              twoFactorEnabled: checked,
+                            })
+                          }
+                          className="data-[state=checked]:bg-amber-500"
+                        />
+                      </div>
+
+                      <div className="p-4 bg-amber-50 rounded-xl">
+                        <div className="space-y-1 mb-4">
+                          <Label className="font-medium text-gray-700">
+                            Profile Visibility
+                          </Label>
+                          <p className="text-sm text-gray-600">
+                            Control who can see your profile
+                          </p>
+                        </div>
+                        <div className="flex gap-3">
+                          <Button
+                            variant={
+                              settings.profileVisibility === "public"
+                                ? "default"
+                                : "outline"
+                            }
+                            onClick={() =>
+                              setSettings({
+                                ...settings,
+                                profileVisibility: "public",
+                              })
+                            }
+                            className={
+                              settings.profileVisibility === "public"
+                                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+                                : "border-amber-300 text-gray-700"
+                            }
+                          >
                             <Eye className="w-4 h-4 mr-2" />
-                            Visible
-                          </>
-                        ) : (
-                          <>
+                            Public
+                          </Button>
+                          <Button
+                            variant={
+                              settings.profileVisibility === "private"
+                                ? "default"
+                                : "outline"
+                            }
+                            onClick={() =>
+                              setSettings({
+                                ...settings,
+                                profileVisibility: "private",
+                              })
+                            }
+                            className={
+                              settings.profileVisibility === "private"
+                                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
+                                : "border-amber-300 text-gray-700"
+                            }
+                          >
                             <EyeOff className="w-4 h-4 mr-2" />
-                            Hidden
-                          </>
-                        )}
-                      </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">Email Visibility</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Show your email on your profile
-                        </p>
+                            Private
+                          </Button>
+                        </div>
                       </div>
+
                       <Button
-                        variant={
-                          profile.privacySettings.emailVisible
-                            ? "default"
-                            : "outline"
-                        }
-                        size="sm"
-                        onClick={() =>
-                          setProfile({
-                            ...profile,
-                            privacySettings: {
-                              ...profile.privacySettings,
-                              emailVisible:
-                                !profile.privacySettings.emailVisible,
-                            },
-                          })
-                        }
+                        variant="outline"
+                        className="w-full justify-center border-amber-300 text-amber-700 hover:bg-amber-50 py-6 rounded-xl"
                       >
-                        {profile.privacySettings.emailVisible
-                          ? "Public"
-                          : "Private"}
+                        <Key className="w-5 h-5 mr-3" />
+                        Change Password
                       </Button>
-                    </div>
+                    </CardContent>
+                  </Card>
 
-                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">Activity Visibility</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Show your recent activity to others
-                        </p>
-                      </div>
-                      <Button
-                        variant={
-                          profile.privacySettings.activityVisible
-                            ? "default"
-                            : "outline"
-                        }
-                        size="sm"
-                        onClick={() =>
-                          setProfile({
-                            ...profile,
-                            privacySettings: {
-                              ...profile.privacySettings,
-                              activityVisible:
-                                !profile.privacySettings.activityVisible,
-                            },
-                          })
-                        }
-                      >
-                        {profile.privacySettings.activityVisible
-                          ? "Visible"
-                          : "Hidden"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                {/* Account Actions */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-4">
-                    Account Actions
-                  </h3>
-                  <div className="space-y-3">
+                  {/* Save Settings Button */}
+                  <div className="flex justify-end">
                     <Button
-                      variant="outline"
-                      className="w-full justify-start border-border"
+                      onClick={handleSaveSettings}
+                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all"
+                      disabled={saving}
                     >
-                      <Bell className="w-4 h-4 mr-3" />
-                      Notification Preferences
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start border-border"
-                    >
-                      <Key className="w-4 h-4 mr-3" />
-                      Change Password
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start border-destructive border text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4 mr-3" />
-                      Delete Account
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                          Saving Settings...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-5 h-5 mr-3" />
+                          Save All Settings
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </div>
     </div>
   );

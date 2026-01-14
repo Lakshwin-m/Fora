@@ -7,6 +7,9 @@ import {
   animate,
 } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { startPayment } from "@/lib/razorpay";
+import { useAuth } from "@/hooks/useAuth"; // Make sure you have this hook
+import { useNavigate } from "react-router-dom"; // If using React Router
 
 interface PricingProps {
   title?: string;
@@ -136,15 +139,18 @@ const BackgroundEffects = () => (
 );
 
 // Pricing Card Component
-// Pricing Card Component
 const PricingCard = ({
   plan,
   isYearly,
   index,
+  isProcessing,
+  onGetStarted,
 }: {
   plan: PricingPlan;
   isYearly: boolean;
   index: number;
+  isProcessing: boolean;
+  onGetStarted: () => void;
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const mouseX = useMotionValue(0);
@@ -161,6 +167,9 @@ const PricingCard = ({
 
   const currentPrice = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
   const previousPrice = !isYearly ? plan.yearlyPrice : plan.monthlyPrice;
+  const isFree =
+    plan.name.toLowerCase().includes("free") ||
+    plan.name.toLowerCase().includes("arki");
 
   return (
     <motion.div
@@ -211,15 +220,23 @@ const PricingCard = ({
         }}
       >
         <div className="text-center text-white">
-          <div className="text-lg font-black">
-            ₹
-            <Counter from={previousPrice} to={currentPrice} />
-          </div>
-          <div className="text-[10px] font-bold">/{isYearly ? "yr" : "mo"}</div>
+          {isFree ? (
+            <div className="text-lg font-black">FREE</div>
+          ) : (
+            <>
+              <div className="text-lg font-black">
+                ₹
+                <Counter from={previousPrice} to={currentPrice} />
+              </div>
+              <div className="text-[10px] font-bold">
+                /{isYearly ? "yr" : "mo"}
+              </div>
+            </>
+          )}
         </div>
       </motion.div>
 
-      {/* Plan Name and Subtitle - UPDATED LAYOUT */}
+      {/* Plan Name and Subtitle */}
       <div className="mb-4">
         <div className="space-y-1">
           <h3 className="text-2xl font-black text-black tracking-tight leading-none">
@@ -272,7 +289,7 @@ const PricingCard = ({
             <motion.span
               whileHover={{ scale: 1.2, rotate: 360 }}
               className={cn(
-                `w-5 h-5 rounded-md  flex items-center justify-center
+                `w-5 h-5 rounded-md flex items-center justify-center
                                 text-white font-bold text-xs border border-black
                                 shadow-[1px_1px_0px_0px_rgba(0,0,0,0.9)]`,
                 plan.accent
@@ -288,23 +305,47 @@ const PricingCard = ({
       {/* CTA Button */}
       <motion.button
         className={cn(
-          `w-full py-2 rounded-lg  text-white font-black text-sm
-                    border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.9)]
-                    hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,0.9)]
-                    active:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.9)]
-                    transition-all duration-200`,
-          plan.accent
+          `w-full py-3 rounded-lg text-white font-black text-sm
+           border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,0.9)]
+           disabled:opacity-50 disabled:cursor-not-allowed
+           hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.9)]
+           hover:translate-x-[2px] hover:translate-y-[2px]
+           transition-all duration-200`,
+          isFree ? "bg-gray-400" : plan.accent
         )}
-        whileHover={{
-          scale: 1.02,
-          transition: { duration: 0.2 },
-        }}
-        whileTap={{
-          scale: 0.95,
-          rotate: [-1, 1, 0],
-        }}
+        onClick={onGetStarted}
+        disabled={isFree || isProcessing}
+        whileHover={!isFree && !isProcessing ? { scale: 1.02 } : {}}
+        whileTap={!isFree && !isProcessing ? { scale: 0.98 } : {}}
       >
-        GET STARTED →
+        {isProcessing ? (
+          <span className="flex items-center justify-center gap-2">
+            <svg
+              className="animate-spin h-4 w-4 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            PROCESSING...
+          </span>
+        ) : isFree ? (
+          "CURRENT PLAN"
+        ) : (
+          "GET STARTED →"
+        )}
       </motion.button>
     </motion.div>
   );
@@ -317,6 +358,78 @@ export const PricingContainer = ({
   className = "",
 }: PricingProps) => {
   const [isYearly, setIsYearly] = useState(false);
+  const [processingPlan, setProcessingPlan] = useState<string | null>(null);
+
+  // If you're using authentication, uncomment these:
+  // const { user } = useAuth();
+  // const navigate = useNavigate();
+
+  const handleGetStarted = async (plan: PricingPlan) => {
+    // Check if free plan
+    if (
+      plan.name.toLowerCase().includes("free") ||
+      plan.name.toLowerCase().includes("arki")
+    ) {
+      return;
+    }
+
+    // Uncomment if you want to check authentication
+    // if (!user) {
+    //   navigate("/login?redirect=/pricing");
+    //   return;
+    // }
+
+    // Determine plan tier based on plan name
+    let planTier: "starter" | "pro";
+    if (
+      plan.name.toLowerCase().includes("starter") ||
+      plan.name.toLowerCase().includes("kyklos")
+    ) {
+      planTier = "starter";
+    } else if (
+      plan.name.toLowerCase().includes("pro") ||
+      plan.name.toLowerCase().includes("aion")
+    ) {
+      planTier = "pro";
+    } else {
+      console.error("Unknown plan type:", plan.name);
+      return;
+    }
+
+    const planKey = `${planTier}-${isYearly ? "yearly" : "monthly"}`;
+    setProcessingPlan(planKey);
+
+    try {
+      await startPayment({
+        planTier,
+        billingCycle: isYearly ? "yearly" : "monthly",
+      });
+    } catch (error) {
+      console.error("Payment failed:", error);
+      // Error handling is already done in startPayment function
+    } finally {
+      setProcessingPlan(null);
+    }
+  };
+
+  const isPlanProcessing = (plan: PricingPlan) => {
+    let planTier: string;
+    if (
+      plan.name.toLowerCase().includes("starter") ||
+      plan.name.toLowerCase().includes("kyklos")
+    ) {
+      planTier = "starter";
+    } else if (
+      plan.name.toLowerCase().includes("pro") ||
+      plan.name.toLowerCase().includes("aion")
+    ) {
+      planTier = "pro";
+    } else {
+      return false;
+    }
+
+    return processingPlan === `${planTier}-${isYearly ? "yearly" : "monthly"}`;
+  };
 
   return (
     <div
@@ -336,9 +449,27 @@ export const PricingContainer = ({
             plan={plan}
             isYearly={isYearly}
             index={index}
+            isProcessing={isPlanProcessing(plan)}
+            onGetStarted={() => handleGetStarted(plan)}
           />
         ))}
       </div>
+
+      {/* Optional: Add a note at the bottom */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1 }}
+        className="text-center mt-12 text-gray-600 text-sm relative z-10"
+      >
+        <p>All plans include our secure time capsule encryption</p>
+        <p className="mt-2">
+          Questions?{" "}
+          <a href="mailto:support@fora.com" className="underline font-semibold">
+            Contact us
+          </a>
+        </p>
+      </motion.div>
     </div>
   );
 };
