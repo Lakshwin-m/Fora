@@ -1,3 +1,4 @@
+// src/components/CapsuleDetail.tsx
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useCapsules } from "@/contexts/CapsuleContext";
@@ -5,7 +6,6 @@ import { getAuth } from "firebase/auth";
 import { toast } from "@/hooks/use-toast";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import MediaRenderer from "@/components/MediaRenderer";
 import {
@@ -21,7 +21,11 @@ import {
   Stamp,
   BookOpen,
   MapPin,
+  Loader2,
 } from "lucide-react";
+
+// 🔐 IMPORT DECRYPTION HOOK
+import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
 
 interface TimeRemaining {
   years: number;
@@ -51,6 +55,9 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   // Find the capsule in both sent and received capsules
   const capsule = [...capsules, ...receivedCapsules].find((c) => c.id === id);
 
+  // 🔐 DECRYPT CAPSULE CONTENT
+  const { title, content, isDecrypting } = useCapsuleDecryption(capsule);
+
   const auth = getAuth();
 
   useEffect(() => {
@@ -74,7 +81,6 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
       setSignatureData((capsule as any).signature);
     } else {
       // If not in context, you might need to fetch it separately
-      // This depends on how your context loads capsules
       console.warn("Signature not found in capsule context object");
 
       // Try to extract signature from nested properties
@@ -204,6 +210,26 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   // Paper texture SVG data URL (properly escaped)
   const paperTexture = `data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%238B5A2B' fill-opacity='0.05'/%3E%3C/svg%3E`;
 
+  // 🔐 Show loading state while decrypting
+  if (isDecrypting) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#F5EBDC] via-[#F0E6D2] to-[#E8DEC9]">
+        <Navigation />
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col items-center justify-center py-20 space-y-4">
+            <Loader2 className="w-12 h-12 animate-spin text-[#8B5A2B]" />
+            <p className="text-xl text-[#5D2A42] font-semibold">
+              Decrypting your capsule...
+            </p>
+            <p className="text-sm text-[#5D2A42]/60">
+              Unlocking memories from the past
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F5EBDC] via-[#F0E6D2] to-[#E8DEC9]">
       <Navigation />
@@ -222,8 +248,9 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
               Back
             </Button>
             <div>
+              {/* 🔐 USE DECRYPTED TITLE */}
               <h1 className="text-2xl font-bold text-[#5D2A42]">
-                {capsule.title}
+                {title || "Untitled Capsule"}
               </h1>
               <p className="text-[#5D2A42]/70 flex items-center text-sm">
                 <Calendar className="w-3.5 h-3.5 mr-1.5" />
@@ -344,8 +371,9 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                           TIME CAPSULE LETTER
                         </span>
                       </div>
+                      {/* 🔐 USE DECRYPTED TITLE */}
                       <h2 className="text-3xl md:text-4xl font-bold text-[#5D2A42] tracking-wider">
-                        {capsule.title.toUpperCase()}
+                        {(title || "UNTITLED CAPSULE").toUpperCase()}
                       </h2>
                       <div className="mt-4 flex items-center justify-center space-x-6 text-sm text-[#5D2A42]/70">
                         <div className="flex items-center">
@@ -406,9 +434,9 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                       </p>
                     </div>
 
-                    {/* Letter Body */}
+                    {/* Letter Body - 🔐 USE DECRYPTED CONTENT */}
                     <div className="space-y-8 mb-12">
-                      {capsule.content
+                      {(content || "No content available")
                         .split(/\n\s*\n/)
                         .filter((para) => para.trim())
                         .map((paragraph, index) => (
@@ -419,6 +447,43 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                           </div>
                         ))}
                     </div>
+                    {/* Attached Media */}
+                    {hasMedia && (
+                      <div className="mt-16 mb-12">
+                        <div className="mb-6">
+                          <h3 className="text-xl font-semibold text-[#5D2A42] flex items-center">
+                            <BookOpen className="w-5 h-5 mr-2 text-[#8B5A2B]" />
+                            Attached Memories
+                          </h3>
+                          <p className="text-sm text-[#5D2A42]/60 mt-1">
+                            Media preserved with this capsule
+                          </p>
+                        </div>
+
+                        <div className="space-y-6">
+                          {(capsule as any).attachments.map(
+                            (attachment: any) => (
+                              <div
+                                key={attachment.id}
+                                className="p-4 bg-white/60 rounded-xl border border-[#8B5A2B]/20 shadow-inner"
+                              >
+                                <MediaRenderer
+                                  attachment={attachment}
+                                  isUnlocked={isUnlocked}
+                                  className="max-w-full"
+                                />
+
+                                <div className="mt-2 text-xs text-[#5D2A42]/60 flex items-center">
+                                  <Mail className="w-3.5 h-3.5 mr-1.5" />
+                                  {attachment.name}
+                                </div>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Attached Media */}
                     {hasMedia && (
                       <div className="mt-16 mb-12">

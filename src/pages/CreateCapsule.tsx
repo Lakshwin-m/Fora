@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useCapsules } from "@/contexts/CapsuleContext";
 import { Button } from "@/components/ui/button";
 import Navigation from "@/components/Navigation";
@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { CapsuleMultistepForm } from "@/components/capsule-multistep-form";
 import SealCapsuleModal from "@/components/SealCapsuleModal";
 import { Toaster } from "sonner";
+import { getOrCreateKey, encryptText } from "@/utils/cryptoUtils";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -35,9 +36,11 @@ interface Friend {
 
 const CreateCapsule = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { refreshCapsules } = useCapsules();
   const auth = getAuth();
   const storage = getStorage();
+  
   /* ---------- PLAN ---------- */
   const [plan, setPlan] = useState<{
     tier: "free" | "starter" | "pro";
@@ -56,14 +59,10 @@ const CreateCapsule = () => {
   /* ---------- FORM ---------- */
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [triggerType, setTriggerType] = useState<
-    "time" | "event" | "connection"
-  >("time");
+  const [triggerType, setTriggerType] = useState<"time" | "event" | "connection">("time");
   const [deliveryDate, setDeliveryDate] = useState<Date | undefined>();
   const [deliveryTime, setDeliveryTime] = useState("");
-  const [recipientType, setRecipientType] = useState<
-    "self" | "friends" | "public"
-  >("self");
+  const [recipientType, setRecipientType] = useState<"self" | "friends" | "public">("self");
   const [capsuleCategory, setCapsuleCategory] = useState("");
   const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
@@ -74,7 +73,67 @@ const CreateCapsule = () => {
   /* ================= HELPERS ================= */
 
   const getAuthHeaders = async () => {
-    const token = await auth.currentUser?.getIdToken();
+    if (!auth.currentUser) {
+      throw new Error("No authenticated user");
+    }
+    const token = await auth.currentUser.getIdToken(true);
+    return {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+  };
+
+  /* ================= AUTH + FRIENDS ================= */
+
+  const location = useLocation();
+  const { refreshCapsules } = useCapsules();
+
+  const auth = getAuth();
+  const storage = getStorage();
+
+  /* ---------- PLAN ---------- */
+  const [plan, setPlan] = useState<{
+    tier: "free" | "starter" | "pro";
+    capsuleLimit: number | null;
+    usedCapsules: number;
+  } | null>(null);
+
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [username, setUsername] = useState("");
+
+  /* ---------- FRIENDS ---------- */
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
+
+  /* ---------- FORM ---------- */
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+
+  const [triggerType, setTriggerType] =
+    useState<"time" | "event" | "connection">("time");
+
+  const [deliveryDate, setDeliveryDate] = useState<Date>();
+  const [deliveryTime, setDeliveryTime] = useState("");
+
+  const [recipientType, setRecipientType] =
+    useState<"self" | "friends" | "public">("self");
+
+  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+  const [capsuleCategory, setCapsuleCategory] = useState("");
+
+  const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSealModal, setShowSealModal] = useState(false);
+
+  /* ================= HELPERS ================= */
+
+  const getAuthHeaders = async () => {
+    if (!auth.currentUser) {
+      throw new Error("No authenticated user");
+    }
+    const token = await auth.currentUser.getIdToken(true);
     return {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
@@ -95,23 +154,22 @@ const CreateCapsule = () => {
       try {
         const headers = await getAuthHeaders();
 
-        // 🔹 Load profile
+        // Load profile
         const profileRes = await fetch(`${API_BASE}/getMyProfile`, { headers });
         const profile = await profileRes.json();
-        setUsername(profile?.name || user.email || "Anonymous");
+        setUsername(profile?.username || profile?.name || user.email || "Anonymous");
         setPlan(profile?.plan || null);
-        // 🔹 Load friends
+
+        // Load friends
         setFriendsLoading(true);
         const friendsRes = await fetch(`${API_BASE}/getFriends`, { headers });
         const friendsData = await friendsRes.json();
-        const normalizedFriends = friendsData.map((f: any) => ({
+        const normalizedFriends = (friendsData || []).map((f: any) => ({
           id: f.profile?.uid || f.id,
           name: f.profile?.name || f.profile?.email?.split("@")[0] || "Unknown",
           email: f.profile?.email || "",
           photoURL: f.profile?.photoURL,
         }));
-
-        setFriends(normalizedFriends); // ✅ THIS is the source of truth
 
         setFriends(normalizedFriends || []);
       } catch (err) {
@@ -156,10 +214,7 @@ const CreateCapsule = () => {
 
   /* ================= FIREBASE UPLOAD ================= */
 
-  const uploadAttachment = async (
-    capsuleId: string,
-    attachment: LocalAttachment
-  ) => {
+  const uploadAttachment = async (capsuleId: string, attachment: LocalAttachment) => {
     const storagePath = `capsules/${capsuleId}/${attachment.id}`;
     const storageRef = ref(storage, storagePath);
 
@@ -178,16 +233,15 @@ const CreateCapsule = () => {
     };
   };
 
-  const uploadAllAttachments = async (capsuleId: string) => {
-    return Promise.all(attachments.map((a) => uploadAttachment(capsuleId, a)));
-  };
+  const uploadAllAttachments = async (capsuleId: string) =>
+    Promise.all(attachments.map((a) => uploadAttachment(capsuleId, a)));
 
   /* ================= VALIDATION ================= */
 
   const validateForm = () => {
     if (!title.trim() || !content.trim()) {
       toast({
-        title: "Missing info",
+        title: "Missing information",
         description: "Title and content are required",
         variant: "destructive",
       });
@@ -196,7 +250,7 @@ const CreateCapsule = () => {
 
     if (recipientType === "friends" && selectedFriends.length === 0) {
       toast({
-        title: "Select friends",
+        title: "Select recipients",
         description: "Choose at least one friend",
         variant: "destructive",
       });
@@ -204,8 +258,8 @@ const CreateCapsule = () => {
     }
 
     if (
-      recipientType !== "public" &&
       triggerType === "time" &&
+      recipientType !== "public" &&
       (!deliveryDate || !deliveryTime)
     ) {
       toast({
@@ -218,10 +272,23 @@ const CreateCapsule = () => {
 
     return true;
   };
-  const hasReachedLimit =
-    plan &&
-    plan.capsuleLimit !== null &&
-    plan.usedCapsules >= plan.capsuleLimit;
+
+  /* ================= RESHARE HANDLING ================= */
+
+  useEffect(() => {
+    if (location.state?.reshareFrom) {
+      const { title: reshareTitle, content: reshareContent } = location.state.reshareFrom;
+      setTitle(reshareTitle || "");
+      setContent(reshareContent || "");
+    }
+  }, [location.state]);
+
+  /* ================= FILE UPLOAD ================= */
+
+  /* (upload helpers and validation defined above) */
+
+  const hasReachedLimit = plan && plan.capsuleLimit !== null && plan.usedCapsules >= plan.capsuleLimit;
+
   const handleFormSubmit = () => {
     if (hasReachedLimit) {
       toast({
@@ -239,6 +306,7 @@ const CreateCapsule = () => {
 
   const handleFinalSubmission = async (signature?: string) => {
     if (!currentUser) return;
+    if (!currentUser || !validateForm()) return;
 
     setIsSubmitting(true);
 
@@ -291,6 +359,124 @@ const CreateCapsule = () => {
       toast({
         title: "Error",
         description: "Failed to create capsule",
+      console.log("🔐 Starting capsule creation with encryption...");
+
+      const capsuleId = crypto.randomUUID();
+      const headers = await getAuthHeaders();
+
+      // 🔐 Get or create encryption key
+      console.log("🔑 Getting encryption key...");
+      const key = await getOrCreateKey();
+      console.log("✅ Key obtained");
+
+      // 🔐 Encrypt content
+      console.log("🔐 Encrypting title...");
+      const encryptedTitle = await encryptText(key, title);
+      console.log("✅ Title encrypted:", {
+        ciphertext: encryptedTitle.ciphertext.substring(0, 20) + "...",
+        iv: encryptedTitle.iv,
+      });
+
+      console.log("🔐 Encrypting content...");
+      const encryptedContent = await encryptText(key, content);
+      console.log("✅ Content encrypted:", {
+        ciphertext: encryptedContent.ciphertext.substring(0, 20) + "...",
+        iv: encryptedContent.iv,
+      });
+
+      // Upload attachments
+      let uploadedAttachments = [];
+      if (attachments.length > 0) {
+        console.log("📎 Uploading attachments...");
+        uploadedAttachments = await uploadAllAttachments(capsuleId);
+        console.log("✅ Attachments uploaded");
+      }
+
+      // Calculate unlock date
+      let unlockDate: string;
+      if (recipientType === "public") {
+        unlockDate = new Date().toISOString();
+      } else {
+        unlockDate = new Date(
+          `${format(deliveryDate!, "yyyy-MM-dd")}T${deliveryTime}:00`
+        ).toISOString();
+      }
+
+      // 🔐 CREATE PAYLOAD WITH ENCRYPTED DATA
+      const payload = {
+        id: capsuleId,
+
+        // 🔐 ENCRYPTED FIELDS
+        title: encryptedTitle.ciphertext,
+        titleIv: encryptedTitle.iv,
+        content: encryptedContent.ciphertext,
+        contentIv: encryptedContent.iv,
+
+        attachments: uploadedAttachments,
+        category: capsuleCategory,
+
+        triggerType,
+        recipientType,
+        recipients:
+          recipientType === "self"
+            ? [currentUser.uid]
+            : recipientType === "friends"
+            ? selectedFriends
+            : [],
+
+        unlockDate,
+
+        // Firebase fields
+        createdAt: null,
+        isUnlocked: recipientType === "public",
+        status: "scheduled",
+
+        signature: signature || null,
+        userId: currentUser.uid,
+
+        // Reshare fields
+        isReshare: !!location.state?.reshareFrom,
+        originalCapsuleId: location.state?.reshareFrom?.capsuleId || null,
+      };
+
+      console.log("📤 Sending capsule to backend...", {
+        id: payload.id,
+        hasTitle: !!payload.title,
+        hasTitleIv: !!payload.titleIv,
+        hasContent: !!payload.content,
+        hasContentIv: !!payload.contentIv,
+        recipientType: payload.recipientType,
+        unlockDate: payload.unlockDate,
+      });
+
+      const res = await fetch(`${API_BASE}/createCapsule`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("❌ Backend error:", text);
+        throw new Error(text || "Failed to create capsule");
+      }
+
+      const result = await res.json();
+      console.log("✅ Capsule created successfully:", result);
+
+      await refreshCapsules();
+
+      toast({
+        title: "Capsule sealed 🔒",
+        description: "Your capsule has been created and encrypted",
+      });
+
+      navigate("/dashboard");
+    } catch (err) {
+      console.error("❌ Error creating capsule:", err);
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to create capsule",
         variant: "destructive",
       });
     } finally {
@@ -338,9 +524,7 @@ const CreateCapsule = () => {
             </div>
 
             {hasReachedLimit && (
-              <span className="text-sm font-medium text-red-600">
-                Limit reached
-              </span>
+              <span className="text-sm font-medium text-red-600">Limit reached</span>
             )}
           </div>
         )}
@@ -369,9 +553,8 @@ const CreateCapsule = () => {
           onAttachmentsChange={setAttachments}
           onFileSelect={handleFileSelect}
           onRemoveAttachment={removeAttachment}
-          onNextStep={nextStep}
-          onPrevStep={prevStep}
-          currentStep={currentStep}
+          onNextStep={() => setCurrentStep((s) => s + 1)}
+          onPrevStep={() => setCurrentStep((s) => Math.max(0, s - 1))}
           onSubmit={handleFormSubmit}
           isSubmitting={isSubmitting}
           isBlocked={hasReachedLimit}

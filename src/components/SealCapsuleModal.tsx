@@ -1,3 +1,8 @@
+// src/components/SealCapsuleModal.tsx
+// ---------------------------------------------------------
+// SealCapsuleModal.tsx – Modal for sealing time capsules
+// with signature capture, animation, and sound effects
+// ---------------------------------------------------------
 import React, { useState, useRef, useEffect } from "react";
 import ReactSignatureCanvas from "react-signature-canvas";
 import Lottie from "lottie-react";

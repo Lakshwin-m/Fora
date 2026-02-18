@@ -1,3 +1,4 @@
+// src/pages/Dashboard.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCapsules } from "@/contexts/CapsuleContext";
@@ -61,6 +62,9 @@ import {
 } from "lucide-react";
 import gsap from "gsap";
 
+// 🔐 IMPORT DECRYPTION HOOK
+import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
+
 import { usePlan } from "@/hooks/usePlan";
 /* ===================== HELPERS ===================== */
 
@@ -75,6 +79,9 @@ interface Capsule {
   id: string;
   title?: string;
   content?: string;
+  titleIv?: string;
+  content?: string;
+  contentIv?: string;
   unlockDate: any;
   createdAt?: any;
   triggerType?: string;
@@ -131,8 +138,8 @@ class ErrorBoundary extends React.Component<
 
 /* ===================== ICON HELPERS ===================== */
 
-const getContentIcon = (capsule: Capsule) => {
-  const content = (capsule.content || "").toLowerCase();
+const getContentIcon = (capsule: Capsule, content?: string) => {
+  const contentText = (content || "").toLowerCase();
   const mediaType = capsule.attachments?.[0]?.type || "text";
 
   switch (mediaType) {
@@ -149,6 +156,10 @@ const getContentIcon = (capsule: Capsule) => {
       if (content.includes("travel") || content.includes("trip")) return MapPin;
       if (content.includes("music") || content.includes("song")) return Music;
       if (content.includes("memory")) return Brain;
+      if (contentText.includes("love") || contentText.includes("heart")) return Heart;
+      if (contentText.includes("travel") || contentText.includes("trip")) return MapPin;
+      if (contentText.includes("music") || contentText.includes("song")) return Music;
+      if (contentText.includes("memory")) return Brain;
       return FileText;
   }
 };
@@ -198,6 +209,9 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // 🔐 DECRYPT CAPSULE CONTENT
+  const { title, content, isDecrypting } = useCapsuleDecryption(capsule);
+
   const unlockDate =
     parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ??
     new Date(0);
@@ -208,8 +222,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
     capsule.unlockDate || capsule.deliveryDate,
     currentTime
   );
-
-  const ContentIcon = getContentIcon(capsule);
+  const ContentIcon = getContentIcon(capsule, content);
   const TriggerIcon = getTriggerIcon(capsule.triggerType);
 
   const handleCapsuleClick = () => {
@@ -251,7 +264,6 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
       setIsDialogOpen(false);
     }
   };
-  const planNames = ["Arki", "Kyklos", "Aion"];
   return (
     <div ref={cardRef} className="group relative">
       <Card
@@ -276,6 +288,28 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                 <CardTitle className="text-lg font-semibold text-[#1A1A1A] truncate">
                   {capsule.title || "Untitled Capsule"}
                 </CardTitle>
+                {isDecrypting ? (
+                  <Loader2 className="w-6 h-6 text-[#FB6376] animate-spin" />
+                ) : (
+                  <ContentIcon
+                    className={`w-6 h-6 ${
+                      isUnlocked ? "text-[#5D2A42]" : "text-[#FB6376]"
+                    }`}
+                  />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                {/* 🔐 USE DECRYPTED TITLE */}
+                {isDecrypting ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#FB6376]" />
+                    <span className="text-sm text-[#666666]">Decrypting...</span>
+                  </div>
+                ) : (
+                  <CardTitle className="text-lg font-semibold text-[#1A1A1A] truncate">
+                    {title || "Untitled Capsule"}
+                  </CardTitle>
+                )}
                 <div className="flex items-center gap-2 mt-1">
                   {isReceived && capsule.username && (
                     <span className="text-sm text-[#666666] truncate">
@@ -310,8 +344,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Capsule?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete "
-                      {capsule.title || "this capsule"}" and all its contents.
+                      This will permanently delete "{title || capsule.title || "this capsule"}" and all its contents.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <div className="flex gap-3 justify-end">
@@ -367,14 +400,17 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
         </CardHeader>
 
         <CardContent className="pl-6 pb-4">
-          {/* Content preview */}
+          {/* Content preview - 🔐 USE DECRYPTED CONTENT */}
           <div className="mb-5">
             <div className="text-sm text-[#666666] leading-relaxed line-clamp-2 min-h-[48px]">
-              {isUnlocked ? (
+              {isDecrypting ? (
+                <span className="flex items-center gap-2 text-[#999999]">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Decrypting content...
+                </span>
+              ) : isUnlocked ? (
                 <span className="flex items-start gap-3">
-                  {capsule.content
-                    ? capsule.content.slice(0, 100) + "..."
-                    : "No content available"}
+                  {content ? content.slice(0, 100) + "..." : "No content available"}
                 </span>
               ) : (
                 <span className="flex items-start gap-3 text-[#999999]">

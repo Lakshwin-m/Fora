@@ -1,3 +1,4 @@
+// src/pages/CapsuleDetailPage.tsx
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
@@ -25,11 +26,15 @@ import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuth } from "firebase/auth";
 
+// 🔐 IMPORT DECRYPTION HOOK
+import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
+
 const CapsuleDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const auth = getAuth();
+
   const [capsule, setCapsule] = useState<CapsuleWithLineage | null>(null);
   const [loading, setLoading] = useState(true);
   const [isResharing, setIsResharing] = useState(false);
@@ -37,28 +42,62 @@ const CapsuleDetailPage = () => {
   const [likeCount, setLikeCount] = useState(0);
   const [isLiking, setIsLiking] = useState(false);
 
+  // 🔐 USE DECRYPTION HOOK
+  const { 
+    title: decryptedTitle, 
+    content: decryptedContent, 
+    isDecrypting 
+  } = useCapsuleDecryption(capsule);
+
+  // 🔐 DECRYPT ORIGINAL CAPSULE (for reshares)
+  const {
+    title: originalDecryptedTitle,
+    content: originalDecryptedContent,
+    isDecrypting: isDecryptingOriginal,
+  } = useCapsuleDecryption(capsule?.originalCapsule || null);
+
   useEffect(() => {
     const loadCapsule = async () => {
       if (!id) return;
-      const data = await getCapsuleDetail(id);
-      setCapsule(data);
-      setLikeCount(data?.likeCount || 0);
 
-      // Check if current user has liked this capsule
-      if (auth.currentUser) {
-        const hasUserLiked = data?.likedBy?.includes(auth.currentUser.uid);
-        setHasLiked(hasUserLiked || false);
-      }
+      try {
+        console.log("📦 Loading capsule:", id);
+        const data = await getCapsuleDetail(id);
+        
+        if (!data) {
+          console.error("❌ Capsule not found");
+          setLoading(false);
+          return;
+        }
 
-      setLoading(false);
-
-      // Subscribe to real-time like updates
-      if (id) {
-        subscribeToLikeUpdates(id, (count) => {
-          setLikeCount(count);
+        console.log("✅ Capsule loaded:", {
+          id: data.id,
+          hasTitle: !!data.title,
+          hasTitleIv: !!data.titleIv,
+          hasContent: !!data.content,
+          hasContentIv: !!data.contentIv,
         });
+
+        setCapsule(data);
+        setLikeCount(data?.likeCount || 0);
+
+        // Check likes
+        if (auth.currentUser) {
+          const hasUserLiked = data?.likedBy?.includes(auth.currentUser.uid);
+          setHasLiked(hasUserLiked || false);
+        }
+
+        setLoading(false);
+
+        // Subscribe to like updates
+        const unsubscribe = subscribeToLikeUpdates(id, (count) => setLikeCount(count));
+        return unsubscribe;
+      } catch (err) {
+        console.error("❌ Error loading capsule:", err);
+        setLoading(false);
       }
     };
+
     loadCapsule();
   }, [id, auth]);
 
@@ -67,13 +106,12 @@ const CapsuleDetailPage = () => {
 
     setIsResharing(true);
     try {
-      // Create a new capsule that references this one as a reshare
       navigate("/create", {
         state: {
           reshareFrom: {
             capsuleId: capsule.id,
-            title: capsule.title,
-            content: capsule.content,
+            title: decryptedTitle,
+            content: decryptedContent,
             creatorName: capsule.creatorName,
           },
         },
@@ -112,20 +150,22 @@ const CapsuleDetailPage = () => {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
+  const getInitials = (name: string) =>
+    name
       .split(" ")
       .map((n) => n[0])
       .join("")
       .toUpperCase();
-  };
 
-  if (loading) {
+  if (loading || isDecrypting) {
     return (
       <div className="min-h-screen bg-[#FFF9EC]">
         <Navigation />
-        <div className="flex items-center justify-center py-16">
+        <div className="flex flex-col items-center justify-center py-16 space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-[#FB6376]" />
+          <p className="text-[#5D2A42]/60">
+            {loading ? "Loading capsule..." : "Decrypting content..."}
+          </p>
         </div>
       </div>
     );
@@ -160,7 +200,6 @@ const CapsuleDetailPage = () => {
       <Navigation />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Back button */}
         <Button
           variant="ghost"
           onClick={() => navigate("/community")}
@@ -170,10 +209,8 @@ const CapsuleDetailPage = () => {
           Back to Archive
         </Button>
 
-        {/* Main content card */}
         <Card className="border-[#5D2A42]/20 bg-white mb-8">
           <CardHeader className="pb-4 bg-[#FFDCCC]/10 border-b border-[#5D2A42]/10">
-            {/* Reshare indicator */}
             {capsule.isReshare && (
               <div className="mb-4 p-3 bg-[#FB6376]/10 border border-[#FB6376]/20 rounded-lg">
                 <div className="flex items-center space-x-2 text-sm text-[#5D2A42]">
@@ -188,14 +225,13 @@ const CapsuleDetailPage = () => {
               </div>
             )}
 
-            {/* Title */}
+            {/* 🔐 USE DECRYPTED TITLE */}
             <CardTitle className="text-3xl text-[#5D2A42]">
-              {capsule.title}
+              {decryptedTitle || "Untitled Capsule"}
             </CardTitle>
           </CardHeader>
 
           <CardContent className="pt-6 space-y-6">
-            {/* Creator info */}
             <div className="flex items-start justify-between border-b border-[#5D2A42]/10 pb-6">
               <div className="flex items-center space-x-4">
                 <Avatar className="w-14 h-14">
@@ -227,14 +263,14 @@ const CapsuleDetailPage = () => {
               )}
             </div>
 
-            {/* Content */}
+            {/* 🔐 USE DECRYPTED CONTENT */}
             <div className="prose prose-sm max-w-none">
               <p className="text-[#5D2A42] text-base leading-relaxed whitespace-pre-wrap">
-                {capsule.content}
+                {decryptedContent || "No content available"}
               </p>
             </div>
 
-            {/* Metadata footer */}
+            {/* Likes and interactions */}
             <div className="flex items-center justify-between pt-6 border-t border-[#5D2A42]/10">
               <div className="flex items-center space-x-6">
                 <button
@@ -253,11 +289,11 @@ const CapsuleDetailPage = () => {
                   <MessageCircle className="w-5 h-5" />
                   <span className="text-sm">Comments</span>
                 </div>
-                <div className="text-sm text-[#5D2A42]/60">
-                  {capsule.reshareCount > 0 && (
+                {capsule.reshareCount > 0 && (
+                  <div className="text-sm text-[#5D2A42]/60">
                     <span>{capsule.reshareCount} reshares</span>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
 
               <Button
@@ -281,55 +317,62 @@ const CapsuleDetailPage = () => {
           </CardContent>
         </Card>
 
-        {/* Lineage - Show original if this is a reshare */}
+        {/* 🔁 Original capsule with decrypted values */}
         {capsule.isReshare && capsule.originalCapsule && (
           <div className="space-y-4 mb-8">
             <h3 className="text-lg font-semibold text-[#5D2A42]">
               Original Capsule
             </h3>
-            <Card className="border-[#5D2A42]/20 bg-white/50 hover:bg-white transition-colors cursor-pointer">
-              <CardContent className="p-6 space-y-4">
-                {/* Creator info */}
-                <div className="flex items-center space-x-3">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage
-                      src={capsule.originalCapsule.creatorPhoto}
-                      alt={capsule.originalCapsule.creatorName}
-                    />
-                    <AvatarFallback className="bg-[#FB6376] text-white">
-                      {getInitials(capsule.originalCapsule.creatorName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-[#5D2A42] text-sm truncate">
-                      {capsule.originalCapsule.creatorName}
-                    </h4>
-                    <p className="text-xs text-[#5D2A42]/60">
-                      {format(
-                        capsule.originalCapsule.createdAt.toDate(),
-                        "MMM dd, yyyy"
-                      )}
-                    </p>
+
+            {isDecryptingOriginal ? (
+              <Card className="border-[#5D2A42]/20 bg-white/50">
+                <CardContent className="p-6 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 animate-spin text-[#FB6376]" />
+                  <span className="ml-2 text-[#5D2A42]/60">Decrypting...</span>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="border-[#5D2A42]/20 bg-white/50 hover:bg-white transition-colors cursor-pointer">
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage
+                        src={capsule.originalCapsule.creatorPhoto}
+                        alt={capsule.originalCapsule.creatorName}
+                      />
+                      <AvatarFallback className="bg-[#FB6376] text-white">
+                        {getInitials(capsule.originalCapsule.creatorName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-[#5D2A42] text-sm truncate">
+                        {capsule.originalCapsule.creatorName}
+                      </h4>
+                      <p className="text-xs text-[#5D2A42]/60">
+                        {format(
+                          capsule.originalCapsule.createdAt.toDate(),
+                          "MMM dd, yyyy"
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {/* Title */}
-                <div>
+                  {/* 🔐 Use decrypted original title */}
                   <h3 className="font-semibold text-[#5D2A42] line-clamp-2">
-                    {capsule.originalCapsule.title}
+                    {originalDecryptedTitle || "Untitled"}
                   </h3>
-                </div>
 
-                {/* Content preview */}
-                <p className="text-sm text-[#5D2A42]/70 line-clamp-3">
-                  {capsule.originalCapsule.content}
-                </p>
-              </CardContent>
-            </Card>
+                  {/* 🔐 Use decrypted original content */}
+                  <p className="text-sm text-[#5D2A42]/70 line-clamp-3">
+                    {originalDecryptedContent || "No content available"}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
-        {/* Comments Section */}
+        {/* Comments */}
         <Card className="border-[#5D2A42]/20 bg-white">
           <CardContent className="pt-6">
             <CommentSection capsuleId={id!} />
