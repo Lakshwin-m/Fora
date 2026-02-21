@@ -1,342 +1,695 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+// src/pages/Dashboard.tsx
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCapsules } from "@/contexts/CapsuleContext";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from "@/components/ui/card";
-import CapsuleCard from "@/components/CapsuleCard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import Navigation from "@/components/Navigation";
-import {
-  Plus,
-  Search,
-  Filter,
-  Calendar,
-  Clock,
-  Zap,
-  Users,
-  TrendingUp,
-} from "lucide-react";
-
-import { auth } from "@/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import {
-  getFirestore,
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  updateDoc,
-  serverTimestamp,
-  Timestamp,
-} from "firebase/firestore";
 import { toast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { AnimatedStatsCard } from "@/components/ui/card-4";
+import { parseFirebaseDate, formatFirebaseDate } from "@/lib/date";
+import { PlanBadge } from "@/components/PlanBadge";
+import {
+  Clock,
+  Calendar,
+  Users,
+  Send,
+  Inbox,
+  Loader2,
+  Timer,
+  Lock,
+  Unlock,
+  Trash2,
+  Plus,
+  EyeOff,
+  ChevronRight,
+  Mail,
+  Heart,
+  Camera,
+  Music,
+  MapPin,
+  Brain,
+  Gift,
+  FileText,
+  Video,
+  Mic,
+  File,
+  CheckCircle,
+} from "lucide-react";
+import gsap from "gsap";
 
-const Dashboard = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const { capsules, refreshCapsules, loading } = useCapsules();
-  const [username, setUsername] = useState("");
-  const db = getFirestore();
+// 🔐 IMPORT DECRYPTION HOOK
+import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
+import { usePlan } from "@/hooks/usePlan";
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUsername(user.displayName || "User");
-      }
-    });
+/* ===================== TYPES ===================== */
 
-    return () => unsubscribe();
-  }, []);
+interface Attachment {
+  type?: string;
+  url?: string;
+}
 
-  // Capsule unlock checker
-  // Capsule unlock checker
-  useEffect(() => {
-    const checkAndUnlockCapsules = async () => {
-      const user = auth.currentUser;
-      if (!user) {
-        console.log("No user, skipping unlock check"); // DEBUG
-        return;
-      }
+interface Capsule {
+  id: string;
+  title?: string;
+  titleIv?: string;
+  content?: string;
+  contentIv?: string;
+  unlockDate: any;
+  createdAt?: any;
+  triggerType?: string;
+  recipientType?: string;
+  recipients?: string[];
+  recipientNames?: string[];
+  visibility?: string;
+  status?: string;
+  isUnlocked?: boolean;
+  attachments?: Attachment[];
+  username?: string;
+  deliveryDate?: any;
+}
 
-      console.log("Checking for capsules to unlock..."); // DEBUG
+interface CapsuleCardProps {
+  capsule: Capsule;
+  isReceived?: boolean;
+  currentTime: Date;
+}
 
-      try {
-        const capsulesRef = collection(db, "capsules");
-        const q = query(
-          capsulesRef,
-          where("userId", "==", user.uid),
-          where("isUnlocked", "==", false),
-          where("status", "==", "scheduled")
-        );
+/* ===================== ERROR BOUNDARY ===================== */
 
-        const snapshot = await getDocs(q);
-        console.log("Found", snapshot.size, "scheduled capsules"); // DEBUG
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
-        const now = new Date();
-        let unlockedCount = 0;
-        const unlockedTitles: string[] = [];
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
 
-        for (const docSnapshot of snapshot.docs) {
-          const capsule = docSnapshot.data();
-          console.log("Checking capsule:", capsule.title, capsule.unlockDate); // DEBUG
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("Dashboard Error:", error, errorInfo);
+  }
 
-          // Handle Firestore Timestamp
-          const unlockDate =
-            capsule.unlockDate instanceof Timestamp
-              ? capsule.unlockDate.toDate()
-              : new Date(capsule.unlockDate);
-
-          console.log(
-            "Unlock date:",
-            unlockDate,
-            "Now:",
-            now,
-            "Should unlock:",
-            unlockDate <= now
-          ); // DEBUG
-
-          if (unlockDate <= now) {
-            console.log("Unlocking capsule:", docSnapshot.id); // DEBUG
-
-            await updateDoc(doc(db, "capsules", docSnapshot.id), {
-              isUnlocked: true,
-              status: "delivered",
-              unlockedAt: serverTimestamp(),
-            });
-
-            console.log("Capsule unlocked successfully"); // DEBUG
-            unlockedCount++;
-            unlockedTitles.push(capsule.title);
-          }
-        }
-
-        console.log("Unlocked", unlockedCount, "capsules"); // DEBUG
-
-        if (unlockedCount > 0) {
-          toast({
-            title: "🎉 Time Capsule Unlocked!",
-            description:
-              unlockedCount === 1
-                ? `"${unlockedTitles[0]}" is now available to view.`
-                : `${unlockedCount} capsules are now available to view.`,
-          });
-
-          // Wait a bit for Firestore to propagate
-          console.log("Waiting before refresh..."); // DEBUG
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-
-          console.log("Calling refreshCapsules..."); // DEBUG
-          await refreshCapsules();
-          console.log("Refresh complete"); // DEBUG
-        }
-      } catch (error) {
-        console.error("Error checking capsules:", error);
-      }
-    };
-
-    // Check immediately on mount
-    checkAndUnlockCapsules();
-
-    // Check every minute
-    const interval = setInterval(checkAndUnlockCapsules, 60000);
-
-    return () => clearInterval(interval);
-  }, [db, refreshCapsules]);
-  const stats = [
-    {
-      label: "Total Capsules",
-      value: capsules.length.toString(),
-      icon: Clock,
-      color: "text-primary",
-    },
-    {
-      label: "Scheduled",
-      value: capsules.filter((c) => c.status === "scheduled").length.toString(),
-      icon: Calendar,
-      color: "text-warning",
-    },
-    {
-      label: "Delivered",
-      value: capsules.filter((c) => c.status === "delivered").length.toString(),
-      icon: Zap,
-      color: "text-accent",
-    },
-    {
-      label: "Opened",
-      value: capsules.filter((c) => c.status === "opened").length.toString(),
-      icon: TrendingUp,
-      color: "text-success",
-    },
-  ];
-
-  const filterCapsules = (status?: string) => {
-    let filtered = capsules;
-
-    if (status) {
-      filtered = filtered.filter((capsule) => capsule.status === status);
-    }
-
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (capsule) =>
-          capsule.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          capsule.recipients.some((recipient) =>
-            recipient.toLowerCase().includes(searchTerm.toLowerCase())
-          )
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-[#FFF9EC]">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
+            <Button onClick={() => window.location.reload()}>Reload</Button>
+          </div>
+        </div>
       );
     }
+    return this.props.children;
+  }
+}
 
-    return filtered;
+/* ===================== ICON HELPERS ===================== */
+
+const getContentIcon = (capsule: Capsule, content?: string) => {
+  const contentText = (content || "").toLowerCase();
+  const mediaType = capsule.attachments?.[0]?.type || "text";
+
+  switch (mediaType) {
+    case "image":
+      return Camera;
+    case "video":
+      return Video;
+    case "audio":
+      return Mic;
+    case "document":
+      return File;
+    default:
+      if (contentText.includes("love") || contentText.includes("heart")) return Heart;
+      if (contentText.includes("travel") || contentText.includes("trip")) return MapPin;
+      if (contentText.includes("music") || contentText.includes("song")) return Music;
+      if (contentText.includes("memory")) return Brain;
+      return FileText;
+  }
+};
+
+const getTriggerIcon = (triggerType?: string) => {
+  switch (triggerType) {
+    case "time":
+      return Clock;
+    case "event":
+      return Calendar;
+    case "location":
+      return MapPin;
+    case "milestone":
+      return CheckCircle;
+    default:
+      return Clock;
+  }
+};
+
+/* ===================== DATE HELPERS ===================== */
+
+const getCountdown = (unlockDate: any, now: Date) => {
+  const date = parseFirebaseDate(unlockDate);
+  if (!date) return "Invalid date";
+  const diff = date.getTime() - now.getTime();
+  if (diff <= 0) return "Ready to open";
+
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+};
+
+/* ===================== CAPSULE CARD ===================== */
+
+const CapsuleCard: React.FC<CapsuleCardProps> = ({
+  capsule,
+  isReceived,
+  currentTime,
+}) => {
+  const navigate = useNavigate();
+  const { deleteCapsule } = useCapsules();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // 🔐 DECRYPT CAPSULE CONTENT
+  const { title, content, isDecrypting } = useCapsuleDecryption(capsule);
+
+  const unlockDate =
+    parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ?? new Date(0);
+  const isUnlocked =
+    unlockDate.getTime() <= currentTime.getTime() || capsule.isUnlocked;
+  const isSentToSelf = capsule.recipientType === "self";
+  const countdown = getCountdown(capsule.unlockDate || capsule.deliveryDate, currentTime);
+
+  // Use decrypted content for icon selection
+  const ContentIcon = getContentIcon(capsule, content);
+  const TriggerIcon = getTriggerIcon(capsule.triggerType);
+
+  const handleCapsuleClick = () => {
+    if (isDialogOpen) return;
+
+    if (cardRef.current) {
+      gsap.to(cardRef.current, {
+        scale: 0.97,
+        duration: 0.15,
+        yoyo: true,
+        repeat: 1,
+        onComplete: () => {
+          navigate(`/capsule/${capsule.id}`);
+        },
+      });
+    } else {
+      navigate(`/capsule/${capsule.id}`);
+    }
   };
 
-  // Show loading state
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsDeleting(true);
+    try {
+      await deleteCapsule(capsule.id);
+      toast({
+        title: "Capsule deleted",
+        description: "The capsule has been permanently removed.",
+      });
+    } catch (error) {
+      console.error("Error deleting capsule:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete capsule. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setIsDialogOpen(false);
+    }
+  };
+
+  return (
+    <div ref={cardRef} className="group relative">
+      <Card
+        className="border border-[#E8E8E8] bg-white hover:border-[#FB6376]/30 hover:shadow-lg transition-all duration-300 cursor-pointer h-full overflow-hidden"
+        onClick={handleCapsuleClick}
+      >
+        <CardHeader className="pb-4 pl-6">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center space-x-4 flex-1 min-w-0">
+              {/* Icon */}
+              <div
+                className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  isUnlocked ? "bg-[#FFDCCC]/20" : "bg-[#FB6376]/10"
+                }`}
+              >
+                {isDecrypting ? (
+                  <Loader2 className="w-6 h-6 animate-spin text-[#FB6376]" />
+                ) : (
+                  <ContentIcon
+                    className={`w-6 h-6 ${
+                      isUnlocked ? "text-[#5D2A42]" : "text-[#FB6376]"
+                    }`}
+                  />
+                )}
+              </div>
+
+              {/* Title + subtitle */}
+              <div className="min-w-0 flex-1">
+                {isDecrypting ? (
+                  <div className="flex items-center space-x-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#FB6376]" />
+                    <span className="text-sm text-[#666666]">Decrypting...</span>
+                  </div>
+                ) : (
+                  <CardTitle className="text-lg font-semibold text-[#1A1A1A] truncate">
+                    {title || "Untitled Capsule"}
+                  </CardTitle>
+                )}
+                <div className="flex items-center gap-2 mt-1">
+                  {isReceived && capsule.username && (
+                    <span className="text-sm text-[#666666] truncate">
+                      From {capsule.username}
+                    </span>
+                  )}
+                  {isSentToSelf && !isReceived && (
+                    <span className="text-sm text-[#666666]">Personal capsule</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Delete button */}
+            {!isReceived && (
+              <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-[#FB6376]/10 hover:text-[#FB6376] text-[#5D2A42]/40 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Capsule?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete "{title || "this capsule"}" and all its contents.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="flex gap-3 justify-end">
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-[#FB6376] hover:bg-[#FB6376]/90"
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        "Delete"
+                      )}
+                    </AlertDialogAction>
+                  </div>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+
+          {/* Status badges */}
+          <div className="flex items-center gap-2 mb-4">
+            <Badge
+              variant={isUnlocked ? "default" : "secondary"}
+              className={`px-3 py-1 text-xs font-medium rounded-full ${
+                isUnlocked
+                  ? "bg-[#FFDCCC] text-[#5D2A42] hover:bg-[#FFDCCC]"
+                  : "bg-[#FB6376] text-white hover:bg-[#FB6376]"
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                {isUnlocked ? (
+                  <Unlock className="w-3 h-3" />
+                ) : (
+                  <Lock className="w-3 h-3" />
+                )}
+                {isUnlocked ? "Unlocked" : "Locked"}
+              </div>
+            </Badge>
+
+            <Badge
+              variant="outline"
+              className="border-[#E8E8E8] text-[#666666] text-xs px-3 py-1 rounded-full"
+            >
+              <TriggerIcon className="w-3 h-3 mr-1.5" />
+              {capsule.triggerType || "time"}
+            </Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent className="pl-6 pb-4">
+          {/* Content preview */}
+          <div className="mb-5">
+            <div className="text-sm text-[#666666] leading-relaxed line-clamp-2 min-h-[48px]">
+              {isDecrypting ? (
+                <span className="flex items-center gap-2 text-[#999999]">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Decrypting content...
+                </span>
+              ) : isUnlocked ? (
+                <span>{content ? content.slice(0, 100) + (content.length > 100 ? "..." : "") : "No content available"}</span>
+              ) : (
+                <span className="flex items-start gap-3 text-[#999999]">
+                  <EyeOff className="w-4 h-4 mt-1 flex-shrink-0" />
+                  <span>
+                    Contents sealed until{" "}
+                    {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
+                  </span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Countdown / Status */}
+          <div
+            className={`mb-5 p-4 rounded-xl ${
+              isUnlocked
+                ? "bg-[#FFDCCC]/10 border border-[#FFDCCC]/30"
+                : "bg-[#FB6376]/5 border border-[#FB6376]/10"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {isUnlocked ? (
+                  <>
+                    <div className="w-10 h-10 rounded-lg bg-[#FFDCCC]/20 flex items-center justify-center">
+                      <Gift className="w-5 h-5 text-[#FB6376]" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-[#1A1A1A]">Ready to open</div>
+                      <div className="text-xs text-[#666666]">Your capsule is waiting</div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-10 h-10 rounded-lg bg-[#FB6376]/10 flex items-center justify-center">
+                      <Timer className="w-5 h-5 text-[#FB6376]" />
+                    </div>
+                    <div>
+                      <div className="font-mono text-sm font-semibold text-[#1A1A1A]">
+                        {countdown}
+                      </div>
+                      <div className="text-xs text-[#666666]">
+                        Unlocks {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <ChevronRight className="w-5 h-5 text-[#999999]" />
+            </div>
+          </div>
+        </CardContent>
+
+        <CardFooter className="pl-6 pt-4 border-t border-[#F0F0F0]">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-4">
+              {!isReceived && capsule.recipientType === "friends" && (
+                <div className="flex items-center text-sm text-[#666666]">
+                  <Users className="w-4 h-4 mr-2" />
+                  <span>{capsule.recipients?.length || 0} recipients</span>
+                </div>
+              )}
+              <div className="text-sm text-[#999999]">
+                Created {formatFirebaseDate(capsule.createdAt || new Date().toISOString())}
+              </div>
+            </div>
+
+            {!isReceived &&
+              capsule.recipientType === "friends" &&
+              capsule.recipientNames &&
+              capsule.recipientNames.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="flex -space-x-2">
+                    {capsule.recipientNames.slice(0, 3).map((name, idx) => (
+                      <div
+                        key={idx}
+                        className="w-8 h-8 rounded-full bg-[#F0F0F0] border-2 border-white flex items-center justify-center text-xs text-[#666666] font-medium"
+                        title={name}
+                      >
+                        {name.charAt(0).toUpperCase()}
+                      </div>
+                    ))}
+                    {capsule.recipientNames.length > 3 && (
+                      <div className="w-8 h-8 rounded-full bg-[#FB6376] border-2 border-white flex items-center justify-center text-xs text-white font-medium">
+                        +{capsule.recipientNames.length - 3}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+          </div>
+        </CardFooter>
+      </Card>
+    </div>
+  );
+};
+
+/* ===================== EMPTY STATE ===================== */
+
+const EmptyState = ({ type }: { type: "sent" | "received" }) => {
+  const navigate = useNavigate();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      const icons = containerRef.current.querySelectorAll(".float-icon");
+      icons.forEach((icon, i) => {
+        gsap.to(icon, {
+          y: -8,
+          duration: 2,
+          delay: i * 0.2,
+          repeat: -1,
+          yoyo: true,
+          ease: "sine.inOut",
+        });
+      });
+    }
+  }, []);
+
+  return (
+    <div className="py-24 px-8 text-center">
+      <div ref={containerRef} className="relative mb-10">
+        <div className="w-28 h-28 mx-auto mb-8 bg-[#FFF9EC] rounded-2xl flex items-center justify-center border border-[#FFDCCC]">
+          {type === "sent" ? (
+            <Send className="w-14 h-14 text-[#FB6376] float-icon" />
+          ) : (
+            <Mail className="w-14 h-14 text-[#5D2A42] float-icon" />
+          )}
+        </div>
+      </div>
+
+      <h3 className="text-2xl font-bold text-[#1A1A1A] mb-4">
+        {type === "sent" ? "No Capsules Created" : "No Capsules Received"}
+      </h3>
+
+      <p className="text-[#666666] mb-10 max-w-md mx-auto text-lg leading-relaxed">
+        {type === "sent"
+          ? "Create your first time capsule to preserve precious moments for the future."
+          : "When someone sends you a time capsule, it will appear here."}
+      </p>
+
+      {type === "sent" && (
+        <Button
+          onClick={() => navigate("/create")}
+          className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white px-8 py-6 text-base h-auto"
+          size="lg"
+        >
+          <Plus className="w-5 h-5 mr-3" />
+          Create Your First Capsule
+        </Button>
+      )}
+    </div>
+  );
+};
+
+/* ===================== DASHBOARD ===================== */
+
+const Dashboard = () => {
+  const { plan, loading: planLoading } = usePlan();
+  const navigate = useNavigate();
+  const { capsules, receivedCapsules, loading } = useCapsules();
+  const [activeTab, setActiveTab] = useState("sent");
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    cardsRef.current.forEach((card, index) => {
+      if (card) {
+        gsap.fromTo(
+          card,
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.5, delay: index * 0.05, ease: "power3.out" }
+        );
+      }
+    });
+  }, [capsules, receivedCapsules, activeTab]);
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Clock className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading your capsules...</p>
+      <div className="flex items-center justify-center h-screen bg-[#FFF9EC]">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto border-4 border-[#FB6376] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[#5D2A42] text-lg">Loading your capsules...</p>
         </div>
       </div>
     );
   }
 
+  const sent = capsules || [];
+  const received = receivedCapsules || [];
+
   return (
-    <div className="min-h-screen bg-background">
-      <Navigation />
+    <ErrorBoundary>
+      <div className="min-h-screen bg-[#FFF9EC]">
+        <Navigation />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back{username && `, ${username}`}! 👋
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your time capsules and create new memories for the future
-          </p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <Card
-              key={index}
-              className="border-border bg-card/80 backdrop-blur-sm hover-glow"
-            >
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.label}
-                </CardTitle>
-                <stat.icon className={`w-5 h-5 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground">
-                  {stat.value}
+        <main className="ml-0 md:ml-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            {/* Header */}
+            <div className="mb-12">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+                <div>
+                  <h1 className="text-3xl font-bold text-[#1A1A1A] mb-3">
+                    <span className="text-[#FB6376]">Forá</span> Time Capsules
+                  </h1>
+                  <p className="text-[#666666] text-md">
+                    Preserve memories, share moments, connect across time
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              </div>
 
-        {/* Actions & Search */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div className="flex items-center space-x-4 w-full sm:w-auto">
-            <div className="relative flex-1 sm:flex-initial">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search capsules..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-full sm:w-80 border-border bg-input"
-              />
+              {/* Stats */}
+              <div className="flex flex-wrap items-center gap-8">
+                <AnimatedStatsCard title="Capsules Created" primaryValue={sent.length} />
+                <AnimatedStatsCard title="Capsules Received" primaryValue={received.length} />
+                <AnimatedStatsCard
+                  title="Unlocked Capsules"
+                  primaryValue={
+                    [...sent, ...received].filter((c) => {
+                      const d = parseFirebaseDate(c.unlockDate || c.deliveryDate);
+                      return d ? d.getTime() <= Date.now() || c.isUnlocked : false;
+                    }).length
+                  }
+                />
+              </div>
             </div>
-            <Button variant="outline" size="sm" className="border-border">
-              <Filter className="w-4 h-4 mr-2" />
-              Filter
-            </Button>
+
+            {!planLoading && plan && (
+              <div className="absolute top-4 right-4 z-20 scale-[0.85] origin-top-left">
+                <PlanBadge
+                  tier={plan.tier}
+                  usedCapsules={plan.usedCapsules}
+                  capsuleLimit={plan.capsuleLimit}
+                />
+              </div>
+            )}
+
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="w-full sm:w-auto mb-10 bg-white border border-[#E8E8E8] p-1.5 rounded-xl">
+                <TabsTrigger
+                  value="sent"
+                  className="flex-1 sm:flex-none data-[state=active]:bg-[#FB6376] data-[state=active]:text-white px-8 py-3 rounded-lg"
+                >
+                  <Send className="w-4 h-4 mr-3" />
+                  Sent ({sent.length})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="received"
+                  className="flex-1 sm:flex-none data-[state=active]:bg-[#FCB1A6] data-[state=active]:text-[#1A1A1A] px-8 py-3 rounded-lg"
+                >
+                  <Inbox className="w-4 h-4 mr-3" />
+                  Received ({received.length})
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Sent */}
+              <TabsContent value="sent" className="space-y-8">
+                {sent.length === 0 ? (
+                  <EmptyState type="sent" />
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+                    {sent.map((capsule, index) => (
+                      <div key={capsule.id} ref={(el) => (cardsRef.current[index] = el)}>
+                        <CapsuleCard capsule={capsule} currentTime={currentTime} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* Received */}
+              <TabsContent value="received" className="space-y-8">
+                {received.length === 0 ? (
+                  <EmptyState type="received" />
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+                    {received.map((capsule, index) => (
+                      <div
+                        key={capsule.id}
+                        ref={(el) => (cardsRef.current[sent.length + index] = el)}
+                      >
+                        <CapsuleCard
+                          capsule={capsule}
+                          isReceived={true}
+                          currentTime={currentTime}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
-
-          <Link to="/create">
-            <Button className="bg-gradient-accent hover-glow shadow-accent">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Capsule
-            </Button>
-          </Link>
-        </div>
-
-        {/* Capsules Tabs */}
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full md:w-fit grid-cols-4 mb-6 bg-muted/20">
-            <TabsTrigger value="all">All Capsules</TabsTrigger>
-            <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
-            <TabsTrigger value="delivered">Delivered</TabsTrigger>
-            <TabsTrigger value="opened">Opened</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="all" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filterCapsules().map((capsule) => (
-                <CapsuleCard key={capsule.id} {...capsule} />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="scheduled" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filterCapsules("scheduled").map((capsule) => (
-                <CapsuleCard key={capsule.id} {...capsule} />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="delivered" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filterCapsules("delivered").map((capsule) => (
-                <CapsuleCard key={capsule.id} {...capsule} />
-              ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="opened" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filterCapsules("opened").map((capsule) => (
-                <CapsuleCard key={capsule.id} {...capsule} />
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* Empty State */}
-        {filterCapsules().length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4">
-              <Clock className="w-8 h-8 text-white" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              No capsules found
-            </h3>
-            <p className="text-muted-foreground mb-6">
-              {searchTerm
-                ? "Try adjusting your search terms"
-                : "Create your first time capsule to get started"}
-            </p>
-            <Link to="/create">
-              <Button className="bg-gradient-primary hover-glow">
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Capsule
-              </Button>
-            </Link>
-          </div>
-        )}
+        </main>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 };
 

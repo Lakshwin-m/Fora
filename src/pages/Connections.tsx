@@ -1,96 +1,110 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Navigation from "@/components/Navigation";
 import { toast } from "@/hooks/use-toast";
 import {
-  UserPlus,
   Search,
-  Mail,
-  Check,
-  X,
   Users,
-  Clock,
-  MessageCircle,
   MoreHorizontal,
   UserMinus,
   Loader2,
+  ArrowLeft,
+  Eye,
+  MessageCircle,
 } from "lucide-react";
 import {
-  sendFriendRequest,
-  acceptFriendRequest,
-  rejectFriendRequest,
-  cancelFriendRequest,
-  removeFriend,
-  getFriends,
-  getReceivedFriendRequests,
-  getSentFriendRequests,
-  searchUsers,
-  FriendWithProfile,
-  UserProfile,
+  apiGetFriends,
+  apiGetPendingRequests,
+  apiAcceptFriendRequest,
+  apiRejectFriendRequest,
+  apiRemoveFriend,
 } from "@/services/friendServices";
 import { auth } from "@/firebase";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { onAuthStateChanged } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+
+/* ================= TYPES ================= */
+
+interface UserProfile {
+  uid: string;
+  name?: string;
+  email?: string;
+  photoURL?: string;
+}
+
+interface Friend {
+  id: string;
+  profile: UserProfile;
+}
+
+interface PendingRequest {
+  id: string;
+  senderName?: string;
+  senderEmail?: string;
+}
+
+/* ================= COMPONENT ================= */
 
 const Connections = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
+  const navigate = useNavigate();
+
+  const [authReady, setAuthReady] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [searchLoading, setSearchLoading] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // State for data
-  const [friends, setFriends] = useState<FriendWithProfile[]>([]);
-  const [receivedRequests, setReceivedRequests] = useState<FriendWithProfile[]>(
-    []
-  );
-  const [sentRequests, setSentRequests] = useState<FriendWithProfile[]>([]);
-  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [filteredFriends, setFilteredFriends] = useState<Friend[]>([]);
+  const [pending, setPending] = useState<PendingRequest[]>([]);
 
-  const currentUserId = auth.currentUser?.uid;
-
-  // Load initial data
+  /* ================= AUTH ================= */
   useEffect(() => {
-    if (currentUserId) {
-      loadAllData();
-    }
-  }, [currentUserId]);
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+      setAuthReady(true);
+    });
+    return () => unsub();
+  }, [navigate]);
 
-  const loadAllData = async () => {
-    if (!currentUserId) return;
+  /* ================= LOAD DATA ================= */
+  useEffect(() => {
+    if (!authReady) return;
+    loadAll();
+  }, [authReady]);
 
+  const loadAll = async () => {
     setLoading(true);
     try {
-      const [friendsData, receivedData, sentData] = await Promise.all([
-        getFriends(currentUserId),
-        getReceivedFriendRequests(currentUserId),
-        getSentFriendRequests(currentUserId),
+      const [friendsData, pendingData] = await Promise.all([
+        apiGetFriends(),
+        apiGetPendingRequests(),
       ]);
 
-      setFriends(friendsData);
-      setReceivedRequests(receivedData);
-      setSentRequests(sentData);
-    } catch (error) {
-      console.error("Error loading data:", error);
+      setFriends(friendsData || []);
+      setFilteredFriends(friendsData || []);
+      setPending(pendingData || []);
+    } catch (err) {
+      console.error(err);
       toast({
         title: "Error",
-        description: "Failed to load connections data",
+        description: "Failed to load connections",
         variant: "destructive",
       });
     } finally {
@@ -98,59 +112,50 @@ const Connections = () => {
     }
   };
 
-  const handleSearchUsers = async () => {
-    if (!currentUserId || !inviteEmail.trim()) return;
+  /* ================= DEBOUNCED SEARCH ================= */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(searchTerm.toLowerCase());
+    }, 300);
 
-    setSearchLoading(true);
-    try {
-      const results = await searchUsers(inviteEmail.trim(), currentUserId);
-      setSearchResults(results);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
-      if (results.length === 0) {
-        toast({
-          title: "No users found",
-          description: "Try searching with a different email",
-        });
-      }
-    } catch (error) {
-      console.error("Error searching users:", error);
-      toast({
-        title: "Error",
-        description: "Failed to search users",
-        variant: "destructive",
-      });
-    } finally {
-      setSearchLoading(false);
+  useEffect(() => {
+    if (!debouncedSearch) {
+      setFilteredFriends(friends);
+      return;
     }
-  };
 
-  const handleSendRequest = async (receiverId: string) => {
-    if (!currentUserId) return;
+    const filtered = friends.filter(
+      (f) =>
+        f.profile?.name?.toLowerCase().includes(debouncedSearch) ||
+        f.profile?.email?.toLowerCase().includes(debouncedSearch)
+    );
 
-    setActionLoading(receiverId);
+    setFilteredFriends(filtered);
+  }, [debouncedSearch, friends]);
+
+  /* ================= HELPERS ================= */
+  const getInitials = (name?: string) =>
+    name
+      ? name
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+      : "?";
+
+  /* ================= ACTIONS ================= */
+  const handleRemove = async (id: string) => {
+    setActionLoading(id);
     try {
-      const result = await sendFriendRequest(currentUserId, receiverId);
-
-      if (result.success) {
-        toast({
-          title: "Request sent!",
-          description: result.message,
-        });
-        setInviteEmail("");
-        setSearchResults([]);
-        await loadAllData();
-      } else {
-        toast({
-          title: "Unable to send request",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error sending request:", error);
+      await apiRemoveFriend(id);
+      toast({ title: "Connection removed" });
+      await loadAll();
+    } catch {
       toast({
-        title: "Error",
-        description: "Failed to send friend request",
+        title: "Failed to remove connection",
         variant: "destructive",
       });
     } finally {
@@ -158,31 +163,15 @@ const Connections = () => {
     }
   };
 
-  const handleAcceptRequest = async (requestId: string, name: string) => {
-    if (!currentUserId) return;
-
-    setActionLoading(requestId);
+  const handleAccept = async (id: string) => {
+    setActionLoading(id);
     try {
-      const result = await acceptFriendRequest(requestId, currentUserId);
-
-      if (result.success) {
-        toast({
-          title: "Connection accepted!",
-          description: `You're now connected with ${name}`,
-        });
-        await loadAllData();
-      } else {
-        toast({
-          title: "Unable to accept",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error accepting request:", error);
+      await apiAcceptFriendRequest(id);
+      toast({ title: "Connection accepted" });
+      await loadAll();
+    } catch {
       toast({
-        title: "Error",
-        description: "Failed to accept friend request",
+        title: "Failed to accept request",
         variant: "destructive",
       });
     } finally {
@@ -190,31 +179,15 @@ const Connections = () => {
     }
   };
 
-  const handleRejectRequest = async (requestId: string, name: string) => {
-    if (!currentUserId) return;
-
-    setActionLoading(requestId);
+  const handleReject = async (id: string) => {
+    setActionLoading(id);
     try {
-      const result = await rejectFriendRequest(requestId, currentUserId);
-
-      if (result.success) {
-        toast({
-          title: "Request declined",
-          description: `Connection request from ${name} has been declined`,
-        });
-        await loadAllData();
-      } else {
-        toast({
-          title: "Unable to reject",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error rejecting request:", error);
+      await apiRejectFriendRequest(id);
+      toast({ title: "Request rejected" });
+      await loadAll();
+    } catch {
       toast({
-        title: "Error",
-        description: "Failed to reject friend request",
+        title: "Failed to reject request",
         variant: "destructive",
       });
     } finally {
@@ -222,536 +195,139 @@ const Connections = () => {
     }
   };
 
-  const handleCancelRequest = async (requestId: string, name: string) => {
-    if (!currentUserId) return;
-
-    setActionLoading(requestId);
-    try {
-      const result = await cancelFriendRequest(requestId, currentUserId);
-
-      if (result.success) {
-        toast({
-          title: "Request cancelled",
-          description: `Friend request to ${name} has been cancelled`,
-        });
-        await loadAllData();
-      } else {
-        toast({
-          title: "Unable to cancel",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error cancelling request:", error);
-      toast({
-        title: "Error",
-        description: "Failed to cancel friend request",
-        variant: "destructive",
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleRemoveFriend = async (friendshipId: string, name: string) => {
-    if (!currentUserId) return;
-
-    setActionLoading(friendshipId);
-    try {
-      const result = await removeFriend(friendshipId, currentUserId);
-
-      if (result.success) {
-        toast({
-          title: "Friend removed",
-          description: `${name} has been removed from your connections`,
-        });
-        await loadAllData();
-      } else {
-        toast({
-          title: "Unable to remove",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error removing friend:", error);
-      toast({
-        title: "Error",
-        description: "Failed to remove friend",
-        variant: "destructive",
-      });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
-  };
-
-  const filteredConnections = friends.filter(
-    (friend) =>
-      friend.profile.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      friend.profile.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const allPendingRequests = [...receivedRequests, ...sentRequests];
-
-  if (loading) {
+  /* ================= LOADING ================= */
+  if (!authReady || loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-white">
         <Navigation />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin" />
         </div>
       </div>
     );
   }
 
+  /* ================= RENDER ================= */
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-white">
       <Navigation />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">
-            Connections
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your network and share time capsules with friends and family
-          </p>
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/dashboard")}
+          className="mb-6"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Dashboard
+        </Button>
+
+        <div className="flex items-center justify-between mb-10">
+          <h1 className="text-4xl font-bold">Connections</h1>
+          <Badge>{friends.length} people</Badge>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="border-border bg-card/80 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Connections
-              </CardTitle>
-              <Users className="w-5 h-5 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {friends.length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card/80 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pending Requests
-              </CardTitle>
-              <Clock className="w-5 h-5 text-warning" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {allPendingRequests.length}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card/80 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Shared Capsules
-              </CardTitle>
-              <MessageCircle className="w-5 h-5 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">0</div>
-              <p className="text-xs text-muted-foreground mt-1">Coming soon</p>
-            </CardContent>
-          </Card>
+        {/* Search */}
+        <div className="relative mb-10">
+          <Search className="absolute left-3 top-3 text-muted-foreground" />
+          <Input
+            className="pl-10"
+            placeholder="Search connections"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
 
-        {/* Invite Section */}
-        <Card className="border-border bg-card/80 backdrop-blur-sm mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <UserPlus className="w-5 h-5 text-primary" />
-              <span>Find & Connect</span>
-            </CardTitle>
-            <CardDescription>
-              Search for users by email to send connection requests
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex space-x-3">
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="invite-email">Email Address</Label>
-                <Input
-                  id="invite-email"
-                  type="email"
-                  placeholder="friend@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearchUsers()}
-                  className="border-border bg-input"
-                />
-              </div>
-              <div className="flex items-end">
-                <Button
-                  onClick={handleSearchUsers}
-                  disabled={searchLoading || !inviteEmail.trim()}
-                  className="bg-gradient-primary hover-glow"
-                >
-                  {searchLoading ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Search className="w-4 h-4 mr-2" />
-                  )}
-                  Search
-                </Button>
-              </div>
-            </div>
+        {/* Friends */}
+        {filteredFriends.length === 0 ? (
+          <Card>
+            <CardContent className="p-10 text-center">
+              <Users className="mx-auto mb-4" />
+              <p>No connections found</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {filteredFriends.map((f) => (
+              <Card key={f.id}>
+                <CardContent className="p-5">
+                  <div className="flex justify-between">
+                    <div className="flex gap-3">
+                      <Avatar>
+                        <AvatarImage src={f.profile?.photoURL} />
+                        <AvatarFallback>
+                          {getInitials(f.profile?.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold">
+                          {f.profile?.name || "Unknown"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {f.profile?.email}
+                        </p>
+                      </div>
+                    </div>
 
-            {/* Search Results */}
-            {searchResults.length > 0 && (
-              <div className="mt-4 space-y-3">
-                <p className="text-sm font-medium text-muted-foreground">
-                  Search Results ({searchResults.length})
-                </p>
-                {searchResults.map((user) => (
-                  <Card key={user.uid} className="border-border">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="w-10 h-10">
-                            <AvatarImage src={user.photoURL} alt={user.name} />
-                            <AvatarFallback className="bg-gradient-secondary text-white">
-                              {getInitials(user.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h4 className="font-medium text-foreground">
-                              {user.name}
-                            </h4>
-                            <p className="text-sm text-muted-foreground">
-                              {user.email}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={() => handleSendRequest(user.uid)}
-                          disabled={actionLoading === user.uid}
-                          className="bg-gradient-accent hover-glow"
-                        >
-                          {actionLoading === user.uid ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <UserPlus className="w-4 h-4 mr-2" />
-                          )}
-                          Connect
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal />
                         </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Connections Tabs */}
-        <Tabs defaultValue="connections" className="w-full">
-          <TabsList className="grid w-full md:w-fit grid-cols-2 mb-6 bg-muted/20">
-            <TabsTrigger value="connections">My Connections</TabsTrigger>
-            <TabsTrigger value="pending">
-              Pending
-              {allPendingRequests.length > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="ml-2 h-5 w-5 rounded-full p-0 text-xs"
-                >
-                  {allPendingRequests.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-
-          {/* My Connections */}
-          <TabsContent value="connections" className="space-y-6">
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search connections..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-border bg-input"
-                />
-              </div>
-            </div>
-
-            {filteredConnections.length === 0 ? (
-              <Card className="border-border bg-card/80 backdrop-blur-sm">
-                <CardContent className="p-12 text-center">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    No connections yet
-                  </h3>
-                  <p className="text-muted-foreground mb-4">
-                    Start by searching for friends above
-                  </p>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem>
+                          <Eye className="w-4 h-4 mr-2" /> View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <MessageCircle className="w-4 h-4 mr-2" /> Message
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          disabled={actionLoading === f.id}
+                          onClick={() => handleRemove(f.id)}
+                        >
+                          <UserMinus className="w-4 h-4 mr-2" /> Remove
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </CardContent>
               </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredConnections.map((friend) => (
-                  <Card
-                    key={friend.id}
-                    className="border-border bg-card/80 backdrop-blur-sm hover-glow"
+            ))}
+          </div>
+        )}
+
+        {/* Pending Requests */}
+        <div className="mt-12">
+          <h3 className="text-xl font-semibold mb-4">Pending Requests</h3>
+
+          {pending.length === 0 ? (
+            <p className="text-muted-foreground">No pending requests</p>
+          ) : (
+            pending.map((p) => (
+              <div
+                key={p.id}
+                className="flex justify-between items-center p-3 border rounded mb-2"
+              >
+                <span>{p.senderName || p.senderEmail}</span>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => handleAccept(p.id)}>
+                    Accept
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleReject(p.id)}
                   >
-                    <CardHeader className="pb-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <Avatar className="w-12 h-12">
-                            <AvatarImage
-                              src={friend.profile.photoURL}
-                              alt={friend.profile.name}
-                            />
-                            <AvatarFallback className="bg-gradient-primary text-white">
-                              {getInitials(friend.profile.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h3 className="font-semibold text-foreground">
-                              {friend.profile.name}
-                            </h3>
-                            <p className="text-sm text-muted-foreground">
-                              {friend.profile.email}
-                            </p>
-                          </div>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() =>
-                                handleRemoveFriend(
-                                  friend.id!,
-                                  friend.profile.name
-                                )
-                              }
-                              disabled={actionLoading === friend.id}
-                            >
-                              <UserMinus className="w-4 h-4 mr-2" />
-                              Remove Friend
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">
-                            Connections:
-                          </span>
-                          <span className="font-medium text-foreground">
-                            {friend.profile.connections}
-                          </span>
-                        </div>
-                        {friend.profile.bio && (
-                          <p className="text-xs text-muted-foreground line-clamp-2 mt-2">
-                            {friend.profile.bio}
-                          </p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    Reject
+                  </Button>
+                </div>
               </div>
-            )}
-          </TabsContent>
-
-          {/* Pending Requests */}
-          <TabsContent value="pending" className="space-y-6">
-            {allPendingRequests.length === 0 ? (
-              <Card className="border-border bg-card/80 backdrop-blur-sm">
-                <CardContent className="p-12 text-center">
-                  <Clock className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    No pending requests
-                  </h3>
-                  <p className="text-muted-foreground">
-                    When you send or receive connection requests, they'll appear
-                    here
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {/* Received Requests */}
-                {receivedRequests.length > 0 && (
-                  <>
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      Received Requests ({receivedRequests.length})
-                    </h3>
-                    {receivedRequests.map((request) => (
-                      <Card
-                        key={request.id}
-                        className="border-border bg-card/80 backdrop-blur-sm"
-                      >
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start space-x-4">
-                              <Avatar className="w-12 h-12">
-                                <AvatarImage
-                                  src={request.profile.photoURL}
-                                  alt={request.profile.name}
-                                />
-                                <AvatarFallback className="bg-gradient-accent text-white">
-                                  {getInitials(request.profile.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className="font-semibold text-foreground">
-                                    {request.profile.name}
-                                  </h3>
-                                  <Badge variant="default">Incoming</Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-2">
-                                  {request.profile.email}
-                                </p>
-                                {request.profile.bio && (
-                                  <p className="text-sm text-foreground">
-                                    {request.profile.bio}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="flex space-x-2">
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  handleAcceptRequest(
-                                    request.id!,
-                                    request.profile.name
-                                  )
-                                }
-                                disabled={actionLoading === request.id}
-                                className="bg-gradient-primary hover-glow"
-                              >
-                                {actionLoading === request.id ? (
-                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                ) : (
-                                  <Check className="w-4 h-4 mr-2" />
-                                )}
-                                Accept
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  handleRejectRequest(
-                                    request.id!,
-                                    request.profile.name
-                                  )
-                                }
-                                disabled={actionLoading === request.id}
-                                className="border-border hover:bg-destructive/20"
-                              >
-                                <X className="w-4 h-4 mr-2" />
-                                Decline
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </>
-                )}
-
-                {/* Sent Requests */}
-                {sentRequests.length > 0 && (
-                  <>
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mt-8">
-                      Sent Requests ({sentRequests.length})
-                    </h3>
-                    {sentRequests.map((request) => (
-                      <Card
-                        key={request.id}
-                        className="border-border bg-card/80 backdrop-blur-sm"
-                      >
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start space-x-4">
-                              <Avatar className="w-12 h-12">
-                                <AvatarImage
-                                  src={request.profile.photoURL}
-                                  alt={request.profile.name}
-                                />
-                                <AvatarFallback className="bg-gradient-secondary text-white">
-                                  {getInitials(request.profile.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="flex items-center space-x-2 mb-1">
-                                  <h3 className="font-semibold text-foreground">
-                                    {request.profile.name}
-                                  </h3>
-                                  <Badge variant="secondary">Sent</Badge>
-                                </div>
-                                <p className="text-sm text-muted-foreground mb-2">
-                                  {request.profile.email}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Sent{" "}
-                                  {request.createdAt
-                                    .toDate()
-                                    .toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() =>
-                                handleCancelRequest(
-                                  request.id!,
-                                  request.profile.name
-                                )
-                              }
-                              disabled={actionLoading === request.id}
-                              className="border-border hover:bg-destructive/20"
-                            >
-                              {actionLoading === request.id ? (
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              ) : (
-                                <X className="w-4 h-4 mr-2" />
-                              )}
-                              Cancel
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

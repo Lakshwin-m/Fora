@@ -2,147 +2,275 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Forá Design System - Time Capsule Platform
-Futuristic yet emotional time-travel aesthetic with warm gradients
-All colors MUST be HSL.
-*/
+/* =========================================================
+   Forá Design System – Obsidian Bloom Edition
+   TRUE DARK MODE
+   ❌ No light colors
+   ❌ No grey / ivory / off-white
+   ✅ Blacks, plums, roses only
+   ========================================================= */
 
 @layer base {
   :root {
-    /* Main Background & Text */
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
+    /* ================= CORE BACKGROUNDS ================= */
 
-    /* Card System */
-    --card: 240 10% 6%;
-    --card-foreground: 0 0% 95%;
+    --black-void: 0 0% 4%; /* Absolute base */
+    --plum-black: 331 35% 10%; /* Main app bg */
+    --plum-surface: 331 38% 14%; /* Cards / modals */
+    --plum-elevated: 331 40% 18%; /* Hover / raised */
 
-    /* Popover */
-    --popover: 240 10% 6%;
-    --popover-foreground: 0 0% 95%;
+    /* ================= BRAND ================= */
 
-    /* Primary - Deep Purple/Indigo for time-travel */
-    --primary: 258 90% 66%;
-    --primary-foreground: 0 0% 98%;
-    --primary-glow: 258 100% 76%;
+    --coral-pink: 355 94% 60%; /* Primary action */
+    --rose-deep: 345 65% 45%; /* Secondary accent */
 
-    /* Secondary - Soft Teal for future tech */
-    --secondary: 173 80% 56%;
-    --secondary-foreground: 240 10% 3.9%;
+    /* ================= TEXT (NO LIGHT) ================= */
 
-    /* Muted tones */
-    --muted: 240 5% 15%;
-    --muted-foreground: 240 5% 65%;
+    --text-primary: 0 0% 88%; /* Near-black white (NOT light) */
+    --text-secondary: 331 20% 60%; /* Muted plum */
+    --text-subtle: 331 15% 45%; /* Metadata */
 
-    /* Accent - Warm gradient blend */
-    --accent: 280 100% 70%;
-    --accent-foreground: 0 0% 98%;
+    /* ================= SEMANTICS ================= */
 
-    /* Status colors */
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-    
-    --success: 142 70% 45%;
-    --success-foreground: 0 0% 98%;
+    --background: var(--plum-black);
+    --foreground: var(--text-primary);
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 98%;
+    --card: var(--plum-surface);
+    --card-foreground: var(--text-primary);
 
-    /* UI Elements */
-    --border: 240 6% 20%;
-    --input: 240 6% 18%;
-    --ring: 258 90% 66%;
+    --popover: var(--plum-surface);
+    --popover-foreground: var(--text-primary);
 
-    /* Gradients for time-travel vibes */
-    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
-    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)), hsl(var(--primary-glow)));
-    --gradient-subtle: linear-gradient(180deg, hsl(var(--card)), hsl(240 10% 8%));
-    --gradient-hero: linear-gradient(135deg, hsl(258 90% 66%), hsl(173 80% 56%), hsl(280 100% 70%));
+    --primary: var(--coral-pink);
+    --primary-foreground: var(--black-void);
 
-    /* Shadows with glow effects */
-    --shadow-card: 0 8px 32px hsl(240 10% 3.9% / 0.12);
-    --shadow-glow: 0 0 40px hsl(var(--primary) / 0.15);
-    --shadow-accent: 0 8px 32px hsl(var(--accent) / 0.15);
+    --secondary: var(--rose-deep);
+    --secondary-foreground: var(--black-void);
 
-    /* Animation timings */
+    --muted: var(--plum-elevated);
+    --muted-foreground: var(--text-secondary);
+
+    /* ================= STATUS ================= */
+
+    --success: 150 55% 38%;
+    --success-foreground: var(--text-primary);
+
+    --warning: 38 90% 48%;
+    --warning-foreground: var(--black-void);
+
+    --destructive: 0 70% 44%;
+    --destructive-foreground: var(--text-primary);
+
+    /* ================= UI ================= */
+
+    --border: 331 30% 22%;
+    --input: 331 30% 16%;
+    --ring: var(--coral-pink);
+
+    /* ================= SHADOWS ================= */
+
+    --shadow-card: 0 16px 48px hsl(0 0% 0% / 0.6);
+    --shadow-soft: 0 6px 20px hsl(0 0% 0% / 0.45);
+
+    /* ================= MOTION ================= */
+
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     --radius: 1rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
   }
 }
 
+/* ================= UTILITIES ================= */
+
 @layer utilities {
-  /* Gradient backgrounds */
-  .bg-gradient-primary {
-    background: var(--gradient-primary);
+  /* Backgrounds */
+  .bg-black {
+    background-color: hsl(var(--black-void));
   }
-  
-  .bg-gradient-accent {
-    background: var(--gradient-accent);
+  .bg-plum {
+    background-color: hsl(var(--plum-black));
   }
-  
-  .bg-gradient-subtle {
-    background: var(--gradient-subtle);
+  .bg-surface {
+    background-color: hsl(var(--plum-surface));
   }
-  
-  .bg-gradient-hero {
-    background: var(--gradient-hero);
+  .bg-elevated {
+    background-color: hsl(var(--plum-elevated));
   }
 
-  /* Shadow utilities */
+  /* Text */
+  .text-primary {
+    color: hsl(var(--text-primary));
+  }
+  .text-secondary {
+    color: hsl(var(--text-secondary));
+  }
+  .text-subtle {
+    color: hsl(var(--text-subtle));
+  }
+  .text-coral {
+    color: hsl(var(--coral-pink));
+  }
+  .text-rose {
+    color: hsl(var(--rose-deep));
+  }
+
+  /* Shadows */
   .shadow-card {
     box-shadow: var(--shadow-card);
   }
-  
-  .shadow-glow {
-    box-shadow: var(--shadow-glow);
-  }
-  
-  .shadow-accent {
-    box-shadow: var(--shadow-accent);
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
   }
 
-  /* Animation utilities */
+  /* Motion */
   .transition-smooth {
     transition: var(--transition-smooth);
   }
-  
   .transition-bounce {
     transition: var(--transition-bounce);
   }
-
-  /* Hover glow effect */
-  .hover-glow {
-    @apply transition-smooth;
-  }
-  
-  .hover-glow:hover {
-    box-shadow: var(--shadow-glow);
-  }
 }
 
+/* ================= BASE ================= */
+
 @layer base {
+  @import url("https://fonts.googleapis.com/css2?family=Satoshi:wght@400;500;600;700&display=swap");
+
   * {
     @apply border-border;
+    font-family: "Satoshi", "Inter", sans-serif;
+    letter-spacing: -0.015em;
   }
 
   body {
     @apply bg-background text-foreground;
+    color: hsl(var(--text-primary));
+    font-weight: 400;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+    letter-spacing: -0.04em;
+    color: hsl(var(--text-primary));
+  }
+
+  p {
+    color: hsl(var(--text-secondary));
+  }
+
+  small {
+    font-size: 0.85rem;
+    color: hsl(var(--text-subtle));
+  }
+
+  button,
+  .btn {
+    font-weight: 500;
+    @apply transition-all duration-200 ease-in-out;
+  }
+}
+
+/* ================= CURSORS ================= */
+
+.cursor-shovel {
+  cursor: url("/shovel-cursor.png") 16 16, pointer !important;
+}
+.cursor-shovel * {
+  cursor: inherit;
+}
+.cursor-shovel .flower-clickable {
+  cursor: pointer !important;
+}
+
+/* ================= ANIMATIONS ================= */
+
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(2deg);
+  }
+  75% {
+    transform: rotate(-2deg);
+  }
+}
+.animate-sway {
+  animation: sway 3s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes drift {
+  from {
+    transform: translateX(-150px);
+  }
+  to {
+    transform: translateX(calc(100vw + 150px));
+  }
+}
+.cloud {
+  position: absolute;
+  animation: drift linear infinite;
+  will-change: transform;
+}
+
+/* Glow uses SATURATION, not brightness */
+@keyframes soft-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 14px rgba(251, 99, 118, 0.45))
+      drop-shadow(0 0 32px rgba(93, 42, 66, 0.7));
+  }
+  50% {
+    filter: drop-shadow(0 0 22px rgba(251, 99, 118, 0.65))
+      drop-shadow(0 0 48px rgba(93, 42, 66, 0.9));
+  }
+}
+.animate-new-flower {
+  animation: soft-glow 2.5s ease-in-out 5;
+}
+.animate-viewing-flower {
+  animation: soft-glow 2.5s ease-in-out infinite;
+}
+
+/* ================= MODALS & TOASTS ================= */
+
+[data-sonner-toast] [data-description] {
+  color: hsl(var(--text-secondary)) !important;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes modal-slide-from-bottom-right {
+  from {
+    opacity: 0;
+    transform: translate(200px, 200px) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+.animate-modal-fade-in {
+  animation: modal-fade-in 0.3s ease-out forwards;
+}
+.animate-modal-slide-from-bottom-right {
+  animation: modal-slide-from-bottom-right 0.6s
+    cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
