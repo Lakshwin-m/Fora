@@ -34,15 +34,12 @@ import {
   Users,
   Send,
   Inbox,
-  User,
   Loader2,
   Timer,
   Lock,
   Unlock,
   Trash2,
   Plus,
-  MessageCircle,
-  Eye,
   EyeOff,
   ChevronRight,
   Mail,
@@ -53,20 +50,16 @@ import {
   Brain,
   Gift,
   FileText,
-  Image,
   Video,
   Mic,
   File,
-  Sparkles,
   CheckCircle,
 } from "lucide-react";
 import gsap from "gsap";
 
 // 🔐 IMPORT DECRYPTION HOOK
 import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
-
 import { usePlan } from "@/hooks/usePlan";
-/* ===================== HELPERS ===================== */
 
 /* ===================== TYPES ===================== */
 
@@ -78,7 +71,6 @@ interface Attachment {
 interface Capsule {
   id: string;
   title?: string;
-  content?: string;
   titleIv?: string;
   content?: string;
   contentIv?: string;
@@ -93,7 +85,7 @@ interface Capsule {
   isUnlocked?: boolean;
   attachments?: Attachment[];
   username?: string;
-  deliveryDate?: any; // For compatibility
+  deliveryDate?: any;
 }
 
 interface CapsuleCardProps {
@@ -152,10 +144,6 @@ const getContentIcon = (capsule: Capsule, content?: string) => {
     case "document":
       return File;
     default:
-      if (content.includes("love") || content.includes("heart")) return Heart;
-      if (content.includes("travel") || content.includes("trip")) return MapPin;
-      if (content.includes("music") || content.includes("song")) return Music;
-      if (content.includes("memory")) return Brain;
       if (contentText.includes("love") || contentText.includes("heart")) return Heart;
       if (contentText.includes("travel") || contentText.includes("trip")) return MapPin;
       if (contentText.includes("music") || contentText.includes("song")) return Music;
@@ -213,15 +201,13 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
   const { title, content, isDecrypting } = useCapsuleDecryption(capsule);
 
   const unlockDate =
-    parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ??
-    new Date(0);
+    parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ?? new Date(0);
   const isUnlocked =
     unlockDate.getTime() <= currentTime.getTime() || capsule.isUnlocked;
   const isSentToSelf = capsule.recipientType === "self";
-  const countdown = getCountdown(
-    capsule.unlockDate || capsule.deliveryDate,
-    currentTime
-  );
+  const countdown = getCountdown(capsule.unlockDate || capsule.deliveryDate, currentTime);
+
+  // Use decrypted content for icon selection
   const ContentIcon = getContentIcon(capsule, content);
   const TriggerIcon = getTriggerIcon(capsule.triggerType);
 
@@ -264,6 +250,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
       setIsDialogOpen(false);
     }
   };
+
   return (
     <div ref={cardRef} className="group relative">
       <Card
@@ -273,23 +260,14 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
         <CardHeader className="pb-4 pl-6">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center space-x-4 flex-1 min-w-0">
+              {/* Icon */}
               <div
                 className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
                   isUnlocked ? "bg-[#FFDCCC]/20" : "bg-[#FB6376]/10"
                 }`}
               >
-                <ContentIcon
-                  className={`w-6 h-6 ${
-                    isUnlocked ? "text-[#5D2A42]" : "text-[#FB6376]"
-                  }`}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <CardTitle className="text-lg font-semibold text-[#1A1A1A] truncate">
-                  {capsule.title || "Untitled Capsule"}
-                </CardTitle>
                 {isDecrypting ? (
-                  <Loader2 className="w-6 h-6 text-[#FB6376] animate-spin" />
+                  <Loader2 className="w-6 h-6 animate-spin text-[#FB6376]" />
                 ) : (
                   <ContentIcon
                     className={`w-6 h-6 ${
@@ -298,8 +276,9 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                   />
                 )}
               </div>
+
+              {/* Title + subtitle */}
               <div className="min-w-0 flex-1">
-                {/* 🔐 USE DECRYPTED TITLE */}
                 {isDecrypting ? (
                   <div className="flex items-center space-x-2">
                     <Loader2 className="w-4 h-4 animate-spin text-[#FB6376]" />
@@ -317,14 +296,13 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                     </span>
                   )}
                   {isSentToSelf && !isReceived && (
-                    <span className="text-sm text-[#666666]">
-                      Personal capsule
-                    </span>
+                    <span className="text-sm text-[#666666]">Personal capsule</span>
                   )}
                 </div>
               </div>
             </div>
 
+            {/* Delete button */}
             {!isReceived && (
               <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <AlertDialogTrigger asChild>
@@ -344,7 +322,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Capsule?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete "{title || capsule.title || "this capsule"}" and all its contents.
+                      This will permanently delete "{title || "this capsule"}" and all its contents.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <div className="flex gap-3 justify-end">
@@ -369,7 +347,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
             )}
           </div>
 
-          {/* Status and tags */}
+          {/* Status badges */}
           <div className="flex items-center gap-2 mb-4">
             <Badge
               variant={isUnlocked ? "default" : "secondary"}
@@ -400,7 +378,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
         </CardHeader>
 
         <CardContent className="pl-6 pb-4">
-          {/* Content preview - 🔐 USE DECRYPTED CONTENT */}
+          {/* Content preview */}
           <div className="mb-5">
             <div className="text-sm text-[#666666] leading-relaxed line-clamp-2 min-h-[48px]">
               {isDecrypting ? (
@@ -409,24 +387,20 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                   Decrypting content...
                 </span>
               ) : isUnlocked ? (
-                <span className="flex items-start gap-3">
-                  {content ? content.slice(0, 100) + "..." : "No content available"}
-                </span>
+                <span>{content ? content.slice(0, 100) + (content.length > 100 ? "..." : "") : "No content available"}</span>
               ) : (
                 <span className="flex items-start gap-3 text-[#999999]">
                   <EyeOff className="w-4 h-4 mt-1 flex-shrink-0" />
                   <span>
                     Contents sealed until{" "}
-                    {formatFirebaseDate(
-                      capsule.unlockDate || capsule.deliveryDate
-                    )}
+                    {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
                   </span>
                 </span>
               )}
             </div>
           </div>
 
-          {/* Countdown / Status section */}
+          {/* Countdown / Status */}
           <div
             className={`mb-5 p-4 rounded-xl ${
               isUnlocked
@@ -442,12 +416,8 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                       <Gift className="w-5 h-5 text-[#FB6376]" />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-[#1A1A1A]">
-                        Ready to open
-                      </div>
-                      <div className="text-xs text-[#666666]">
-                        Your capsule is waiting
-                      </div>
+                      <div className="text-sm font-semibold text-[#1A1A1A]">Ready to open</div>
+                      <div className="text-xs text-[#666666]">Your capsule is waiting</div>
                     </div>
                   </>
                 ) : (
@@ -460,10 +430,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                         {countdown}
                       </div>
                       <div className="text-xs text-[#666666]">
-                        Unlocks{" "}
-                        {formatFirebaseDate(
-                          capsule.unlockDate || capsule.deliveryDate
-                        )}
+                        Unlocks {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
                       </div>
                     </div>
                   </>
@@ -477,24 +444,17 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
         <CardFooter className="pl-6 pt-4 border-t border-[#F0F0F0]">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-4">
-              {/* Recipient count for sent capsules */}
               {!isReceived && capsule.recipientType === "friends" && (
                 <div className="flex items-center text-sm text-[#666666]">
                   <Users className="w-4 h-4 mr-2" />
                   <span>{capsule.recipients?.length || 0} recipients</span>
                 </div>
               )}
-
-              {/* Creation date */}
               <div className="text-sm text-[#999999]">
-                Created{" "}
-                {formatFirebaseDate(
-                  capsule.createdAt || new Date().toISOString()
-                )}
+                Created {formatFirebaseDate(capsule.createdAt || new Date().toISOString())}
               </div>
             </div>
 
-            {/* Recipient names for sent capsules */}
             {!isReceived &&
               capsule.recipientType === "friends" &&
               capsule.recipientNames &&
@@ -592,11 +552,9 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("sent");
   const [currentTime, setCurrentTime] = useState(new Date());
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
-  const planNames = ["Arki", "Kyklos"];
+
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -606,13 +564,7 @@ const Dashboard = () => {
         gsap.fromTo(
           card,
           { opacity: 0, y: 20 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.5,
-            delay: index * 0.05,
-            ease: "power3.out",
-          }
+          { opacity: 1, y: 0, duration: 0.5, delay: index * 0.05, ease: "power3.out" }
         );
       }
     });
@@ -654,31 +606,20 @@ const Dashboard = () => {
 
               {/* Stats */}
               <div className="flex flex-wrap items-center gap-8">
-                <AnimatedStatsCard
-                  title="Capsules Created"
-                  primaryValue={sent.length}
-                />
-
-                <AnimatedStatsCard
-                  title="Capsules Received"
-                  primaryValue={received.length}
-                />
-
+                <AnimatedStatsCard title="Capsules Created" primaryValue={sent.length} />
+                <AnimatedStatsCard title="Capsules Received" primaryValue={received.length} />
                 <AnimatedStatsCard
                   title="Unlocked Capsules"
                   primaryValue={
                     [...sent, ...received].filter((c) => {
-                      const d = parseFirebaseDate(
-                        c.unlockDate || c.deliveryDate
-                      );
-                      return d
-                        ? d.getTime() <= Date.now() || c.isUnlocked
-                        : false;
+                      const d = parseFirebaseDate(c.unlockDate || c.deliveryDate);
+                      return d ? d.getTime() <= Date.now() || c.isUnlocked : false;
                     }).length
                   }
                 />
               </div>
             </div>
+
             {!planLoading && plan && (
               <div className="absolute top-4 right-4 z-20 scale-[0.85] origin-top-left">
                 <PlanBadge
@@ -690,11 +631,7 @@ const Dashboard = () => {
             )}
 
             {/* Tabs */}
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="w-full"
-            >
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full sm:w-auto mb-10 bg-white border border-[#E8E8E8] p-1.5 rounded-xl">
                 <TabsTrigger
                   value="sent"
@@ -712,28 +649,22 @@ const Dashboard = () => {
                 </TabsTrigger>
               </TabsList>
 
-              {/* Sent Capsules */}
+              {/* Sent */}
               <TabsContent value="sent" className="space-y-8">
                 {sent.length === 0 ? (
                   <EmptyState type="sent" />
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
                     {sent.map((capsule, index) => (
-                      <div
-                        key={capsule.id}
-                        ref={(el) => (cardsRef.current[index] = el)}
-                      >
-                        <CapsuleCard
-                          capsule={capsule}
-                          currentTime={currentTime}
-                        />
+                      <div key={capsule.id} ref={(el) => (cardsRef.current[index] = el)}>
+                        <CapsuleCard capsule={capsule} currentTime={currentTime} />
                       </div>
                     ))}
                   </div>
                 )}
               </TabsContent>
 
-              {/* Received Capsules */}
+              {/* Received */}
               <TabsContent value="received" className="space-y-8">
                 {received.length === 0 ? (
                   <EmptyState type="received" />
@@ -742,9 +673,7 @@ const Dashboard = () => {
                     {received.map((capsule, index) => (
                       <div
                         key={capsule.id}
-                        ref={(el) =>
-                          (cardsRef.current[sent.length + index] = el)
-                        }
+                        ref={(el) => (cardsRef.current[sent.length + index] = el)}
                       >
                         <CapsuleCard
                           capsule={capsule}

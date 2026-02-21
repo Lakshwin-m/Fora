@@ -4,9 +4,9 @@ import { getOrCreateKey, decryptText } from "@/utils/cryptoUtils";
 
 interface EncryptedCapsule {
   title?: string;
-  titleIv?: string;
+  titleIv?: string | null;
   content?: string;
-  contentIv?: string;
+  contentIv?: string | null;
   [key: string]: any;
 }
 
@@ -18,11 +18,24 @@ interface DecryptedContent {
 }
 
 /**
- * Custom hook to decrypt capsule title and content
- * Handles both encrypted and non-encrypted capsules
- * @param capsule - The capsule data (encrypted or plain)
- * @returns Decrypted title and content with loading state
+ * Checks whether a string looks like a valid base64-encoded IV.
+ * Old capsules stored plain text titles with titleIv: null or undefined.
+ * New capsules store ciphertext with a real base64 IV string.
  */
+function isEncrypted(value?: string | null, iv?: string | null): boolean {
+  if (!iv || iv === "null" || iv === "undefined") return false;
+  if (!value || value.length === 0) return false;
+  // A valid AES-GCM 12-byte IV base64-encoded is always 16 chars
+  // Ciphertext is always longer than the original text when base64-encoded
+  // Simple heuristic: if IV looks like valid base64 and is ~16 chars, it's encrypted
+  try {
+    const decoded = atob(iv);
+    return decoded.length === 12; // AES-GCM IV is always 12 bytes
+  } catch {
+    return false;
+  }
+}
+
 export function useCapsuleDecryption(capsule: EncryptedCapsule | null): DecryptedContent {
   const [title, setTitle] = useState<string>("");
   const [content, setContent] = useState<string>("");
@@ -31,75 +44,59 @@ export function useCapsuleDecryption(capsule: EncryptedCapsule | null): Decrypte
 
   useEffect(() => {
     if (!capsule) {
-      setIsDecrypting(false);
       setTitle("");
       setContent("");
+      setIsDecrypting(false);
       return;
     }
 
     const decrypt = async () => {
+      const titleEncrypted = isEncrypted(capsule.title, capsule.titleIv);
+      const contentEncrypted = isEncrypted(capsule.content, capsule.contentIv);
+
+      // ── OLD CAPSULE: no encryption IVs → use plain text directly ──
+      if (!titleEncrypted && !contentEncrypted) {
+        console.log("📝 Old capsule (no encryption) — using plain text");
+        setTitle(capsule.title || "Untitled Capsule");
+        setContent(capsule.content || "");
+        setIsDecrypting(false);
+        return;
+      }
+
+      // ── NEW CAPSULE: has real IVs → decrypt ──
+      setIsDecrypting(true);
       try {
-        // Check if this capsule has encryption IVs
-        const hasEncryption = capsule.titleIv || capsule.contentIv;
-
-        if (!hasEncryption) {
-          // This is an old capsule or not encrypted - use plain text
-          console.log("📝 Capsule is not encrypted, using plain text");
-          setTitle(capsule.title || "Untitled Capsule");
-          setContent(capsule.content || "");
-          setIsDecrypting(false);
-          return;
-        }
-
-        // This capsule is encrypted - decrypt it
-        setIsDecrypting(true);
-        console.log("🔐 Starting decryption...", {
-          hasTitle: !!capsule.title,
-          hasTitleIv: !!capsule.titleIv,
-          hasContent: !!capsule.content,
-          hasContentIv: !!capsule.contentIv,
-        });
-
         const key = await getOrCreateKey();
-        console.log("✅ Encryption key obtained");
 
         // Decrypt title
-        if (capsule.title && capsule.titleIv) {
+        if (titleEncrypted) {
           try {
-            console.log("🔓 Decrypting title...");
-            const decryptedTitle = await decryptText(key, capsule.title, capsule.titleIv);
-            setTitle(decryptedTitle);
-            console.log("✅ Title decrypted successfully");
+            const decrypted = await decryptText(key, capsule.title!, capsule.titleIv!);
+            setTitle(decrypted);
           } catch (err) {
-            console.error("❌ Failed to decrypt title:", err);
-            // If decryption fails, assume it's plain text
-            setTitle(capsule.title);
+            console.warn("⚠️ Title decryption failed, falling back to raw:", err);
+            setTitle(capsule.title || "Untitled Capsule");
           }
         } else {
           setTitle(capsule.title || "Untitled Capsule");
         }
 
         // Decrypt content
-        if (capsule.content && capsule.contentIv) {
+        if (contentEncrypted) {
           try {
-            console.log("🔓 Decrypting content...");
-            const decryptedContent = await decryptText(key, capsule.content, capsule.contentIv);
-            setContent(decryptedContent);
-            console.log("✅ Content decrypted successfully");
+            const decrypted = await decryptText(key, capsule.content!, capsule.contentIv!);
+            setContent(decrypted);
           } catch (err) {
-            console.error("❌ Failed to decrypt content:", err);
-            // If decryption fails, assume it's plain text
-            setContent(capsule.content);
+            console.warn("⚠️ Content decryption failed, falling back to raw:", err);
+            setContent(capsule.content || "");
           }
         } else {
           setContent(capsule.content || "");
         }
-
-        console.log("✅ Decryption complete");
       } catch (err) {
         console.error("❌ Decryption error:", err);
         setError("Failed to decrypt capsule content");
-        // Fallback to raw values
+        // Fallback to raw values so UI doesn't break
         setTitle(capsule.title || "Untitled Capsule");
         setContent(capsule.content || "");
       } finally {
