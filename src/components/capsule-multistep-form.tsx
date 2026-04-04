@@ -12,6 +12,12 @@ import {
   Music,
   File,
   X,
+  Clock,
+  Calendar,
+  Users,
+  Lock,
+  MessageSquare,
+  Gift,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,7 +30,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -35,20 +40,17 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { DatePickerWithPresets } from "@/components/DatePickerWithPresets";
-import { TimePicker } from "@/components/TimePicker";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const steps = [
-  { id: "basic", title: "Basic Info" },
-  { id: "trigger", title: "Trigger" },
-  { id: "recipients", title: "Recipients" },
-  { id: "attachments", title: "Attachments" },
-  { id: "review", title: "Review" },
-  { id: "seal", title: "Seal" },
+  { id: "basic", title: "Message", description: "Write your capsule", icon: MessageSquare },
+  { id: "trigger", title: "Delivery", description: "When to unlock", icon: Clock },
+  { id: "recipients", title: "Recipients", description: "Who receives it", icon: Users },
+  { id: "attachments", title: "Memories", description: "Add photos & videos", icon: Image },
+  { id: "review", title: "Review", description: "Check details", icon: Check },
 ];
 
 interface Friend {
@@ -68,7 +70,6 @@ interface Attachment {
 }
 
 interface CapsuleMultistepFormProps {
-  // Form data
   title: string;
   content: string;
   triggerType: "time" | "event" | "connection";
@@ -81,7 +82,6 @@ interface CapsuleMultistepFormProps {
   friends: Friend[];
   username: string;
 
-  // Handlers
   onTitleChange: (value: string) => void;
   onContentChange: (value: string) => void;
   onTriggerTypeChange: (value: "time" | "event" | "connection") => void;
@@ -97,27 +97,42 @@ interface CapsuleMultistepFormProps {
   ) => void;
   onRemoveAttachment: (id: string) => void;
 
-  // Navigation
   onNextStep: () => void;
   onPrevStep: () => void;
   onSubmit: () => void;
   onCancel: () => void;
 
-  // State
   currentStep: number;
   isSubmitting: boolean;
   loadingFriends: boolean;
 }
 
-const fadeInUp = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
-};
-
-const contentVariants = {
-  hidden: { opacity: 0, x: 50 },
-  visible: { opacity: 1, x: 0, transition: { duration: 0.3 } },
-  exit: { opacity: 0, x: -50, transition: { duration: 0.2 } },
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 50 : -50,
+    opacity: 0,
+    scale: 0.98,
+  }),
+  center: {
+    zIndex: 1,
+    x: 0,
+    opacity: 1,
+    scale: 1,
+    transition: {
+      x: { type: "spring", stiffness: 300, damping: 30 },
+      opacity: { duration: 0.2 },
+    },
+  },
+  exit: (direction: number) => ({
+    zIndex: 0,
+    x: direction < 0 ? 50 : -50,
+    opacity: 0,
+    scale: 0.98,
+    transition: {
+      x: { type: "spring", stiffness: 300, damping: 30 },
+      opacity: { duration: 0.2 },
+    },
+  }),
 };
 
 export const CapsuleMultistepForm = ({
@@ -141,7 +156,6 @@ export const CapsuleMultistepForm = ({
   onRecipientTypeChange,
   onSelectedFriendsChange,
   onCapsuleCategoryChange,
-  onAttachmentsChange,
   onFileSelect,
   onRemoveAttachment,
 
@@ -157,6 +171,17 @@ export const CapsuleMultistepForm = ({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const [direction, setDirection] = useState(1);
+
+  const handleNext = () => {
+    setDirection(1);
+    onNextStep();
+  };
+
+  const handlePrev = () => {
+    setDirection(-1);
+    onPrevStep();
+  };
 
   const toggleFriendSelection = (friendId: string) => {
     const newSelectedFriends = selectedFriends.includes(friendId)
@@ -188,30 +213,23 @@ export const CapsuleMultistepForm = ({
 
   const getInitials = (name?: string) => {
     if (!name || typeof name !== "string") return "?";
-
-    return name
-      .trim()
-      .split(/\s+/)
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+    return name.trim().split(/\s+/).map((n) => n[0]).join("").toUpperCase().slice(0, 2);
   };
 
   const triggerOptions = [
     {
       id: "time",
-      label: "Time-based",
+      label: "Selected Date",
       description: "Unlock on a specific date and time",
     },
     {
       id: "event",
-      label: "Event-based",
+      label: "Specific Event",
       description: "Unlock after a specific event occurs",
     },
     {
       id: "connection",
-      label: "Connection-based",
+      label: "A Connection",
       description: "Unlock when tagged connection confirms",
     },
   ];
@@ -237,717 +255,499 @@ export const CapsuleMultistepForm = ({
         return true; // Attachments are optional
       case 4:
         return true; // Review always valid
-      case 5:
-        return true; // Seal always valid
       default:
         return false;
     }
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto py-8">
-      {/* Progress indicator - matches your design */}
-      <motion.div
-        className="mb-8"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="flex justify-between mb-2">
-          {steps.map((step, index) => (
-            <motion.div
-              key={index}
-              className="flex flex-col items-center"
-              whileHover={{ scale: 1.1 }}
-            >
-              <motion.div
-                className={cn(
-                  "w-4 h-4 rounded-full cursor-pointer transition-colors duration-300",
-                  index < currentStep
-                    ? "bg-[#FB6376]"
-                    : index === currentStep
-                    ? "bg-[#FB6376] ring-4 ring-[#FB6376]/20"
-                    : "bg-[#5D2A42]/20"
-                )}
-                onClick={() => {
-                  if (index <= currentStep) {
-                    // Logic to go to specific step would go here
-                  }
-                }}
-                whileTap={{ scale: 0.95 }}
-              />
-              <motion.span
-                className={cn(
-                  "text-sm mt-1.5 hidden sm:block",
-                  index === currentStep
-                    ? "text-black font-medium"
-                    : "text-gray-500"
-                )}
-              >
-                {step.title}
-              </motion.span>
-            </motion.div>
-          ))}
-        </div>
-        <div className="w-full bg-[#5D2A42]/20 h-1.5 rounded-full overflow-hidden mt-2">
-          <motion.div
-            className="h-full bg-[#FB6376]"
-            initial={{ width: 0 }}
-            animate={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
-            transition={{ duration: 0.3 }}
+    <div className="w-full max-w-4xl mx-auto pb-16">
+      {/* Modern Stepper Indicator */}
+      <div className="mb-12">
+        <div className="flex justify-between relative z-10">
+          <div className="absolute top-5 left-8 right-8 h-0.5 bg-[#5D2A42]/10 z-[-1]" />
+          <div 
+            className="absolute top-5 left-8 h-0.5 bg-[#FB6376] z-[-1] transition-all duration-500 ease-in-out" 
+            style={{ width: `calc(${(currentStep / (steps.length - 1)) * 100}% - 2rem)` }} 
           />
+          
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            const isActive = index === currentStep;
+            const isCompleted = index < currentStep;
+
+            return (
+              <div key={index} className="flex flex-col items-center group relative w-20">
+                <div
+                  className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 font-semibold shadow-sm border-2",
+                    isActive
+                      ? "bg-[#FB6376] border-[#FB6376] text-white scale-110 shadow-md shadow-[#FB6376]/20"
+                      : isCompleted
+                      ? "bg-white border-[#FB6376] text-[#FB6376]"
+                      : "bg-white border-[#E8E8E8] text-[#999]"
+                  )}
+                >
+                  {isCompleted ? <Check className="w-5 h-5" /> : <Icon className="w-4 h-4" />}
+                </div>
+                <div className="mt-3 text-center">
+                  <div className={cn(
+                    "text-sm font-semibold transition-colors duration-300",
+                    isActive ? "text-[#1A1A1A]" : isCompleted ? "text-[#FB6376]" : "text-[#999]"
+                  )}>
+                    {step.title}
+                  </div>
+                  <div className="text-[10px] text-[#999] hidden md:block max-w-[80px] leading-tight">
+                    {step.description}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </motion.div>
+      </div>
 
-      {/* Form card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-      >
-        <Card className="border border-[#5D2A42]/20 shadow-lg rounded-3xl overflow-hidden">
-          <div>
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentStep}
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                variants={contentVariants}
-              >
-                {/* Step 1: Basic Information */}
-                {currentStep === 0 && (
-                  <>
-                    <CardHeader>
-                      <CardTitle className="text-white">
-                        Tell us about your capsule
-                      </CardTitle>
-                      <CardDescription className="text-white/70">
-                        Let&apos;s start with some basic information
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <motion.div variants={fadeInUp} className="space-y-2">
-                        <Label htmlFor="title" className="text-white">
-                          Capsule Title
-                        </Label>
-                        <Input
-                          id="title"
-                          placeholder="What's this capsule about?"
-                          value={title}
-                          onChange={(e) => onTitleChange(e.target.value)}
-                          className="transition-all duration-300 focus:ring-2 focus:ring-[#FB6376]/20 focus:border-[#FB6376] border-[#5D2A42]/20"
-                        />
-                      </motion.div>
-                      <motion.div variants={fadeInUp} className="space-y-2">
-                        <Label htmlFor="content" className="text-white">
-                          Message Content
-                        </Label>
-                        <Textarea
-                          id="content"
-                          placeholder="Write your message to the future..."
-                          value={content}
-                          onChange={(e) => onContentChange(e.target.value)}
-                          className="min-h-32 transition-all duration-300 focus:ring-2 focus:ring-[#FB6376]/20 focus:border-[#FB6376] border-[#5D2A42]/20"
-                        />
-                      </motion.div>
-                    </CardContent>
-                  </>
-                )}
+      {/* Form Card */}
+      <Card className="border-0 shadow-xl bg-white rounded-3xl overflow-hidden relative min-h-[500px]">
+        {/* Top subtle gradient bar */}
+        <div className="h-1.5 w-full bg-gradient-to-r from-[#FB6376] via-[#FCB1A6] to-[#FFDCCC]" />
+        
+        <div className="flex flex-col h-full relative">
+          <AnimatePresence initial={false} custom={direction} mode="wait">
+            <motion.div
+              key={currentStep}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="flex-1 flex flex-col"
+            >
+              {/* Step 0: Basic Information */}
+              {currentStep === 0 && (
+                <div className="p-8 md:p-10 h-full flex flex-col">
+                  <div className="mb-8">
+                    <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">What's your message?</h2>
+                    <p className="text-[#666] text-sm">Write the contents of your time capsule.</p>
+                  </div>
+                  <div className="space-y-6 flex-1">
+                    <div className="space-y-2">
+                      <Label htmlFor="title" className="text-sm font-semibold text-[#1A1A1A]">
+                        Capsule Title
+                      </Label>
+                      <Input
+                        id="title"
+                        placeholder="e.g. Letter to my 30-year-old self"
+                        value={title}
+                        onChange={(e) => onTitleChange(e.target.value)}
+                        className="h-12 border-[#E8E8E8] bg-white text-base rounded-xl focus-visible:ring-1 focus-visible:ring-[#FB6376] focus-visible:border-[#FB6376] transition-all shadow-sm"
+                      />
+                    </div>
+                    <div className="space-y-2 flex-1 flex flex-col">
+                      <Label htmlFor="content" className="text-sm font-semibold text-[#1A1A1A]">
+                        The Message
+                      </Label>
+                      <Textarea
+                        id="content"
+                        placeholder="Write your message to the future..."
+                        value={content}
+                        onChange={(e) => onContentChange(e.target.value)}
+                        className="flex-1 min-h-[200px] border-[#E8E8E8] bg-white text-base rounded-xl focus-visible:ring-1 focus-visible:ring-[#FB6376] focus-visible:border-[#FB6376] transition-all resize-none shadow-sm leading-relaxed"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
-                {/* Step 2: Trigger Configuration */}
-                {currentStep === 1 && (
-                  <>
-                    <CardHeader>
-                      <CardTitle className="text-white">
-                        Unlock Trigger
-                      </CardTitle>
-                      <CardDescription className="text-white/70">
-                        Choose when this capsule should be unlocked
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <Tabs
-                        value={triggerType}
-                        onValueChange={(value) =>
-                          onTriggerTypeChange(value as any)
-                        }
-                      >
-                        <TabsList className="grid w-full grid-cols-3 bg-[#FFDCCC]/30 border border-[#5D2A42]/20 p-1">
-                          {triggerOptions.map((option) => (
-                            <TabsTrigger
-                              key={option.id}
-                              value={option.id}
-                              className="text-sm data-[state=active]:bg-[#FB6376] data-[state=active]:text-white text-white"
-                            >
-                              {option.label}
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                        <TabsContent value="time" className="space-y-4 mt-6">
-                          <p className="text-sm text-white/70">
-                            Your capsule will unlock automatically on the
-                            specified date and time.
-                          </p>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Label className="text-white font-medium">
-                                Delivery Date
-                              </Label>
-                              <DatePickerWithPresets
-                                value={deliveryDate}
-                                onSelect={onDeliveryDateChange}
-                                placeholder="Pick a date"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-white font-medium">
-                                Delivery Time
-                              </Label>
-                              <TimePicker
-                                value={deliveryTime}
-                                onSelect={onDeliveryTimeChange}
-                                placeholder="HH:MM"
-                              />
-                            </div>
-                          </div>
+              {/* Step 1: Trigger Configuration */}
+              {currentStep === 1 && (
+                <div className="p-8 md:p-10 h-full flex flex-col">
+                  <div className="mb-8">
+                    <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">When should it open?</h2>
+                    <p className="text-[#666] text-sm">Choose the exact moment this capsule becomes unlocked.</p>
+                  </div>
+                  
+                  <Tabs
+                    value={triggerType}
+                    onValueChange={(value) => onTriggerTypeChange(value as any)}
+                    className="flex flex-col flex-1"
+                  >
+                    <TabsList className="grid w-full grid-cols-3 bg-[#f8f8f8] p-1.5 rounded-xl border border-[#E8E8E8] mb-8">
+                      {triggerOptions.map((option) => (
+                        <TabsTrigger
+                          key={option.id}
+                          value={option.id}
+                          className="text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#1A1A1A] data-[state=active]:shadow-sm text-[#666] transition-all"
+                        >
+                          {option.label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                    
+                    <div className="flex-1 mt-4 overflow-y-auto no-scrollbar pb-6">
+                        <TabsContent value="time" className="mt-0 outline-none">
+                          <DateTimePicker 
+                            date={deliveryDate} 
+                            setDate={onDeliveryDateChange} 
+                            time={deliveryTime} 
+                            setTime={onDeliveryTimeChange} 
+                          />
                         </TabsContent>
-                        <TabsContent value="event" className="space-y-4 mt-6">
-                          <p className="text-sm text-white/70">
-                            Your capsule will unlock when a specific event
-                            occurs.
-                          </p>
-                          <div className="space-y-2">
-                            <Label
-                              htmlFor="eventTrigger"
-                              className="text-white font-medium"
-                            >
-                              Event Description
+                        <TabsContent value="event" className="mt-0 space-y-4 outline-none">
+                          <div className="p-5 bg-[#FFF9EC] border border-[#FFDCCC] rounded-2xl">
+                            <Label htmlFor="eventTrigger" className="text-[#1A1A1A] font-semibold mb-2 block">
+                              Describe the Event
                             </Label>
                             <Input
                               id="eventTrigger"
-                              placeholder="e.g., My 30th birthday, Sarah's graduation"
-                              className="border-[#5D2A42]/20 bg-[#FFF9EC] focus:border-[#FB6376] text-white"
+                              placeholder="e.g., The day I graduate college"
+                              className="h-12 border-[#FFDCCC] bg-white focus-visible:ring-[#FB6376] text-black"
                             />
+                            <p className="text-xs text-[#666] mt-3 leading-relaxed">
+                              Event-based capsules remain locked until you manually mark the event as occurred from your dashboard.
+                            </p>
                           </div>
                         </TabsContent>
-                        <TabsContent
-                          value="connection"
-                          className="space-y-4 mt-6"
-                        >
-                          <p className="text-sm text-white/70">
-                            Your capsule will unlock when tagged connections
-                            confirm.
-                          </p>
-                          <div className="space-y-2">
-                            <Label
-                              htmlFor="connectionTrigger"
-                              className="text-white font-medium"
-                            >
-                              Trigger Condition
+                        <TabsContent value="connection" className="mt-0 space-y-4">
+                          <div className="p-5 bg-[#FB6376]/5 border border-[#FB6376]/20 rounded-2xl">
+                            <Label htmlFor="connectionTrigger" className="text-[#1A1A1A] font-semibold mb-2 block">
+                              Connection Condition
                             </Label>
                             <Input
                               id="connectionTrigger"
                               placeholder="e.g., We meet again in person"
-                              className="border-[#5D2A42]/20 bg-[#FFF9EC] focus:border-[#FB6376] text-white"
+                              className="h-12 border-[#FB6376]/20 bg-white focus-visible:ring-[#FB6376] text-black"
                             />
-                          </div>
-                        </TabsContent>
-                      </Tabs>
-                    </CardContent>
-                  </>
-                )}
-
-                {/* Step 3: Recipients */}
-                {currentStep === 2 && (
-                  <>
-                    <CardHeader>
-                      <CardTitle className="text-white">Recipients</CardTitle>
-                      <CardDescription className="text-white/70">
-                        Choose who will receive this capsule
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <Tabs
-                        value={recipientType}
-                        onValueChange={(value) =>
-                          onRecipientTypeChange(value as any)
-                        }
-                      >
-                        <TabsList className="grid w-full grid-cols-3 bg-[#FFDCCC]/30 border border-[#5D2A42]/20 p-1">
-                          <TabsTrigger
-                            value="self"
-                            className="data-[state=active]:bg-[#FB6376] data-[state=active]:text-white text-white"
-                          >
-                            Myself
-                          </TabsTrigger>
-                          <TabsTrigger
-                            value="friends"
-                            className="data-[state=active]:bg-[#FB6376] data-[state=active]:text-white text-white"
-                          >
-                            Friends
-                          </TabsTrigger>
-                          <TabsTrigger
-                            value="public"
-                            className="data-[state=active]:bg-[#FB6376] data-[state=active]:text-white text-white"
-                          >
-                            Public
-                          </TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="self" className="mt-6">
-                          <div className="text-center p-8 border-2 border-dashed border-[#5D2A42]/30 rounded-lg bg-[#FFDCCC]/20">
-                            <h3 className="font-semibold text-white mb-2">
-                              Send to Yourself
-                            </h3>
-                            <p className="text-sm text-white/70">
-                              This capsule will be delivered to your own inbox.
-                              Perfect for future self-reflections and personal
-                              messages.
+                            <p className="text-xs text-[#666] mt-3 leading-relaxed">
+                              This capsule will require both you and the tagged connection to mutually confirm the trigger has been met.
                             </p>
                           </div>
                         </TabsContent>
+                    </div>
+                  </Tabs>
+                </div>
+              )}
 
-                        <TabsContent value="friends" className="mt-6 space-y-4">
-                          {loadingFriends ? (
-                            <div className="flex items-center justify-center p-8">
-                              <Loader2 className="w-6 h-6 animate-spin text-[#FB6376]" />
-                            </div>
-                          ) : friends.length === 0 ? (
-                            <div className="text-center p-8 border-2 border-dashed border-[#5D2A42]/30 rounded-lg bg-[#FFDCCC]/20">
-                              <h3 className="font-semibold text-white mb-2">
-                                No Friends Yet
-                              </h3>
-                              <p className="text-sm text-white/70 mb-4">
-                                Add friends from the Connections page to send
-                                them capsules
+              {/* Step 2: Recipients */}
+              {currentStep === 2 && (
+                <div className="p-8 md:p-10 h-full flex flex-col">
+                  <div className="mb-8">
+                    <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Who is this for?</h2>
+                    <p className="text-[#666] text-sm">Select the recipients who will unlock this capsule.</p>
+                  </div>
+                  
+                  <Tabs
+                    value={recipientType}
+                    onValueChange={(value) => onRecipientTypeChange(value as any)}
+                    className="flex flex-col flex-1"
+                  >
+                    <TabsList className="grid w-full grid-cols-3 bg-[#f8f8f8] p-1.5 rounded-xl border border-[#E8E8E8] mb-8">
+                      <TabsTrigger value="self" className="text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#1A1A1A] data-[state=active]:shadow-sm text-[#666] transition-all">
+                        Just Me
+                      </TabsTrigger>
+                      <TabsTrigger value="friends" className="text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#1A1A1A] data-[state=active]:shadow-sm text-[#666] transition-all">
+                        Connections
+                      </TabsTrigger>
+                      <TabsTrigger value="public" className="text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#1A1A1A] data-[state=active]:shadow-sm text-[#666] transition-all">
+                        Public
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <div className="flex-1 mt-4 overflow-y-auto no-scrollbar pb-6">
+                          <TabsContent value="self" className="mt-0 outline-none">
+                            <div className="flex flex-col items-center justify-center py-12 px-6 border border-[#E8E8E8] rounded-2xl bg-[#fafafa]">
+                              <div className="w-16 h-16 bg-[#FFDCCC]/50 rounded-full flex items-center justify-center mb-4">
+                                <Lock className="w-8 h-8 text-[#5D2A42]" />
+                              </div>
+                              <h3 className="text-lg font-bold text-[#1A1A1A] mb-2">A gift to your future self</h3>
+                              <p className="text-[#666] text-center max-w-sm text-sm leading-relaxed">
+                                This capsule will be stored privately in your vault and only you will be able to unlock it when the time comes.
                               </p>
                             </div>
-                          ) : (
-                            <>
-                              <div className="flex items-center justify-between">
-                                <Label className="text-white font-medium">
-                                  Select Friends ({selectedFriends.length}{" "}
-                                  selected)
-                                </Label>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={selectAllFriends}
-                                  className="border-[#5D2A42]/20 text-white hover:bg-[#FFDCCC]"
-                                >
-                                  {selectedFriends.length === friends.length
-                                    ? "Deselect All"
-                                    : "Select All"}
-                                </Button>
-                              </div>
+                          </TabsContent>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto pr-2">
-                                {friends.map((friend) => {
-                                  const isSelected = selectedFriends.includes(
-                                    friend.id
-                                  );
-                                  return (
-                                    <Card
-                                      key={friend.id}
-                                      className={`border-2 cursor-pointer transition-all ${
-                                        isSelected
-                                          ? "border-[#FB6376] bg-[#FFDCCC]/30"
-                                          : "border-[#5D2A42]/20 hover:border-[#FB6376]/50"
-                                      }`}
-                                      onClick={() =>
-                                        toggleFriendSelection(friend.id)
-                                      }
-                                    >
-                                      <CardContent className="p-4">
-                                        <div className="flex items-center space-x-3">
-                                          <div
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            <Checkbox
-                                              checked={isSelected}
-                                              onCheckedChange={() =>
-                                                toggleFriendSelection(friend.id)
-                                              }
-                                              className="mt-0.5 data-[state=checked]:bg-[#FB6376] data-[state=checked]:border-[#FB6376]"
-                                            />
-                                          </div>
-                                          <Avatar className="w-10 h-10">
-                                            <AvatarImage
-                                              src={friend.photoURL}
-                                              alt={friend.name}
-                                            />
-                                            <AvatarFallback className="bg-[#FB6376] text-white">
-                                              {getInitials(friend.name)}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                          <div className="flex-1 min-w-0">
-                                            <h4 className="font-medium text-white truncate">
-                                              {friend.name}
-                                            </h4>
-                                            <p className="text-xs text-white/60 truncate">
-                                              {friend.email}
-                                            </p>
-                                          </div>
+                          <TabsContent value="friends" className="mt-0">
+                            {loadingFriends ? (
+                              <div className="flex items-center justify-center py-16">
+                                <Loader2 className="w-8 h-8 animate-spin text-[#FB6376]" />
+                              </div>
+                            ) : friends.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center py-12 px-6 border border-[#E8E8E8] rounded-2xl bg-[#fafafa]">
+                                <div className="w-16 h-16 bg-[#E8E8E8] rounded-full flex items-center justify-center mb-4">
+                                  <Users className="w-8 h-8 text-[#999]" />
+                                </div>
+                                <h3 className="text-lg font-bold text-[#1A1A1A] mb-2">No Connections Yet</h3>
+                                <p className="text-[#666] text-center max-w-sm text-sm">
+                                  You need to add connections first before you can send them a capsule.
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between pb-2">
+                                  <Label className="text-[#1A1A1A] font-semibold text-sm">
+                                    Select Connections <Badge variant="secondary" className="ml-2 bg-[#FB6376]/10 text-[#FB6376] hover:bg-[#FB6376]/20">{selectedFriends.length} selected</Badge>
+                                  </Label>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={selectAllFriends}
+                                    className="text-[#FB6376] hover:text-[#e8556a] hover:bg-[#FB6376]/5 text-xs font-semibold h-8"
+                                  >
+                                    {selectedFriends.length === friends.length ? "Deselect All" : "Select All"}
+                                  </Button>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  {friends.map((friend) => {
+                                    const isSelected = selectedFriends.includes(friend.id);
+                                    return (
+                                      <div
+                                        key={friend.id}
+                                        className={cn(
+                                          "flex items-center p-3 rounded-xl cursor-pointer transition-all duration-200 border group",
+                                          isSelected 
+                                            ? "border-[#FB6376] bg-[#FB6376]/5 shadow-sm" 
+                                            : "border-[#E8E8E8] hover:border-[#FB6376]/50 hover:bg-[#fafafa]"
+                                        )}
+                                        onClick={() => toggleFriendSelection(friend.id)}
+                                      >
+                                        <Checkbox
+                                          checked={isSelected}
+                                          onCheckedChange={() => toggleFriendSelection(friend.id)}
+                                          className="mr-3 data-[state=checked]:bg-[#FB6376] data-[state=checked]:border-[#FB6376]"
+                                        />
+                                        <Avatar className="w-10 h-10 border border-[#E8E8E8]">
+                                          <AvatarImage src={friend.photoURL} alt={friend.name} />
+                                          <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-xs font-semibold">
+                                            {getInitials(friend.name)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <div className="ml-3 flex-1 min-w-0">
+                                          <p className="text-sm font-semibold text-[#1A1A1A] truncate">{friend.name}</p>
+                                          <p className="text-xs text-[#999] truncate">{friend.email}</p>
                                         </div>
-                                      </CardContent>
-                                    </Card>
-                                  );
-                                })}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            </>
-                          )}
-                        </TabsContent>
+                            )}
+                          </TabsContent>
 
-                        <TabsContent value="public" className="mt-6 space-y-4">
-                          <div className="text-center p-8 border-2 border-dashed border-[#5D2A42]/30 rounded-lg bg-[#FFDCCC]/20 mb-6">
-                            <h3 className="font-semibold text-white mb-2">
-                              Share with Community
-                            </h3>
-                            <p className="text-sm text-white/70">
-                              Make this capsule public and share it with the
-                              entire community.
-                            </p>
-                          </div>
+                          <TabsContent value="public" className="mt-0">
+                            <div className="flex flex-col items-center justify-center py-8 px-6 border border-[#E8E8E8] rounded-2xl bg-[#fafafa] mb-6">
+                              <div className="w-16 h-16 bg-[#5D2A42]/10 rounded-full flex items-center justify-center mb-4">
+                                <Users className="w-8 h-8 text-[#5D2A42]" />
+                              </div>
+                              <h3 className="text-lg font-bold text-[#1A1A1A] mb-2">Share with the World</h3>
+                              <p className="text-[#666] text-center max-w-sm text-sm leading-relaxed">
+                                Public capsules are completely anonymous initially but visible to the entire community on the timeline.
+                              </p>
+                            </div>
 
-                          <div className="space-y-4">
-                            <div>
-                              <Label
-                                htmlFor="category"
-                                className="text-white font-medium block mb-2"
-                              >
-                                Category *
+                            <div className="space-y-2">
+                              <Label htmlFor="category" className="text-[#1A1A1A] font-semibold text-sm">
+                                Community Category
                               </Label>
-                              <Select
-                                value={capsuleCategory}
-                                onValueChange={onCapsuleCategoryChange}
-                              >
-                                <SelectTrigger
-                                  id="category"
-                                  className="border-[#5D2A42]/20 bg-white text-white"
-                                >
+                              <Select value={capsuleCategory} onValueChange={onCapsuleCategoryChange}>
+                                <SelectTrigger id="category" className="h-12 border-[#E8E8E8] bg-white text-base rounded-xl focus:ring-[#FB6376]">
                                   <SelectValue placeholder="Select a category..." />
                                 </SelectTrigger>
-                                <SelectContent className="bg-white border-[#5D2A42]/20">
-                                  <SelectItem value="memories">
-                                    Memories
-                                  </SelectItem>
-                                  <SelectItem value="reflections">
-                                    Reflections
-                                  </SelectItem>
-                                  <SelectItem value="moments">
-                                    Moments
-                                  </SelectItem>
-                                  <SelectItem value="stories">
-                                    Stories
-                                  </SelectItem>
-                                  <SelectItem value="milestones">
-                                    Milestones
-                                  </SelectItem>
-                                  <SelectItem value="wisdom">Wisdom</SelectItem>
-                                  <SelectItem value="other">Other</SelectItem>
+                                <SelectContent className="rounded-xl border-[#E8E8E8] shadow-lg">
+                                  <SelectItem value="memories" className="rounded-lg h-10">Memories</SelectItem>
+                                  <SelectItem value="reflections" className="rounded-lg h-10">Reflections</SelectItem>
+                                  <SelectItem value="moments" className="rounded-lg h-10">Moments</SelectItem>
+                                  <SelectItem value="stories" className="rounded-lg h-10">Stories</SelectItem>
+                                  <SelectItem value="milestones" className="rounded-lg h-10">Milestones</SelectItem>
+                                  <SelectItem value="wisdom" className="rounded-lg h-10">Wisdom</SelectItem>
+                                  <SelectItem value="other" className="rounded-lg h-10">Other</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
-                          </div>
-                        </TabsContent>
-                      </Tabs>
-                    </CardContent>
-                  </>
-                )}
+                          </TabsContent>
+                    </div>
+                  </Tabs>
+                </div>
+              )}
 
-                {/* Step 4: Attachments */}
-                {currentStep === 3 && (
-                  <>
-                    <CardHeader>
-                      <CardTitle className="text-white">Attachments</CardTitle>
-                      <CardDescription className="text-white/70">
-                        Add files to your capsule (Optional)
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="space-y-3">
-                        <Label className="text-white font-medium">
-                          Add files to your capsule
-                        </Label>
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => imageInputRef.current?.click()}
-                            className="border-[#5D2A42]/20 text-white hover:bg-[#FFDCCC]"
-                          >
-                            <Image className="w-4 h-4 mr-2" />
-                            Add Images
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => videoInputRef.current?.click()}
-                            className="border-[#5D2A42]/20 text-white hover:bg-[#FFDCCC]"
-                          >
-                            <Video className="w-4 h-4 mr-2" />
-                            Add Videos
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => audioInputRef.current?.click()}
-                            className="border-[#5D2A42]/20 text-white hover:bg-[#FFDCCC]"
-                          >
-                            <Music className="w-4 h-4 mr-2" />
-                            Add Audio
-                          </Button>
-                        </div>
+              {/* Step 3: Attachments */}
+              {currentStep === 3 && (
+                <div className="p-8 md:p-10 h-full flex flex-col">
+                  <div className="mb-8">
+                    <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Add Memories</h2>
+                    <p className="text-[#666] text-sm">Include photos, videos, or audio to enrich your capsule.</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div 
+                      onClick={() => imageInputRef.current?.click()}
+                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] hover:bg-[#FB6376]/5 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 group text-center min-h-[140px]"
+                    >
+                       <div className="w-12 h-12 bg-[#FB6376]/10 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                         <Image className="w-6 h-6 text-[#FB6376]" />
+                       </div>
+                       <span className="font-semibold text-sm text-[#1A1A1A]">Photos</span>
+                    </div>
+                    <div 
+                      onClick={() => videoInputRef.current?.click()}
+                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] hover:bg-[#FB6376]/5 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 group text-center min-h-[140px]"
+                    >
+                       <div className="w-12 h-12 bg-[#FB6376]/10 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                         <Video className="w-6 h-6 text-[#FB6376]" />
+                       </div>
+                       <span className="font-semibold text-sm text-[#1A1A1A]">Videos</span>
+                    </div>
+                    <div 
+                      onClick={() => audioInputRef.current?.click()}
+                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] hover:bg-[#FB6376]/5 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 group text-center min-h-[140px]"
+                    >
+                       <div className="w-12 h-12 bg-[#FB6376]/10 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                         <Music className="w-6 h-6 text-[#FB6376]" />
+                       </div>
+                       <span className="font-semibold text-sm text-[#1A1A1A]">Voice Notes</span>
+                    </div>
+                  </div>
 
-                        {/* Hidden file inputs */}
-                        <input
-                          type="file"
-                          ref={imageInputRef}
-                          onChange={(e) => onFileSelect("image", e)}
-                          accept="image/*"
-                          multiple
-                          className="hidden"
-                        />
-                        <input
-                          type="file"
-                          ref={videoInputRef}
-                          onChange={(e) => onFileSelect("video", e)}
-                          accept="video/*"
-                          multiple
-                          className="hidden"
-                        />
-                        <input
-                          type="file"
-                          ref={audioInputRef}
-                          onChange={(e) => onFileSelect("audio", e)}
-                          accept="audio/*"
-                          multiple
-                          className="hidden"
-                        />
+                  {/* Hidden inputs */}
+                  <input type="file" ref={imageInputRef} onChange={(e) => onFileSelect("image", e)} accept="image/*" multiple className="hidden" />
+                  <input type="file" ref={videoInputRef} onChange={(e) => onFileSelect("video", e)} accept="video/*" multiple className="hidden" />
+                  <input type="file" ref={audioInputRef} onChange={(e) => onFileSelect("audio", e)} accept="audio/*" multiple className="hidden" />
 
-                        {attachments.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-sm text-white/70">
-                              {attachments.length} file(s) selected
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {attachments.map((attachment) => (
-                                <Badge
-                                  key={attachment.id}
-                                  variant="secondary"
-                                  className="pr-1 bg-[#FCB1A6]/30 text-white border-[#5D2A42]/20"
-                                >
-                                  <div className="flex items-center space-x-1">
-                                    {getFileIcon(attachment.type)}
-                                    <span className="max-w-32 truncate text-xs">
-                                      {attachment.name}
-                                    </span>
-                                    {attachment.uploading ? (
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                    ) : (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-4 w-4 p-0 ml-1 hover:bg-[#FB6376]/20"
-                                        onClick={() =>
-                                          onRemoveAttachment(attachment.id)
-                                        }
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </Button>
-                                    )}
-                                  </div>
-                                </Badge>
-                              ))}
+                  {attachments.length > 0 && (
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-[#1A1A1A] mb-3 flex items-center justify-between">
+                        Uploaded Files <Badge variant="outline" className="text-xs bg-black/5">{attachments.length}</Badge>
+                      </h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {attachments.map((attachment) => (
+                          <div key={attachment.id} className="border border-[#E8E8E8] rounded-xl p-3 flex items-center bg-[#fafafa]">
+                            <div className="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center mr-3 flex-shrink-0">
+                               {getFileIcon(attachment.type)}
                             </div>
+                            <span className="flex-1 truncate text-sm font-medium text-[#333]">
+                              {attachment.name}
+                            </span>
+                            {attachment.uploading ? (
+                              <Loader2 className="w-4 h-4 animate-spin text-[#FB6376] ml-2" />
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 ml-1 hover:bg-black/10 rounded-md text-[#999]"
+                                onClick={() => onRemoveAttachment(attachment.id)}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            )}
                           </div>
-                        )}
+                        ))}
                       </div>
-                    </CardContent>
-                  </>
-                )}
-
-                {/* Step 5: Review */}
-                {currentStep === 4 && (
-                  <>
-                    <CardHeader>
-                      <CardTitle className="text-white">Review</CardTitle>
-                      <CardDescription className="text-white/70">
-                        Review your capsule details
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="p-4 bg-[#FFDCCC]/30 rounded-lg border border-[#5D2A42]/20">
-                        <h4 className="font-semibold text-white mb-3">
-                          Capsule Summary
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-white/70">Title:</span>
-                            <span className="text-white font-medium">
-                              {title}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-white/70">
-                              Content Length:
-                            </span>
-                            <span className="text-white font-medium">
-                              {content.length} characters
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-white/70">Trigger:</span>
-                            <span className="text-white font-medium capitalize">
-                              {triggerType}
-                            </span>
-                          </div>
-                          {triggerType === "time" && deliveryDate && (
-                            <div className="flex justify-between">
-                              <span className="text-white/70">
-                                Unlock Date:
-                              </span>
-                              <span className="text-white font-medium">
-                                {deliveryDate.toLocaleDateString()} at{" "}
-                                {deliveryTime}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex justify-between">
-                            <span className="text-white/70">Recipient:</span>
-                            <span className="text-white font-medium capitalize">
-                              {recipientType === "self"
-                                ? "Yourself"
-                                : recipientType === "friends"
-                                ? `${selectedFriends.length} friend(s)`
-                                : "Public"}
-                            </span>
-                          </div>
-                          {recipientType === "public" && (
-                            <div className="flex justify-between">
-                              <span className="text-white/70">Category:</span>
-                              <span className="text-white font-medium capitalize">
-                                {capsuleCategory}
-                              </span>
-                            </div>
-                          )}
-                          <div className="flex justify-between">
-                            <span className="text-white/70">Attachments:</span>
-                            <span className="text-white font-medium">
-                              {attachments.length} file(s)
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </>
-                )}
-
-                {/* Step 6: Seal */}
-                {currentStep === 5 && (
-                  <>
-                    <CardHeader>
-                      <CardTitle className="text-white">Seal Capsule</CardTitle>
-                      <CardDescription className="text-white/70">
-                        Ready to seal your time capsule
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="p-4 bg-[#FB6376]/5 border border-[#FB6376]/20 rounded-lg">
-                        <h4 className="font-semibold text-white mb-2">
-                          Ready to Seal
-                        </h4>
-                        <p className="text-sm text-white/70 mb-3">
-                          Once sealed, this capsule cannot be modified. It will
-                          remain locked until the trigger conditions are met.
-                        </p>
-                        <ul className="text-xs text-white/70 space-y-1">
-                          <li>
-                            • Capsule will be encrypted and stored securely
-                          </li>
-                          <li>• Only recipients can unlock it</li>
-                          <li>• You can track delivery status</li>
-                          <li>• Public capsules are visible to everyone</li>
-                        </ul>
-                      </div>
-                    </CardContent>
-                  </>
-                )}
-              </motion.div>
-            </AnimatePresence>
-
-            <CardFooter className="flex justify-between pt-6 pb-4">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={currentStep === 0 ? onCancel : onPrevStep}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-1 transition-all duration-300 rounded-2xl border-[#5D2A42]/20 text-white hover:bg-[#FFDCCC]"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  {currentStep === 0 ? "Cancel" : "Back"}
-                </Button>
-              </motion.div>
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Button
-                  type="button"
-                  onClick={
-                    currentStep === steps.length - 1 ? onSubmit : onNextStep
-                  }
-                  disabled={!isStepValid() || isSubmitting}
-                  className={cn(
-                    "flex items-center gap-1 transition-all duration-300 rounded-2xl",
-                    currentStep === steps.length - 1
-                      ? "bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] hover:from-[#FB6376]/90 hover:to-[#FCB1A6]/90 text-white"
-                      : "bg-[#FB6376] hover:bg-[#FB6376]/90 text-white"
+                    </div>
                   )}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      {currentStep === steps.length - 1
-                        ? "Seal Capsule"
-                        : "Next"}
-                      {currentStep === steps.length - 1 ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4" />
+                </div>
+              )}
+
+              {/* Step 4: Review */}
+              {currentStep === 4 && (
+                <div className="p-8 md:p-10 h-full flex flex-col">
+                  <div className="mb-8 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Final Review</h2>
+                      <p className="text-[#666] text-sm">Ensure everything is exactly how you want it.</p>
+                    </div>
+                    <div className="w-16 h-16 bg-[#FFF9EC] rounded-2xl flex items-center justify-center shadow-inner border border-[#FFDCCC]/50">
+                      <Gift className="w-8 h-8 text-[#FB6376] animate-pulse" />
+                    </div>
+                  </div>
+
+                  <div className="bg-[#fafafa] border border-[#E8E8E8] rounded-2xl p-6 flex-1 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-[#E8E8E8]">
+                      <div>
+                        <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Title</span>
+                        <span className="text-base font-semibold text-[#1A1A1A]">{title}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Message Length</span>
+                        <span className="text-base font-medium text-[#1A1A1A]">{content.length} characters</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-[#E8E8E8]">
+                      <div>
+                        <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Trigger Condition</span>
+                        <span className="text-base font-medium text-[#1A1A1A] capitalize flex items-center gap-2">
+                           <Clock className="w-4 h-4 text-[#FB6376]" />
+                           {triggerType}
+                        </span>
+                      </div>
+                      {triggerType === "time" && deliveryDate && (
+                        <div>
+                          <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Unlock Date</span>
+                          <span className="text-base font-medium text-[#1A1A1A]">
+                            {deliveryDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {deliveryTime}
+                          </span>
+                        </div>
                       )}
-                    </>
-                  )}
-                </Button>
-              </motion.div>
-            </CardFooter>
-          </div>
-        </Card>
-      </motion.div>
+                    </div>
 
-      {/* Step indicator */}
-      <motion.div
-        className="mt-4 text-center text-sm text-black/70"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        Step {currentStep + 1} of {steps.length}:{" "}
-        {steps[currentStep]?.title ?? ""}
-      </motion.div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Recipients</span>
+                        <span className="text-base font-medium text-[#1A1A1A] capitalize flex items-center gap-2">
+                          <Users className="w-4 h-4 text-[#5D2A42]" />
+                          {recipientType === "self" ? "Just Myself" : recipientType === "friends" ? `${selectedFriends.length} Connection(s)` : "Public Community"}
+                        </span>
+                      </div>
+                      <div>
+                         <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Memories Attached</span>
+                         <span className="text-base font-medium text-[#1A1A1A] flex items-center gap-2">
+                            <Image className="w-4 h-4 text-[#FB6376]" />
+                            {attachments.length} file(s)
+                         </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Footer Navigation */}
+          <div className="p-8 border-t border-[#E8E8E8] bg-white flex justify-between items-center z-10">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={currentStep === 0 ? onCancel : handlePrev}
+              disabled={isSubmitting}
+              className="h-12 px-6 rounded-xl border-[#E8E8E8] text-[#1A1A1A] font-semibold hover:bg-[#fafafa]"
+            >
+              {currentStep === 0 ? "Cancel" : "Go Back"}
+            </Button>
+            
+            <Button
+              type="button"
+              onClick={currentStep === steps.length - 1 ? onSubmit : handleNext}
+              disabled={!isStepValid() || isSubmitting}
+              className={cn(
+                "h-12 px-8 rounded-xl font-bold transition-all shadow-md",
+                currentStep === steps.length - 1
+                  ? "bg-[#1A1A1A] hover:bg-[#333] text-white"
+                  : "bg-[#FB6376] hover:bg-[#e8556a] text-white"
+              )}
+            >
+              {isSubmitting ? (
+                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...</>
+              ) : currentStep === steps.length - 1 ? (
+                <><Lock className="w-5 h-5 mr-2" /> Seal Capsule</>
+              ) : (
+                <>Next Step <ChevronRight className="w-5 h-5 ml-2" /></>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 };

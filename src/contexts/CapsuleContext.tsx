@@ -72,6 +72,7 @@ interface CapsuleContextType {
   /** Media-safe helpers */
   capsuleHasMedia: (capsule: Capsule) => boolean;
   getMediaCount: (capsule: Capsule) => number;
+  serverNow: () => Date;
 
   loading: boolean;
 }
@@ -96,14 +97,18 @@ export const toDate = (value: any): Date | null => {
   try {
     if (value?.toDate) return value.toDate(); // Firestore Timestamp
     const d = new Date(value);
-    return isNaN(d.getTime()) ? null : d;
+    // Treat invalid or Unix epoch (0) as invalid for forá's logic
+    if (isNaN(d.getTime()) || d.getTime() <= 0) return null;
+    return d;
   } catch {
     return null;
   }
 };
 
 const safeISOString = (date: Date | null): string => {
-  if (!date) return new Date(0).toISOString();
+  if (!date || isNaN(date.getTime()) || date.getTime() <= 0) {
+    return new Date().toISOString(); // Default to NOW if missing
+  }
   return date.toISOString();
 };
 
@@ -115,8 +120,29 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
   const [capsules, setCapsules] = useState<Capsule[]>([]);
   const [receivedCapsules, setReceivedCapsules] = useState<Capsule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeOffset, setTimeOffset] = useState(0);
 
-  /* ---------- AUTH HEADERS ---------- */
+  /* ---------- AUTH HELPERS ---------- */
+
+  const fetchServerTime = async () => {
+    try {
+      const start = Date.now();
+      const res = await fetch(`${API_BASE}/getServerTime`);
+      const data = await res.json();
+      const end = Date.now();
+      
+      // Calculate network latency and server clock offset
+      const latency = (end - start) / 2;
+      const offset = data.serverTimeMs + latency - end;
+      
+      setTimeOffset(offset);
+      console.log("[ServerTime] Clock offset adjusted:", offset, "ms");
+    } catch (err) {
+      console.error("[ServerTime] Failed to fetch server time:", err);
+    }
+  };
+
+  const serverNow = () => new Date(Date.now() + timeOffset);
 
   const getAuthHeaders = async () => {
     if (!auth.currentUser) {
@@ -139,7 +165,8 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
     const unlockDateObj = toDate(unlockSource);
     const createdAtObj = toDate(c.createdAt);
 
-    const finalDate = unlockDateObj ?? createdAtObj ?? new Date(0);
+    // Fallback order: Unlock Date -> Created At -> Now
+    const finalDate = unlockDateObj ?? createdAtObj ?? new Date();
 
     return {
       ...c,
@@ -151,7 +178,8 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
               ["image", "video", "audio"].includes(a.type)
           )
         : [],
-      deliveryDate: safeISOString(finalDate),
+      deliveryDate: safeISOString(unlockDateObj ?? finalDate),
+      createdAt: safeISOString(createdAtObj ?? finalDate),
       isUnlocked: c.isUnlocked ?? finalDate.getTime() <= Date.now(),
     };
   };
@@ -178,12 +206,15 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       const receivedRaw = await receivedRes.json();
 
       const mine = Array.isArray(mineRaw) ? mineRaw.map(normalizeCapsule) : [];
+      const mineIds = new Set(mine.map((c) => c.id));
 
       const received = Array.isArray(receivedRaw)
-        ? receivedRaw.map((c) => ({
-            ...normalizeCapsule(c),
-            isReceived: true,
-          }))
+        ? receivedRaw
+            .filter((c) => !mineIds.has(c.id))
+            .map((c) => ({
+              ...normalizeCapsule(c),
+              isReceived: true,
+            }))
         : [];
 
       setCapsules(mine);
@@ -253,6 +284,8 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
   /* ================= AUTH SYNC ================= */
 
   useEffect(() => {
+    fetchServerTime(); // Get server time offset on mount
+    
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         await refreshCapsules();
@@ -281,6 +314,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
 
         capsuleHasMedia,
         getMediaCount,
+        serverNow,
 
         loading,
       }}

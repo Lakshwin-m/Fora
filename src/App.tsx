@@ -20,6 +20,9 @@ import { useEffect } from "react";
 import { getFCMToken, onForegroundMessage } from "./notifications.js";
 import { PricingDemo } from "./pages/PricingPage";
 import Garden from "./pages/Garden.tsx";
+import DigiBouquetLanding from "./pages/DigiBouquetLanding";
+import DigiBouquetPicker from "./pages/DigiBouquetPicker";
+import DigiBouquetGallery from "./pages/DigiBouquetGallery";
 function App() {
   useEffect(() => {
     getFCMToken().then((token) => {
@@ -101,6 +104,32 @@ function App() {
             element={
               <ProtectedRoute>
                 <Garden />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* DigiBouquet Routes */}
+          <Route
+            path="/digibouquet"
+            element={
+              <ProtectedRoute>
+                <DigiBouquetLanding />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/digibouquet/picker"
+            element={
+              <ProtectedRoute>
+                <DigiBouquetPicker />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/digibouquet/gallery"
+            element={
+              <ProtectedRoute>
+                <DigiBouquetGallery />
               </ProtectedRoute>
             }
           />

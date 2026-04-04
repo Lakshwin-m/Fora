@@ -7,7 +7,7 @@ import Navigation from "@/components/Navigation";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { getAuth } from "firebase/auth";
-import { getStorage, ref, uploadBytes } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { format } from "date-fns";
 import { CapsuleMultistepForm } from "@/components/capsule-multistep-form";
 import SealCapsuleModal from "@/components/SealCapsuleModal";
@@ -21,7 +21,7 @@ interface LocalAttachment {
   file: File;
   type: "image" | "video" | "audio";
   name: string;
-  size: number;
+  size?: number;
 }
 
 interface Friend {
@@ -183,6 +183,26 @@ const CreateCapsule = () => {
       const uploadedAttachments =
         attachments.length > 0 ? await uploadAllAttachments(capsuleId) : [];
 
+      let signatureUrl: string | null = null;
+      if (signature) {
+        try {
+          // Convert base64 data URL to blob
+          const response = await fetch(signature);
+          const blob = await response.blob();
+          
+          // Upload to Firebase Storage
+          const signaturePath = `capsules/${capsuleId}/signature.png`;
+          const signatureRef = ref(storage, signaturePath);
+          await uploadBytes(signatureRef, blob, { contentType: "image/png" });
+          
+          signatureUrl = await getDownloadURL(signatureRef);
+        } catch (error) {
+          console.error("Failed to upload signature:", error);
+          // Fallback to storing base64 if upload fails
+          signatureUrl = signature; 
+        }
+      }
+
       const unlockDate =
         recipientType === "public"
           ? new Date().toISOString()
@@ -209,7 +229,7 @@ const CreateCapsule = () => {
           createdAt: null,
           isUnlocked: recipientType === "public",
           status: "scheduled",
-          signature: signature || null,
+          signature: signatureUrl,
           userId: currentUser.uid,
           isReshare: !!location.state?.reshareFrom,
           originalCapsuleId: location.state?.reshareFrom?.capsuleId || null,
@@ -280,7 +300,6 @@ const CreateCapsule = () => {
         */}
         <CapsuleMultistepForm
           currentStep={currentStep}
-          onStepChange={setCurrentStep}
           title={title}
           content={content}
           triggerType={triggerType}
@@ -304,11 +323,11 @@ const CreateCapsule = () => {
           onAttachmentsChange={setAttachments}
           onFileSelect={handleFileSelect}
           onRemoveAttachment={removeAttachment}
-          onNextStep={() => setCurrentStep((s) => s + 1)}
+          onNextStep={() => setCurrentStep((s) => Math.min(5, s + 1))}
           onPrevStep={() => setCurrentStep((s) => Math.max(0, s - 1))}
+          onCancel={() => navigate("/")}
           onSubmit={handleFormSubmit}
           isSubmitting={isSubmitting}
-          isBlocked={!!hasReachedLimit}
         />
       </div>
 

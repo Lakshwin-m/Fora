@@ -21,6 +21,7 @@ import {
   Sparkles,
   ChevronRight,
   Fence,
+  Flower2,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/firebase";
@@ -77,16 +78,16 @@ const Navigation = () => {
       icon: Fence,
     },
     {
+      path: "/digibouquet",
+      label: "Digibouquet",
+      icon: Flower2,
+    },
+    {
       path: "/profile",
       label: "Profile",
       icon: User,
     },
 
-    {
-      path: "/settings",
-      label: "Settings",
-      icon: Settings,
-    },
     {
       path: "/pricing",
       label: "Pricing",

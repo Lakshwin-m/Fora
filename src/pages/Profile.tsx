@@ -11,8 +11,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navigation from "@/components/Navigation";
 import { toast } from "@/hooks/use-toast";
 import { auth, db } from "@/firebase";
@@ -20,8 +18,6 @@ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { updateProfile as updateAuthProfile, updateEmail } from "firebase/auth";
 import {
   Mail,
-  MapPin,
-  Edit,
   Save,
   Camera,
   Shield,
@@ -33,15 +29,18 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Smartphone,
+  Settings,
+  Edit2,
+  AlertTriangle,
+  Trash2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 const Profile = () => {
-  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
+  const [isEditing, setIsEditing] = useState(false);
 
   const [profile, setProfile] = useState({
     name: "",
@@ -55,8 +54,16 @@ const Profile = () => {
   const [settings, setSettings] = useState({
     notifications: true,
     emailNotifications: true,
-    twoFactorEnabled: false,
+    capsuleReminders: true,
+    connectionRequests: true,
+    weeklyDigest: false,
     profileVisibility: "public",
+    allowSearch: true,
+    showOnlineStatus: false,
+    capsulePreview: true,
+    twoFactorEnabled: false,
+    loginAlerts: true,
+    sessionTimeout: "30",
   });
 
   useEffect(() => {
@@ -120,8 +127,16 @@ const Profile = () => {
             settings: {
               notifications: true,
               emailNotifications: true,
-              twoFactorEnabled: false,
+              capsuleReminders: true,
+              connectionRequests: true,
+              weeklyDigest: false,
               profileVisibility: "public",
+              allowSearch: true,
+              showOnlineStatus: false,
+              capsulePreview: true,
+              twoFactorEnabled: false,
+              loginAlerts: true,
+              sessionTimeout: "30",
             },
           });
         } catch (error) {
@@ -179,8 +194,8 @@ const Profile = () => {
       }
 
       toast({
-        title: "Profile updated!",
-        description: "Your profile has been successfully updated.",
+        title: "Profile updated",
+        description: "Your details have been successfully saved.",
       });
       setIsEditing(false);
     } catch (error: any) {
@@ -218,8 +233,8 @@ const Profile = () => {
       });
 
       toast({
-        title: "Settings updated!",
-        description: "Your settings have been saved.",
+        title: "Settings updated",
+        description: "Your preferences have been saved.",
       });
     } catch (error) {
       console.error("Error updating settings:", error);
@@ -263,213 +278,156 @@ const Profile = () => {
       <div className="min-h-screen bg-[#FFF9EC]">
         <Navigation />
         <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <Loader2 className="w-8 h-8 animate-spin text-[#FB6376]" />
         </div>
       </div>
     );
   }
 
+  const menuItems = [
+    { id: "profile", label: "Profile", icon: User },
+    { id: "settings", label: "Settings", icon: Settings },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#FFF9EC]">
+    <div className="min-h-screen bg-[#FFF9EC] font-sans selection:bg-[#FB6376] selection:text-white">
       <Navigation />
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header with Profile Summary */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
-              <p className="text-gray-600 mt-2">
-                Manage your personal information and account settings
-              </p>
-            </div>
-            {!isEditing && activeTab === "profile" && (
-              <Button
-                onClick={() => setIsEditing(true)}
-                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-6 py-2 rounded-lg font-medium shadow-md hover:shadow-lg transition-all"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Profile
-              </Button>
-            )}
-          </div>
-          <Separator />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="mb-10">
+          <h1 className="text-3xl font-bold text-[#5D2A42] tracking-tight">
+            Account Settings
+          </h1>
+          <p className="text-[#5D2A42]/70 mt-2">
+            Manage your personal profile, security, and preferences.
+          </p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Left Sidebar - Profile Card */}
-          <div className="lg:w-1/3">
-            <Card className="border-2 border-amber-100 bg-white rounded-2xl shadow-lg overflow-hidden">
-              <div className="bg-gradient-to-r from-amber-400 to-orange-400 h-32"></div>
-              <CardContent className="pt-0 px-6 pb-6 relative">
-                <div className="flex flex-col items-center -mt-16 mb-6">
-                  <div className="relative">
-                    <Avatar className="w-32 h-32 border-4 border-white shadow-xl">
-                      <AvatarImage
-                        src={profile.photoURL}
-                        alt={profile.name}
-                        className="object-cover"
-                      />
-                      <AvatarFallback className="bg-gradient-to-br from-amber-500 to-orange-500 text-white text-2xl font-bold">
-                        {getInitials(profile.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <Button
-                      size="sm"
-                      onClick={handleImageUpload}
-                      className="absolute -bottom-2 -right-2 rounded-full w-10 h-10 p-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg transition-all"
-                      variant="default"
-                    >
-                      <Camera className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div className="text-center mt-4">
-                    <h2 className="text-2xl font-bold text-gray-800">
-                      {profile.name}
-                    </h2>
-                    <p className="text-gray-600">@{profile.username}</p>
-                    {profile.location && (
-                      <div className="flex items-center justify-center mt-2 text-gray-500">
-                        <MapPin className="w-4 h-4 mr-1" />
-                        {profile.location}
-                      </div>
-                    )}
-                  </div>
-
-                  {profile.bio && (
-                    <div className="mt-4 text-center">
-                      <p className="text-gray-700 italic">"{profile.bio}"</p>
-                    </div>
-                  )}
-
-                  <div className="mt-6 w-full space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
-                      <div className="flex items-center">
-                        <Mail className="w-5 h-5 text-amber-600 mr-3" />
-                        <span className="text-gray-700">Email</span>
-                      </div>
-                      <span className="text-gray-800 font-medium">
-                        {profile.email}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
-                      <div className="flex items-center">
-                        <User className="w-5 h-5 text-amber-600 mr-3" />
-                        <span className="text-gray-700">Status</span>
-                      </div>
-                      <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
-                        Active
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
-                      <div className="flex items-center">
-                        <Globe className="w-5 h-5 text-amber-600 mr-3" />
-                        <span className="text-gray-700">Profile</span>
-                      </div>
-                      <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
-                        {settings.profileVisibility === "public"
-                          ? "Public"
-                          : "Private"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="flex flex-col md:flex-row gap-8">
+          {/* Navigation Sidebar */}
+          <div className="md:w-64 shrink-0">
+            <nav className="flex flex-col space-y-1">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                    activeTab === item.id
+                      ? "bg-[#5D2A42] text-white shadow-sm"
+                      : "text-[#5D2A42]/70 hover:bg-[#FFDCCC]/50 hover:text-[#5D2A42]"
+                  }`}
+                >
+                  <item.icon
+                    className={`w-5 h-5 ${
+                      activeTab === item.id ? "text-white" : "text-[#5D2A42]/50"
+                    }`}
+                  />
+                  <span className="font-medium text-sm">{item.label}</span>
+                </button>
+              ))}
+            </nav>
           </div>
 
-          {/* Right Content Area */}
-          <div className="lg:w-2/3">
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="space-y-6"
-            >
-              <TabsList className="w-full bg-white p-1 rounded-xl border border-amber-100">
-                <TabsTrigger
-                  value="profile"
-                  className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white rounded-lg"
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  Profile
-                </TabsTrigger>
-                <TabsTrigger
-                  value="settings"
-                  className="flex-1 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-500 data-[state=active]:to-orange-500 data-[state=active]:text-white rounded-lg"
-                >
-                  <Shield className="w-4 h-4 mr-2" />
-                  Settings
-                </TabsTrigger>
-              </TabsList>
+          {/* Main Content Area */}
+          <div className="flex-1">
+            {activeTab === "profile" && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <Card className="border-[#5D2A42]/10 shadow-sm bg-white overflow-hidden rounded-2xl">
+                  <div className="bg-[#FFDCCC]/20 h-24 sm:h-32 border-b border-[#5D2A42]/5"></div>
+                  <CardContent className="px-6 sm:px-10 pb-10">
+                    <div className="flex flex-col sm:flex-row items-start gap-6 -mt-12 sm:-mt-16 mb-8">
+                      <div className="relative group">
+                        <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-white bg-white shadow-sm rounded-full overflow-hidden">
+                          <AvatarImage
+                            src={profile.photoURL}
+                            alt={profile.name}
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-2xl font-semibold">
+                            {getInitials(profile.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <button
+                          onClick={handleImageUpload}
+                          className="absolute bottom-0 right-0 sm:bottom-2 sm:right-2 p-2 bg-[#5D2A42] text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#FB6376] shadow-sm"
+                          aria-label="Upload photo"
+                        >
+                          <Camera className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="pt-2 sm:pt-16">
+                        <h2 className="text-2xl font-bold text-[#5D2A42]">
+                          {profile.name || "Your Name"}
+                        </h2>
+                        <p className="text-[#5D2A42]/60 mt-0.5">
+                          @{profile.username || "username"}
+                        </p>
+                      </div>
+                    </div>
 
-              {/* Profile Tab Content */}
-              <TabsContent value="profile" className="space-y-6">
-                <Card className="border-2 border-amber-100 bg-white rounded-2xl shadow-lg">
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-2xl text-gray-800">
-                      Profile Information
-                    </CardTitle>
-                    <CardDescription>
-                      {isEditing
-                        ? "Edit your profile details below"
-                        : "View your profile information"}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {isEditing ? (
-                      // Edit Mode
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-3">
-                            <Label
-                              htmlFor="name"
-                              className="text-sm font-medium text-gray-700"
-                            >
-                              Full Name *
-                            </Label>
-                            <Input
-                              id="name"
-                              value={profile.name}
-                              onChange={(e) =>
-                                setProfile({ ...profile, name: e.target.value })
-                              }
-                              className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
-                              required
-                            />
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-bold text-[#5D2A42]">Personal Information</h3>
+                      {!isEditing && (
+                        <Button
+                          onClick={() => setIsEditing(true)}
+                          variant="ghost"
+                          className="text-[#FB6376] hover:text-[#F04860] hover:bg-[#FFDCCC]/30 gap-2 h-9 px-3"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                          Edit Profile
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="name" className="text-[#5D2A42] font-semibold text-sm">
+                          Full Name
+                        </Label>
+                        {isEditing ? (
+                          <Input
+                            id="name"
+                            value={profile.name}
+                            onChange={(e) =>
+                              setProfile({ ...profile, name: e.target.value })
+                            }
+                            className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-[#FFF9EC]/50 hover:bg-white text-[#5D2A42] rounded-xl h-11"
+                          />
+                        ) : (
+                          <div className="flex items-center h-11 px-3 bg-[#FFF9EC]/30 rounded-xl border border-transparent text-[#5D2A42]">
+                            {profile.name || "—"}
                           </div>
+                        )}
+                      </div>
 
-                          <div className="space-y-3">
-                            <Label
-                              htmlFor="username"
-                              className="text-sm font-medium text-gray-700"
-                            >
-                              Username *
-                            </Label>
-                            <Input
-                              id="username"
-                              value={profile.username}
-                              onChange={(e) =>
-                                setProfile({
-                                  ...profile,
-                                  username: e.target.value,
-                                })
-                              }
-                              className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
-                              required
-                            />
+                      <div className="space-y-2">
+                        <Label htmlFor="username" className="text-[#5D2A42] font-semibold text-sm">
+                          Username
+                        </Label>
+                        {isEditing ? (
+                          <Input
+                            id="username"
+                            value={profile.username}
+                            onChange={(e) =>
+                              setProfile({
+                                ...profile,
+                                username: e.target.value.replace(/\s+/g, ""),
+                              })
+                            }
+                            className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-[#FFF9EC]/50 hover:bg-white text-[#5D2A42] rounded-xl h-11"
+                          />
+                        ) : (
+                          <div className="flex items-center h-11 px-3 bg-[#FFF9EC]/30 rounded-xl border border-transparent text-[#5D2A42]">
+                            {profile.username ? `@${profile.username}` : "—"}
                           </div>
-                        </div>
+                        )}
+                      </div>
 
-                        <div className="space-y-3">
-                          <Label
-                            htmlFor="email"
-                            className="text-sm font-medium text-gray-700"
-                          >
-                            Email Address *
-                          </Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="email" className="text-[#5D2A42] font-semibold text-sm">
+                          Email Address
+                        </Label>
+                        {isEditing ? (
                           <Input
                             id="email"
                             type="email"
@@ -477,18 +435,20 @@ const Profile = () => {
                             onChange={(e) =>
                               setProfile({ ...profile, email: e.target.value })
                             }
-                            className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
-                            required
+                            className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-[#FFF9EC]/50 hover:bg-white text-[#5D2A42] rounded-xl h-11"
                           />
-                        </div>
+                        ) : (
+                          <div className="flex items-center h-11 px-3 bg-[#FFF9EC]/30 rounded-xl border border-transparent text-[#5D2A42]">
+                            {profile.email || "—"}
+                          </div>
+                        )}
+                      </div>
 
-                        <div className="space-y-3">
-                          <Label
-                            htmlFor="location"
-                            className="text-sm font-medium text-gray-700"
-                          >
-                            Location
-                          </Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="location" className="text-[#5D2A42] font-semibold text-sm">
+                          Location
+                        </Label>
+                        {isEditing ? (
                           <Input
                             id="location"
                             value={profile.location}
@@ -498,152 +458,124 @@ const Profile = () => {
                                 location: e.target.value,
                               })
                             }
-                            className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
-                            placeholder="Enter your city or country"
+                            placeholder="San Francisco, CA"
+                            className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-[#FFF9EC]/50 hover:bg-white text-[#5D2A42] rounded-xl h-11"
                           />
-                        </div>
-
-                        <div className="space-y-3">
-                          <Label
-                            htmlFor="bio"
-                            className="text-sm font-medium text-gray-700"
-                          >
-                            Bio
-                          </Label>
-                          <Textarea
-                            id="bio"
-                            value={profile.bio}
-                            onChange={(e) =>
-                              setProfile({ ...profile, bio: e.target.value })
-                            }
-                            className="border-amber-200 focus:border-amber-500 focus:ring-amber-500 min-h-32"
-                            placeholder="Tell us about yourself..."
-                            maxLength={500}
-                          />
-                          <div className="text-xs text-gray-500 text-right">
-                            {profile.bio.length}/500 characters
+                        ) : (
+                          <div className="flex items-center h-11 px-3 bg-[#FFF9EC]/30 rounded-xl border border-transparent text-[#5D2A42]">
+                            {profile.location || "—"}
                           </div>
-                        </div>
-
-                        <div className="flex justify-end gap-3 pt-4">
-                          <Button
-                            variant="outline"
-                            onClick={() => setIsEditing(false)}
-                            className="border-amber-300 text-amber-700 hover:bg-amber-50"
-                            disabled={saving}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleSaveProfile}
-                            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-6"
-                            disabled={saving}
-                          >
-                            {saving ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Saving...
-                              </>
-                            ) : (
-                              <>
-                                <Save className="w-4 h-4 mr-2" />
-                                Save Changes
-                              </>
-                            )}
-                          </Button>
-                        </div>
+                        )}
                       </div>
-                    ) : (
-                      // View Mode
-                      <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-4">
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500 mb-2">
-                                Full Name
-                              </h3>
-                              <p className="text-lg font-semibold text-gray-800">
-                                {profile.name}
-                              </p>
-                            </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500 mb-2">
-                                Email Address
-                              </h3>
-                              <div className="flex items-center">
-                                <Mail className="w-4 h-4 text-gray-400 mr-2" />
-                                <p className="text-lg font-semibold text-gray-800">
-                                  {profile.email}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
 
-                          <div className="space-y-4">
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500 mb-2">
-                                Username
-                              </h3>
-                              <p className="text-lg font-semibold text-gray-800">
-                                @{profile.username}
-                              </p>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor="bio" className="text-[#5D2A42] font-semibold text-sm">
+                          Bio
+                        </Label>
+                        {isEditing ? (
+                          <>
+                            <Textarea
+                              id="bio"
+                              value={profile.bio}
+                              onChange={(e) =>
+                                setProfile({ ...profile, bio: e.target.value })
+                              }
+                              placeholder="Tell us a little about yourself..."
+                              maxLength={500}
+                              className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-[#FFF9EC]/50 hover:bg-white text-[#5D2A42] rounded-xl min-h-[120px] resize-none"
+                            />
+                            <div className="text-right text-xs text-[#5D2A42]/40 font-medium">
+                              {profile.bio.length} / 500
                             </div>
-                            <div>
-                              <h3 className="text-sm font-medium text-gray-500 mb-2">
-                                Location
-                              </h3>
-                              <div className="flex items-center">
-                                <MapPin className="w-4 h-4 text-gray-400 mr-2" />
-                                <p className="text-lg font-semibold text-gray-800">
-                                  {profile.location || "Not specified"}
-                                </p>
-                              </div>
-                            </div>
+                          </>
+                        ) : (
+                          <div className="p-3 bg-[#FFF9EC]/30 rounded-xl border border-transparent text-[#5D2A42] min-h-[100px] whitespace-pre-wrap">
+                            {profile.bio || <span className="text-[#5D2A42]/40 italic">No bio added yet.</span>}
                           </div>
-                        </div>
+                        )}
+                      </div>
+                    </div>
 
-                        <div className="space-y-4">
-                          <h3 className="text-sm font-medium text-gray-500">
-                            Bio
-                          </h3>
-                          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                            <p className="text-gray-700 whitespace-pre-wrap">
-                              {profile.bio ||
-                                "No bio added yet. Add a bio to tell others about yourself."}
-                            </p>
-                          </div>
-                        </div>
+                    {isEditing && (
+                      <div className="mt-8 pt-6 border-t border-[#5D2A42]/10 flex justify-end gap-3">
+                        <Button
+                          onClick={() => setIsEditing(false)}
+                          disabled={saving}
+                          variant="ghost"
+                          className="text-[#5D2A42] hover:bg-[#FFDCCC]/50 px-6 py-2 h-11 rounded-xl shadow-none font-medium transition-colors"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleSaveProfile}
+                          disabled={saving}
+                          className="bg-[#FB6376] hover:bg-[#F04860] text-white px-6 py-2 h-11 rounded-xl shadow-none font-medium transition-colors"
+                        >
+                          {saving ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Save Changes"
+                          )}
+                        </Button>
                       </div>
                     )}
                   </CardContent>
                 </Card>
-              </TabsContent>
+              </div>
+            )}
 
-              {/* Settings Tab Content */}
-              <TabsContent value="settings">
-                <div className="space-y-6">
-                  {/* Notification Settings */}
-                  <Card className="border-2 border-amber-100 bg-white rounded-2xl shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="text-xl text-gray-800 flex items-center">
-                        <Bell className="w-5 h-5 mr-2 text-amber-600" />
-                        Notification Settings
-                      </CardTitle>
-                      <CardDescription>
-                        Manage how you receive notifications
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl">
-                        <div className="space-y-1">
-                          <Label
-                            htmlFor="push-notifications"
-                            className="font-medium text-gray-700"
-                          >
+            {activeTab === "settings" && (
+              <div className="space-y-6 animate-in fade-in duration-300">
+                <Card className="border-[#5D2A42]/10 shadow-sm bg-white rounded-2xl">
+                  <CardHeader className="border-b border-[#5D2A42]/5 pb-6">
+                    <CardTitle className="text-xl text-[#5D2A42]">Global Settings</CardTitle>
+                    <CardDescription className="text-[#5D2A42]/60">
+                      Manage your preferences, security, and visibility.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="px-6 py-8 space-y-10">
+                    
+                    {/* NOTIFICATIONS */}
+                    <div className="space-y-4">
+                      <div className="mb-4">
+                        <h3 className="text-[#5D2A42] font-semibold text-lg flex items-center">
+                          <Bell className="w-5 h-5 mr-2 opacity-80" />
+                          Notifications
+                        </h3>
+                        <p className="text-sm text-[#5D2A42]/60 mt-1">
+                          Choose how you want to be notified about your time capsules
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="email-notifications" className="text-[#5D2A42] font-semibold text-sm">
+                            Email Notifications
+                          </Label>
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Receive updates via email about your capsules
+                          </p>
+                        </div>
+                        <Switch
+                          id="email-notifications"
+                          checked={settings.emailNotifications}
+                          onCheckedChange={(checked) =>
+                            setSettings({ ...settings, emailNotifications: checked })
+                          }
+                          className="data-[state=checked]:bg-[#FB6376]"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="push-notifications" className="text-[#5D2A42] font-semibold text-sm">
                             Push Notifications
                           </Label>
-                          <p className="text-sm text-gray-600">
-                            Receive push notifications for important updates
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Get instant notifications on your devices
                           </p>
                         </div>
                         <Switch
@@ -652,58 +584,203 @@ const Profile = () => {
                           onCheckedChange={(checked) =>
                             setSettings({ ...settings, notifications: checked })
                           }
-                          className="data-[state=checked]:bg-amber-500"
+                          className="data-[state=checked]:bg-[#FB6376]"
                         />
                       </div>
 
-                      <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl">
-                        <div className="space-y-1">
-                          <Label
-                            htmlFor="email-notifications"
-                            className="font-medium text-gray-700"
-                          >
-                            Email Notifications
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="capsule-reminders" className="text-[#5D2A42] font-semibold text-sm">
+                            Capsule Reminders
                           </Label>
-                          <p className="text-sm text-gray-600">
-                            Receive email updates and newsletters
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Get reminded before your capsules unlock
                           </p>
                         </div>
                         <Switch
-                          id="email-notifications"
-                          checked={settings.emailNotifications}
+                          id="capsule-reminders"
+                          checked={settings.capsuleReminders}
                           onCheckedChange={(checked) =>
-                            setSettings({
-                              ...settings,
-                              emailNotifications: checked,
-                            })
+                            setSettings({ ...settings, capsuleReminders: checked })
                           }
-                          className="data-[state=checked]:bg-amber-500"
+                          className="data-[state=checked]:bg-[#FB6376]"
                         />
                       </div>
-                    </CardContent>
-                  </Card>
 
-                  {/* Security Settings */}
-                  <Card className="border-2 border-amber-100 bg-white rounded-2xl shadow-lg">
-                    <CardHeader>
-                      <CardTitle className="text-xl text-gray-800 flex items-center">
-                        <Lock className="w-5 h-5 mr-2 text-amber-600" />
-                        Security Settings
-                      </CardTitle>
-                      <CardDescription>
-                        Manage your account security preferences
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-amber-50 rounded-xl">
-                        <div className="space-y-1">
-                          <Label
-                            htmlFor="two-factor"
-                            className="font-medium text-gray-700"
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="connection-requests" className="text-[#5D2A42] font-semibold text-sm">
+                            Connection Requests
+                          </Label>
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Notify when someone wants to connect
+                          </p>
+                        </div>
+                        <Switch
+                          id="connection-requests"
+                          checked={settings.connectionRequests}
+                          onCheckedChange={(checked) =>
+                            setSettings({ ...settings, connectionRequests: checked })
+                          }
+                          className="data-[state=checked]:bg-[#FB6376]"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="weekly-digest" className="text-[#5D2A42] font-semibold text-sm">
+                            Weekly Digest
+                          </Label>
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Weekly summary of your time capsule activity
+                          </p>
+                        </div>
+                        <Switch
+                          id="weekly-digest"
+                          checked={settings.weeklyDigest}
+                          onCheckedChange={(checked) =>
+                            setSettings({ ...settings, weeklyDigest: checked })
+                          }
+                          className="data-[state=checked]:bg-[#FB6376]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* PRIVACY */}
+                    <div className="space-y-4 pt-4 border-t border-[#5D2A42]/10">
+                      <div className="mb-4">
+                        <h3 className="text-[#5D2A42] font-semibold text-lg flex items-center">
+                          <Eye className="w-5 h-5 mr-2 opacity-80" />
+                          Privacy
+                        </h3>
+                        <p className="text-sm text-[#5D2A42]/60 mt-1">
+                          Control who can see your profile and activity
+                        </p>
+                      </div>
+
+                      <div className="p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="mb-4">
+                          <Label className="text-[#5D2A42] font-semibold text-sm">Profile Visibility</Label>
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Who can view your profile information
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <Button
+                            variant={settings.profileVisibility === "public" ? "default" : "outline"}
+                            onClick={() => setSettings({ ...settings, profileVisibility: "public" })}
+                            className={`flex flex-col h-auto py-3 items-start justify-center text-left rounded-xl ${
+                              settings.profileVisibility === "public"
+                                ? "bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white shadow-none"
+                                : "border-[#5D2A42]/20 text-[#5D2A42] hover:bg-white bg-transparent"
+                            }`}
                           >
+                            <span className="flex items-center mb-1"><Globe className="w-4 h-4 mr-2" /> Public</span>
+                            <span className="text-xs opacity-70 font-normal">Anyone can view your profile</span>
+                          </Button>
+                          <Button
+                            variant={settings.profileVisibility === "connections" ? "default" : "outline"}
+                            onClick={() => setSettings({ ...settings, profileVisibility: "connections" })}
+                            className={`flex flex-col h-auto py-3 items-start justify-center text-left rounded-xl ${
+                              settings.profileVisibility === "connections"
+                                ? "bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white shadow-none"
+                                : "border-[#5D2A42]/20 text-[#5D2A42] hover:bg-white bg-transparent"
+                            }`}
+                          >
+                            <span className="flex items-center mb-1"><User className="w-4 h-4 mr-2" /> Connections Only</span>
+                            <span className="text-xs opacity-70 font-normal">Only your connections can view</span>
+                          </Button>
+                          <Button
+                            variant={settings.profileVisibility === "private" ? "default" : "outline"}
+                            onClick={() => setSettings({ ...settings, profileVisibility: "private" })}
+                            className={`flex flex-col h-auto py-3 items-start justify-center text-left rounded-xl ${
+                              settings.profileVisibility === "private"
+                                ? "bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white shadow-none"
+                                : "border-[#5D2A42]/20 text-[#5D2A42] hover:bg-white bg-transparent"
+                            }`}
+                          >
+                            <span className="flex items-center mb-1"><Lock className="w-4 h-4 mr-2" /> Private</span>
+                            <span className="text-xs opacity-70 font-normal">Only you can view your profile</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="allow-search" className="text-[#5D2A42] font-semibold text-sm">
+                            Allow Search
+                          </Label>
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Let others find you by email or username
+                          </p>
+                        </div>
+                        <Switch
+                          id="allow-search"
+                          checked={settings.allowSearch}
+                          onCheckedChange={(checked) =>
+                            setSettings({ ...settings, allowSearch: checked })
+                          }
+                          className="data-[state=checked]:bg-[#FB6376]"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="online-status" className="text-[#5D2A42] font-semibold text-sm">
+                            Show Online Status
+                          </Label>
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Display when you're active on Forá
+                          </p>
+                        </div>
+                        <Switch
+                          id="online-status"
+                          checked={settings.showOnlineStatus}
+                          onCheckedChange={(checked) =>
+                            setSettings({ ...settings, showOnlineStatus: checked })
+                          }
+                          className="data-[state=checked]:bg-[#FB6376]"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="capsule-preview" className="text-[#5D2A42] font-semibold text-sm">
+                            Capsule Preview
+                          </Label>
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Show capsule previews to recipients before unlock
+                          </p>
+                        </div>
+                        <Switch
+                          id="capsule-preview"
+                          checked={settings.capsulePreview}
+                          onCheckedChange={(checked) =>
+                            setSettings({ ...settings, capsulePreview: checked })
+                          }
+                          className="data-[state=checked]:bg-[#FB6376]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* SECURITY */}
+                    <div className="space-y-4 pt-4 border-t border-[#5D2A42]/10">
+                      <div className="mb-4">
+                        <h3 className="text-[#5D2A42] font-semibold text-lg flex items-center">
+                          <Shield className="w-5 h-5 mr-2 opacity-80" />
+                          Security
+                        </h3>
+                        <p className="text-sm text-[#5D2A42]/60 mt-1">
+                          Protect your account with additional security measures
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="two-factor" className="text-[#5D2A42] font-semibold text-sm">
                             Two-Factor Authentication
                           </Label>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
                             Add an extra layer of security to your account
                           </p>
                         </div>
@@ -711,103 +788,136 @@ const Profile = () => {
                           id="two-factor"
                           checked={settings.twoFactorEnabled}
                           onCheckedChange={(checked) =>
-                            setSettings({
-                              ...settings,
-                              twoFactorEnabled: checked,
-                            })
+                            setSettings({ ...settings, twoFactorEnabled: checked })
                           }
-                          className="data-[state=checked]:bg-amber-500"
+                          className="data-[state=checked]:bg-[#FB6376]"
                         />
                       </div>
 
-                      <div className="p-4 bg-amber-50 rounded-xl">
-                        <div className="space-y-1 mb-4">
-                          <Label className="font-medium text-gray-700">
-                            Profile Visibility
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="login-alerts" className="text-[#5D2A42] font-semibold text-sm">
+                            Login Alerts
                           </Label>
-                          <p className="text-sm text-gray-600">
-                            Control who can see your profile
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Get notified of new login attempts
                           </p>
                         </div>
-                        <div className="flex gap-3">
-                          <Button
-                            variant={
-                              settings.profileVisibility === "public"
-                                ? "default"
-                                : "outline"
-                            }
-                            onClick={() =>
-                              setSettings({
-                                ...settings,
-                                profileVisibility: "public",
-                              })
-                            }
-                            className={
-                              settings.profileVisibility === "public"
-                                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
-                                : "border-amber-300 text-gray-700"
-                            }
-                          >
-                            <Eye className="w-4 h-4 mr-2" />
-                            Public
-                          </Button>
-                          <Button
-                            variant={
-                              settings.profileVisibility === "private"
-                                ? "default"
-                                : "outline"
-                            }
-                            onClick={() =>
-                              setSettings({
-                                ...settings,
-                                profileVisibility: "private",
-                              })
-                            }
-                            className={
-                              settings.profileVisibility === "private"
-                                ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white"
-                                : "border-amber-300 text-gray-700"
-                            }
-                          >
-                            <EyeOff className="w-4 h-4 mr-2" />
-                            Private
+                        <Switch
+                          id="login-alerts"
+                          checked={settings.loginAlerts}
+                          onCheckedChange={(checked) =>
+                            setSettings({ ...settings, loginAlerts: checked })
+                          }
+                          className="data-[state=checked]:bg-[#FB6376]"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
+                        <div className="pr-6">
+                          <Label htmlFor="session-timeout" className="text-[#5D2A42] font-semibold text-sm">
+                            Session Timeout
+                          </Label>
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                            Automatically log out after period of inactivity
+                          </p>
+                        </div>
+                        <select
+                          id="session-timeout"
+                          value={settings.sessionTimeout}
+                          onChange={(e) => setSettings({ ...settings, sessionTimeout: e.target.value })}
+                          className="h-10 px-3 py-1 rounded-xl bg-white border border-[#5D2A42]/20 text-[#5D2A42] focus:outline-none focus:border-[#FB6376] focus:ring-1 focus:ring-[#FB6376]"
+                        >
+                          <option value="15">15 minutes</option>
+                          <option value="30">30 minutes</option>
+                          <option value="60">1 hour</option>
+                          <option value="0">Never</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* CHANGE PASSWORD */}
+                    <div className="p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl space-y-4">
+                      <div className="mb-2">
+                        <Label className="text-[#5D2A42] font-semibold text-base">Change Password</Label>
+                        <p className="text-sm text-[#5D2A42]/60 mt-0.5">
+                          Update your account password
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-[#5D2A42] font-medium">Current Password</Label>
+                          <Input type="password" placeholder="••••••••" className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-white h-10 rounded-xl" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-[#5D2A42] font-medium">New Password</Label>
+                            <Input type="password" placeholder="••••••••" className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-white h-10 rounded-xl" />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs text-[#5D2A42] font-medium">Confirm New Password</Label>
+                            <Input type="password" placeholder="••••••••" className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-white h-10 rounded-xl" />
+                          </div>
+                        </div>
+                        <div className="pt-2">
+                          <Button variant="outline" className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-white rounded-xl">
+                            Update Password
                           </Button>
                         </div>
                       </div>
+                    </div>
 
+                    {/* DANGER ZONE */}
+                    <div className="pt-4 border-t border-red-500/10">
+                      <div className="mb-4">
+                        <h3 className="text-red-600 font-semibold text-lg flex items-center">
+                          <AlertTriangle className="w-5 h-5 mr-2 opacity-80" />
+                          Danger Zone
+                        </h3>
+                        <p className="text-sm text-red-600/60 mt-1">
+                          Irreversible and destructive actions
+                        </p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-red-50/50 border border-red-100 rounded-xl gap-4">
+                        <div className="pr-6">
+                          <Label className="text-red-700 font-semibold text-sm">
+                            Delete Account
+                          </Label>
+                          <p className="text-sm text-red-600/70 mt-0.5">
+                            Once you delete your account, there is no going back. All your time capsules, connections, and data will be permanently removed.
+                          </p>
+                        </div>
+                        <Button
+                          variant="destructive"
+                          className="shrink-0 rounded-xl bg-red-500 hover:bg-red-600 shadow-none border border-red-600"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Account
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-[#5D2A42]/10 flex justify-end">
                       <Button
-                        variant="outline"
-                        className="w-full justify-center border-amber-300 text-amber-700 hover:bg-amber-50 py-6 rounded-xl"
+                        onClick={handleSaveSettings}
+                        disabled={saving}
+                        className="bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white px-8 py-2 h-11 rounded-xl shadow-none font-medium transition-colors"
                       >
-                        <Key className="w-5 h-5 mr-3" />
-                        Change Password
+                        {saving ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          "Save Settings"
+                        )}
                       </Button>
-                    </CardContent>
-                  </Card>
-
-                  {/* Save Settings Button */}
-                  <div className="flex justify-end">
-                    <Button
-                      onClick={handleSaveSettings}
-                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white px-8 py-6 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all"
-                      disabled={saving}
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                          Saving Settings...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-5 h-5 mr-3" />
-                          Save All Settings
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
         </div>
       </div>

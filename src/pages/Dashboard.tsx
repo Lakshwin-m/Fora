@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AnimatedStatsCard } from "@/components/ui/card-4";
 import { parseFirebaseDate, formatFirebaseDate } from "@/lib/date";
-import { PlanBadge } from "@/components/PlanBadge";
+import { AwardBadge } from "@/components/ui/award-badge";
 import {
   Clock,
   Calendar,
@@ -60,6 +60,7 @@ import gsap from "gsap";
 // 🔐 IMPORT DECRYPTION HOOK
 import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
 import { usePlan } from "@/hooks/usePlan";
+import AnimatedNumberCountdown from "@/components/ui/countdown-number";
 
 /* ===================== TYPES ===================== */
 
@@ -74,7 +75,7 @@ interface Capsule {
   titleIv?: string;
   content?: string;
   contentIv?: string;
-  unlockDate: any;
+  unlockDate?: any;
   createdAt?: any;
   triggerType?: string;
   recipientType?: string;
@@ -252,235 +253,111 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
   };
 
   return (
-    <div ref={cardRef} className="group relative">
-      <Card
-        className="border border-[#E8E8E8] bg-white hover:border-[#FB6376]/30 hover:shadow-lg transition-all duration-300 cursor-pointer h-full overflow-hidden"
+    <div ref={cardRef} className="group relative w-full h-[320px] max-w-sm mx-auto flex flex-col items-center justify-center p-2">
+      <div 
+        className="relative w-full h-full transition-transform duration-300 group-hover:-translate-y-2 cursor-pointer flex items-center justify-center"
         onClick={handleCapsuleClick}
       >
-        <CardHeader className="pb-4 pl-6">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center space-x-4 flex-1 min-w-0">
-              {/* Icon */}
-              <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                  isUnlocked ? "bg-[#FFDCCC]/20" : "bg-[#FB6376]/10"
-                }`}
+        {isUnlocked ? (
+          // UNLOCKED STATE (OPEN ENVELOPE)
+          <>
+            <img 
+              src="/open_envelope-eMfrWOgA.png" 
+              alt="Opened Envelope" 
+              className="absolute inset-0 w-full h-full object-contain drop-shadow-sm pointer-events-none"
+            />
+            {/* The letter area inside the open envelope. */}
+            <div className="absolute top-[32%] left-[22%] right-[22%] h-[35%] flex flex-col items-center justify-start z-10 text-center text-[#1A1A1A] overflow-hidden pt-2">
+               {isDecrypting ? (
+                 <Loader2 className="w-5 h-5 animate-spin text-[#FB6376] mt-4" />
+               ) : (
+                 <>
+                   <h3 className="font-bold text-[13px] sm:text-[15px] leading-tight w-full font-serif mb-1 line-clamp-2 text-[#5D2A42]">
+                     {title || "Untitled Capsule"}
+                   </h3>
+                   <div className="text-[10px] sm:text-[11px] text-[#1A1A1A]/80 line-clamp-3 leading-snug w-full px-1">
+                     {content || "No message inside."}
+                   </div>
+                 </>
+               )}
+            </div>
+            {/* Status Indicator */}
+            <div className="absolute bottom-[20%] left-0 right-0 flex justify-center z-10">
+              <Badge variant="outline" className="bg-[#FFF9EC]/90 backdrop-blur-md border-[#E8E8E8] text-[#5D2A42] text-[10px] px-2 py-0.5 rounded-full shadow-sm">
+                Opened {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
+              </Badge>
+            </div>
+          </>
+        ) : (
+          // LOCKED STATE (CLOSED ENVELOPE)
+          <>
+            <img 
+              src="/letter_cover-4fCnauP6.png" 
+              alt="Sealed Envelope" 
+              className="absolute inset-0 w-full h-full object-contain drop-shadow-sm pointer-events-none"
+            />
+            {/* Center text on closed envelope */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4">
+              <div className="rotate-[0deg] flex flex-col items-center max-w-[85%] mt-4">
+                <span className="text-[12px] md:text-[14px] text-[#5D2A42]/90 font-serif italic mb-1 tracking-tight">
+                  open when...
+                </span>
+                <h3 className="text-lg md:text-xl font-bold text-[#1A1A1A]/80 text-balance font-serif tracking-tight leading-snug line-clamp-3">
+                  {isDecrypting ? (
+                     <Loader2 className="w-5 h-5 animate-spin text-[#5D2A42]" />
+                   ) : (
+                     title || "you are down"
+                   )}
+                </h3>
+              </div>
+            </div>
+            {/* Countdown Meta */}
+            <div className="absolute bottom-[22%] left-0 right-0 flex justify-center z-10">
+               <Badge className="bg-[#1A1A1A]/80 hover:bg-[#1A1A1A] text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+                 <Lock className="w-3 h-3" />
+                 <span className="font-medium tracking-wide">{countdown}</span>
+               </Badge>
+            </div>
+          </>
+        )}
+
+        {/* Delete Action (only if not received) */}
+        {!isReceived && (
+          <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="absolute top-2 right-2 sm:top-6 sm:right-6 h-8 w-8 rounded-full bg-white/95 border border-[#E8E8E8] text-[#FB6376] opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-sm hover:bg-[#FB6376] hover:text-white z-50 hover:scale-105"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
               >
-                {isDecrypting ? (
-                  <Loader2 className="w-6 h-6 animate-spin text-[#FB6376]" />
-                ) : (
-                  <ContentIcon
-                    className={`w-6 h-6 ${
-                      isUnlocked ? "text-[#5D2A42]" : "text-[#FB6376]"
-                    }`}
-                  />
-                )}
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Capsule?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete "{title || "this capsule"}" and all its contents.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="flex gap-3 justify-end mt-4">
+                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-[#FB6376] text-white hover:bg-[#FB6376]/90"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
               </div>
-
-              {/* Title + subtitle */}
-              <div className="min-w-0 flex-1">
-                {isDecrypting ? (
-                  <div className="flex items-center space-x-2">
-                    <Loader2 className="w-4 h-4 animate-spin text-[#FB6376]" />
-                    <span className="text-sm text-[#666666]">Decrypting...</span>
-                  </div>
-                ) : (
-                  <CardTitle className="text-lg font-semibold text-[#1A1A1A] truncate">
-                    {title || "Untitled Capsule"}
-                  </CardTitle>
-                )}
-                <div className="flex items-center gap-2 mt-1">
-                  {isReceived && capsule.username && (
-                    <span className="text-sm text-[#666666] truncate">
-                      From {capsule.username}
-                    </span>
-                  )}
-                  {isSentToSelf && !isReceived && (
-                    <span className="text-sm text-[#666666]">Personal capsule</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Delete button */}
-            {!isReceived && (
-              <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 hover:bg-[#FB6376]/10 hover:text-[#FB6376] text-[#5D2A42]/40 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      e.preventDefault();
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Capsule?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete "{title || "this capsule"}" and all its contents.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <div className="flex gap-3 justify-end">
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleDelete}
-                      className="bg-[#FB6376] hover:bg-[#FB6376]/90"
-                      disabled={isDeleting}
-                    >
-                      {isDeleting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Deleting...
-                        </>
-                      ) : (
-                        "Delete"
-                      )}
-                    </AlertDialogAction>
-                  </div>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
-
-          {/* Status badges */}
-          <div className="flex items-center gap-2 mb-4">
-            <Badge
-              variant={isUnlocked ? "default" : "secondary"}
-              className={`px-3 py-1 text-xs font-medium rounded-full ${
-                isUnlocked
-                  ? "bg-[#FFDCCC] text-[#5D2A42] hover:bg-[#FFDCCC]"
-                  : "bg-[#FB6376] text-white hover:bg-[#FB6376]"
-              }`}
-            >
-              <div className="flex items-center gap-1.5">
-                {isUnlocked ? (
-                  <Unlock className="w-3 h-3" />
-                ) : (
-                  <Lock className="w-3 h-3" />
-                )}
-                {isUnlocked ? "Unlocked" : "Locked"}
-              </div>
-            </Badge>
-
-            <Badge
-              variant="outline"
-              className="border-[#E8E8E8] text-[#666666] text-xs px-3 py-1 rounded-full"
-            >
-              <TriggerIcon className="w-3 h-3 mr-1.5" />
-              {capsule.triggerType || "time"}
-            </Badge>
-          </div>
-        </CardHeader>
-
-        <CardContent className="pl-6 pb-4">
-          {/* Content preview */}
-          <div className="mb-5">
-            <div className="text-sm text-[#666666] leading-relaxed line-clamp-2 min-h-[48px]">
-              {isDecrypting ? (
-                <span className="flex items-center gap-2 text-[#999999]">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Decrypting content...
-                </span>
-              ) : isUnlocked ? (
-                <span>{content ? content.slice(0, 100) + (content.length > 100 ? "..." : "") : "No content available"}</span>
-              ) : (
-                <span className="flex items-start gap-3 text-[#999999]">
-                  <EyeOff className="w-4 h-4 mt-1 flex-shrink-0" />
-                  <span>
-                    Contents sealed until{" "}
-                    {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
-                  </span>
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Countdown / Status */}
-          <div
-            className={`mb-5 p-4 rounded-xl ${
-              isUnlocked
-                ? "bg-[#FFDCCC]/10 border border-[#FFDCCC]/30"
-                : "bg-[#FB6376]/5 border border-[#FB6376]/10"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {isUnlocked ? (
-                  <>
-                    <div className="w-10 h-10 rounded-lg bg-[#FFDCCC]/20 flex items-center justify-center">
-                      <Gift className="w-5 h-5 text-[#FB6376]" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-[#1A1A1A]">Ready to open</div>
-                      <div className="text-xs text-[#666666]">Your capsule is waiting</div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-10 h-10 rounded-lg bg-[#FB6376]/10 flex items-center justify-center">
-                      <Timer className="w-5 h-5 text-[#FB6376]" />
-                    </div>
-                    <div>
-                      <div className="font-mono text-sm font-semibold text-[#1A1A1A]">
-                        {countdown}
-                      </div>
-                      <div className="text-xs text-[#666666]">
-                        Unlocks {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-              <ChevronRight className="w-5 h-5 text-[#999999]" />
-            </div>
-          </div>
-        </CardContent>
-
-        <CardFooter className="pl-6 pt-4 border-t border-[#F0F0F0]">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-4">
-              {!isReceived && capsule.recipientType === "friends" && (
-                <div className="flex items-center text-sm text-[#666666]">
-                  <Users className="w-4 h-4 mr-2" />
-                  <span>{capsule.recipients?.length || 0} recipients</span>
-                </div>
-              )}
-              <div className="text-sm text-[#999999]">
-                Created {formatFirebaseDate(capsule.createdAt || new Date().toISOString())}
-              </div>
-            </div>
-
-            {!isReceived &&
-              capsule.recipientType === "friends" &&
-              capsule.recipientNames &&
-              capsule.recipientNames.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="flex -space-x-2">
-                    {capsule.recipientNames.slice(0, 3).map((name, idx) => (
-                      <div
-                        key={idx}
-                        className="w-8 h-8 rounded-full bg-[#F0F0F0] border-2 border-white flex items-center justify-center text-xs text-[#666666] font-medium"
-                        title={name}
-                      >
-                        {name.charAt(0).toUpperCase()}
-                      </div>
-                    ))}
-                    {capsule.recipientNames.length > 3 && (
-                      <div className="w-8 h-8 rounded-full bg-[#FB6376] border-2 border-white flex items-center justify-center text-xs text-white font-medium">
-                        +{capsule.recipientNames.length - 3}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-          </div>
-        </CardFooter>
-      </Card>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+      </div>
     </div>
   );
 };
@@ -548,15 +425,15 @@ const EmptyState = ({ type }: { type: "sent" | "received" }) => {
 const Dashboard = () => {
   const { plan, loading: planLoading } = usePlan();
   const navigate = useNavigate();
-  const { capsules, receivedCapsules, loading } = useCapsules();
+  const { capsules, receivedCapsules, loading, serverNow } = useCapsules();
   const [activeTab, setActiveTab] = useState("sent");
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(serverNow());
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    const timer = setInterval(() => setCurrentTime(serverNow()), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [serverNow]);
 
   useEffect(() => {
     cardsRef.current.forEach((card, index) => {
@@ -581,8 +458,31 @@ const Dashboard = () => {
     );
   }
 
-  const sent = capsules || [];
-  const received = receivedCapsules || [];
+  const sortCapsules = (caps: Capsule[]) => {
+    return [...caps].sort((a, b) => {
+      const aUnlockDate = parseFirebaseDate(a.unlockDate || a.deliveryDate) ?? new Date(0);
+      const bUnlockDate = parseFirebaseDate(b.unlockDate || b.deliveryDate) ?? new Date(0);
+      
+      const aIsUnlocked = a.isUnlocked || aUnlockDate.getTime() <= currentTime.getTime();
+      const bIsUnlocked = b.isUnlocked || bUnlockDate.getTime() <= currentTime.getTime();
+      
+      if (aIsUnlocked !== bIsUnlocked) {
+        // Locked (false) comes first, unlocked (true) comes after
+        return aIsUnlocked ? 1 : -1;
+      }
+      
+      if (aIsUnlocked) {
+        // Both unlocked: most recent unlock date first (descending)
+        return bUnlockDate.getTime() - aUnlockDate.getTime();
+      }
+      
+      // Both locked: closest to open first (ascending)
+      return aUnlockDate.getTime() - bUnlockDate.getTime();
+    });
+  };
+
+  const sent = sortCapsules(capsules || []);
+  const received = sortCapsules(receivedCapsules || []);
 
   return (
     <ErrorBoundary>
@@ -620,10 +520,49 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Next Unlock Countdown Section */}
+            {(() => {
+              const allCapsules = [...sent, ...received];
+              const nextCapsule = allCapsules
+                .filter(c => {
+                  const d = parseFirebaseDate(c.unlockDate || c.deliveryDate);
+                  return d ? d.getTime() > currentTime.getTime() && !c.isUnlocked : false;
+                })
+                .sort((a, b) => {
+                  const da = parseFirebaseDate(a.unlockDate || a.deliveryDate)?.getTime() || 0;
+                  const db = parseFirebaseDate(b.unlockDate || b.deliveryDate)?.getTime() || 0;
+                  return da - db;
+                })[0];
+
+              if (!nextCapsule) return null;
+              const unlockDate = parseFirebaseDate(nextCapsule.unlockDate || nextCapsule.deliveryDate);
+
+              return (
+                <div className="mb-12 flex flex-col items-center justify-center bg-white/50 backdrop-blur-md border border-[#E8E8E8] rounded-3xl p-8 shadow-sm">
+                  <Badge
+                    variant="outline"
+                    className="rounded-[14px] border border-[#FB6376]/20 bg-[#FFDCCC]/10 text-base text-[#5D2A42] font-medium px-4 py-1.5 mb-6"
+                  >
+                    <Timer className="w-5 h-5 fill-[#FB6376]/20 stroke-[1.5px] text-[#FB6376] mr-2" />
+                    Next memory unlocking in
+                  </Badge>
+                  
+                  {unlockDate && (
+                    <AnimatedNumberCountdown 
+                      endDate={unlockDate} 
+                      className="scale-90 md:scale-110" 
+                    />
+                  )}
+                  
+                  
+                </div>
+              );
+            })()}
+
             {!planLoading && plan && (
-              <div className="absolute top-4 right-4 z-20 scale-[0.85] origin-top-left">
-                <PlanBadge
-                  tier={plan.tier}
+              <div className="absolute top-6 right-8 z-30">
+                <AwardBadge
+                  type={plan.tier as "free" | "starter" | "pro"}
                   usedCapsules={plan.usedCapsules}
                   capsuleLimit={plan.capsuleLimit}
                 />

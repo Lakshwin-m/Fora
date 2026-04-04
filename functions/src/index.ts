@@ -4,9 +4,16 @@ import { onRequest, HttpsError, onCall } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import cors from "cors";
+import { Resend } from "resend";
+import { ReceiptEmail } from "./emails/ReceiptTemplate";
+import { MarketingEmail } from "./emails/MarketingTemplate";
+import { render } from "@react-email/components";
 
 admin.initializeApp();
 const db = admin.firestore();
+
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY || "re_placeholder");
 type FlowerDoc = {
   title: string;
   message: string;
@@ -149,9 +156,111 @@ export const scheduleCapsuleUnlock = onDocumentCreated(
   }
 );
 
+/**
+ * 📧 SEND RECEIPT ON CAPSULE CREATION
+ */
+export const onCapsuleCreatedSendEmail = onDocumentCreated(
+  "capsules/{capsuleId}",
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    try {
+      // Get user email
+      const userSnap = await db.collection("users").doc(data.userId).get();
+      const userData = userSnap.data();
+      const userEmail = userData?.email || (await admin.auth().getUser(data.userId)).email;
+
+      if (!userEmail) {
+        console.warn(`No email found for user ${data.userId}`);
+        return;
+      }
+
+      const unlockDateStr = data.unlockDate 
+        ? (typeof data.unlockDate.toDate === "function" 
+            ? data.unlockDate.toDate().toLocaleDateString() 
+            : new Date(data.unlockDate).toLocaleDateString())
+        : "N/A";
+
+      const html = await render(
+        ReceiptEmail({
+          userName: userData?.username || userData?.name || "Member",
+          capsuleTitle: data.title || "Untitled Capsule",
+          unlockDate: unlockDateStr,
+        })
+      );
+
+      const { data: resendData, error } = await resend.emails.send({
+        from: "Forá <notifications@resend.dev>", // TODO: Replace with verified domain
+        to: [userEmail],
+        subject: "Your Time Capsule is Sealed 🏺",
+        html,
+      });
+
+      if (error) {
+        console.error("Resend error:", error);
+      } else {
+        console.log("Email sent successfully:", resendData?.id);
+      }
+    } catch (err) {
+      console.error("Failed to send receipt email:", err);
+    }
+  }
+);
+
+/**
+ * 📣 SEND MARKETING BLAST (Admin Only)
+ */
+export const sendMarketingBlast = onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    try {
+      // Simple secret-based protection for demo purposes
+      if (req.headers["x-admin-secret"] !== process.env.ADMIN_SECRET) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+
+      const { userEmails } = req.body; // Array of emails
+      if (!Array.isArray(userEmails)) {
+        res.status(400).json({ error: "userEmails must be an array" });
+        return;
+      }
+
+      const results = [];
+      for (const email of userEmails) {
+        const html = await render(MarketingEmail({ userName: "Member" }));
+        const result = await resend.emails.send({
+          from: "Forá <marketing@resend.dev>", // TODO: Replace with verified domain
+          to: [email],
+          subject: "Reconnect with your future self 🏺",
+          html,
+        });
+        results.push({ email, id: result.data?.id, error: result.error });
+      }
+
+      res.json({ success: true, results });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+});
+
+
 /* ============================================================
    HTTP APIs (WITH CORS)
    ============================================================ */
+
+/**
+ * Get server time for synchronized unlocking
+ */
+export const getServerTime = onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    res.json({
+      serverTime: new Date().toISOString(),
+      serverTimeMs: Date.now(),
+    });
+  });
+});
 
 /**
  * Create capsule

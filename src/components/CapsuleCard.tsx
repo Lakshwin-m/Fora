@@ -15,6 +15,7 @@ import {
 
 // 🔐 Import decryption hook
 import { useCapsuleDecryption } from '@/hooks/useCapsuleDecryption';
+import { formatFirebaseDate } from '@/lib/date';
 
 interface CapsuleCardProps {
   capsule: {
@@ -151,8 +152,8 @@ const CapsuleCard = ({
             <Calendar className="w-4 h-4 text-muted-foreground" />
             <span className="text-muted-foreground">
               {capsule.isUnlocked 
-                ? `Opened ${new Date(capsule.unlockDate).toLocaleDateString()}`
-                : `Opens ${new Date(capsule.unlockDate).toLocaleDateString()}`
+                ? `Opened ${formatFirebaseDate(capsule.unlockDate, "PP")}`
+                : `Opens ${formatFirebaseDate(capsule.unlockDate, "PP")}`
               }
             </span>
           </div>
