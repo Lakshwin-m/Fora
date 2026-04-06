@@ -128,6 +128,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
     try {
       const start = Date.now();
       const res = await fetch(`${API_BASE}/getServerTime`);
+      if (!res.ok) return; // Endpoint not deployed yet — silently use system time
       const data = await res.json();
       const end = Date.now();
       
@@ -136,9 +137,8 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       const offset = data.serverTimeMs + latency - end;
       
       setTimeOffset(offset);
-      console.log("[ServerTime] Clock offset adjusted:", offset, "ms");
-    } catch (err) {
-      console.error("[ServerTime] Failed to fetch server time:", err);
+    } catch {
+      // Server time unavailable — silently falls back to system time (offset = 0)
     }
   };
 
@@ -205,17 +205,32 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       const mineRaw = await mineRes.json();
       const receivedRaw = await receivedRes.json();
 
-      const mine = Array.isArray(mineRaw) ? mineRaw.map(normalizeCapsule) : [];
+      // Debug: log raw capsule data to identify orphan/phantom capsules
+      console.log("[CapsuleContext] Raw capsules from API:", mineRaw?.map((c: any) => ({
+        id: c.id,
+        title: c.title?.substring(0, 30),
+        hasContent: !!c.content,
+        unlockDate: c.unlockDate,
+        createdAt: c.createdAt,
+      })));
+
+      // Filter out broken/phantom capsules that have no title at all
+      const validMine = Array.isArray(mineRaw)
+        ? mineRaw.filter((c: any) => c.title || c.content)
+        : [];
+      const validReceived = Array.isArray(receivedRaw)
+        ? receivedRaw.filter((c: any) => c.title || c.content)
+        : [];
+
+      const mine = validMine.map(normalizeCapsule);
       const mineIds = new Set(mine.map((c) => c.id));
 
-      const received = Array.isArray(receivedRaw)
-        ? receivedRaw
-            .filter((c) => !mineIds.has(c.id))
-            .map((c) => ({
+      const received = validReceived
+            .filter((c: any) => !mineIds.has(c.id))
+            .map((c: any) => ({
               ...normalizeCapsule(c),
               isReceived: true,
-            }))
-        : [];
+            }));
 
       setCapsules(mine);
       setReceivedCapsules(received);
@@ -259,12 +274,19 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
     try {
       const headers = await getAuthHeaders();
 
-      await fetch(`${API_BASE}/deleteCapsule`, {
+      const res = await fetch(`${API_BASE}/deleteCapsule`, {
         method: "POST",
         headers,
         body: JSON.stringify({ capsuleId: id }),
       });
 
+      // 404 = capsule already gone from DB, treat as success
+      if (!res.ok && res.status !== 404) {
+        const errorData = await res.json().catch(() => ({ error: "Delete failed" }));
+        throw new Error(errorData.error || "Failed to delete capsule");
+      }
+
+      // Always remove from local state
       setCapsules((prev) => prev.filter((c) => c.id !== id));
       setReceivedCapsules((prev) => prev.filter((c) => c.id !== id));
     } catch (error) {

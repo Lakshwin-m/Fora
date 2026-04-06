@@ -331,7 +331,6 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                 className="absolute top-2 right-2 sm:top-6 sm:right-6 h-8 w-8 rounded-full bg-white/95 border border-[#E8E8E8] text-[#FB6376] opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-sm hover:bg-[#FB6376] hover:text-white z-50 hover:scale-105"
                 onClick={(e) => {
                   e.stopPropagation();
-                  e.preventDefault();
                 }}
               >
                 <Trash2 className="w-4 h-4" />

@@ -172,85 +172,100 @@ const CreateCapsule = () => {
 
   const handleFinalSubmission = async (signature?: string) => {
     if (!currentUser || !validateForm()) return;
-    setIsSubmitting(true);
-    try {
-      const capsuleId = crypto.randomUUID();
-      const headers = await getAuthHeaders();
-      const key = await getOrCreateKey();
-      const encryptedTitle = await encryptText(key, title);
-      const encryptedContent = await encryptText(key, content);
 
-      const uploadedAttachments =
-        attachments.length > 0 ? await uploadAllAttachments(capsuleId) : [];
+    // Close the modal and navigate to dashboard IMMEDIATELY
+    setShowSealModal(false);
+    navigate("/dashboard");
 
-      let signatureUrl: string | null = null;
-      if (signature) {
-        try {
-          // Convert base64 data URL to blob
-          const response = await fetch(signature);
-          const blob = await response.blob();
-          
-          // Upload to Firebase Storage
-          const signaturePath = `capsules/${capsuleId}/signature.png`;
-          const signatureRef = ref(storage, signaturePath);
-          await uploadBytes(signatureRef, blob, { contentType: "image/png" });
-          
-          signatureUrl = await getDownloadURL(signatureRef);
-        } catch (error) {
-          console.error("Failed to upload signature:", error);
-          // Fallback to storing base64 if upload fails
-          signatureUrl = signature; 
+    // Capture all form values needed for background work
+    const capturedTitle = title;
+    const capturedContent = content;
+    const capturedTriggerType = triggerType;
+    const capturedRecipientType = recipientType;
+    const capturedDeliveryDate = deliveryDate;
+    const capturedDeliveryTime = deliveryTime;
+    const capturedSelectedFriends = [...selectedFriends];
+    const capturedAttachments = [...attachments];
+    const capturedCategory = capsuleCategory;
+    const capturedSignature = signature;
+    const capturedUserId = currentUser.uid;
+    const capturedReshare = !!location.state?.reshareFrom;
+    const capturedOriginalId = location.state?.reshareFrom?.capsuleId || null;
+
+    // Fire-and-forget: do all backend work in the background
+    (async () => {
+      try {
+        const capsuleId = crypto.randomUUID();
+        const headers = await getAuthHeaders();
+        const key = await getOrCreateKey();
+        const encryptedTitle = await encryptText(key, capturedTitle);
+        const encryptedContent = await encryptText(key, capturedContent);
+
+        const uploadedAttachments =
+          capturedAttachments.length > 0 ? await uploadAllAttachments(capsuleId) : [];
+
+        let signatureUrl: string | null = null;
+        if (capturedSignature) {
+          try {
+            const response = await fetch(capturedSignature);
+            const blob = await response.blob();
+            const signaturePath = `capsules/${capsuleId}/signature.png`;
+            const signatureRef = ref(storage, signaturePath);
+            await uploadBytes(signatureRef, blob, { contentType: "image/png" });
+            signatureUrl = await getDownloadURL(signatureRef);
+          } catch (error) {
+            console.error("Failed to upload signature:", error);
+            signatureUrl = capturedSignature;
+          }
         }
+
+        const unlockDate =
+          capturedRecipientType === "public"
+            ? new Date().toISOString()
+            : new Date(`${format(capturedDeliveryDate!, "yyyy-MM-dd")}T${capturedDeliveryTime}:00`).toISOString();
+
+        const res = await fetch(`${API_BASE}/createCapsule`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            id: capsuleId,
+            title: encryptedTitle.ciphertext,
+            titleIv: encryptedTitle.iv,
+            content: encryptedContent.ciphertext,
+            contentIv: encryptedContent.iv,
+            attachments: uploadedAttachments,
+            category: capturedCategory,
+            triggerType: capturedTriggerType,
+            recipientType: capturedRecipientType,
+            recipients:
+              capturedRecipientType === "self" ? [capturedUserId]
+              : capturedRecipientType === "friends" ? capturedSelectedFriends
+              : [],
+            unlockDate,
+            createdAt: null,
+            isUnlocked: capturedRecipientType === "public",
+            status: "scheduled",
+            signature: signatureUrl,
+            userId: capturedUserId,
+            isReshare: capturedReshare,
+            originalCapsuleId: capturedOriginalId,
+          }),
+        });
+
+        if (!res.ok) throw new Error((await res.text()) || "Failed to create capsule");
+
+        // Refresh capsules in the background so the new one appears on dashboard
+        await refreshCapsules();
+        toast({ title: "Capsule sealed 🔒", description: "Your capsule has been created and encrypted successfully!" });
+      } catch (err) {
+        console.error("Background capsule creation failed:", err);
+        toast({
+          title: "Failed to create capsule",
+          description: err instanceof Error ? err.message : "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
       }
-
-      const unlockDate =
-        recipientType === "public"
-          ? new Date().toISOString()
-          : new Date(`${format(deliveryDate!, "yyyy-MM-dd")}T${deliveryTime}:00`).toISOString();
-
-      const res = await fetch(`${API_BASE}/createCapsule`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          id: capsuleId,
-          title: encryptedTitle.ciphertext,
-          titleIv: encryptedTitle.iv,
-          content: encryptedContent.ciphertext,
-          contentIv: encryptedContent.iv,
-          attachments: uploadedAttachments,
-          category: capsuleCategory,
-          triggerType,
-          recipientType,
-          recipients:
-            recipientType === "self" ? [currentUser.uid]
-            : recipientType === "friends" ? selectedFriends
-            : [],
-          unlockDate,
-          createdAt: null,
-          isUnlocked: recipientType === "public",
-          status: "scheduled",
-          signature: signatureUrl,
-          userId: currentUser.uid,
-          isReshare: !!location.state?.reshareFrom,
-          originalCapsuleId: location.state?.reshareFrom?.capsuleId || null,
-        }),
-      });
-
-      if (!res.ok) throw new Error((await res.text()) || "Failed to create capsule");
-
-      await refreshCapsules();
-      toast({ title: "Capsule sealed 🔒", description: "Your capsule has been created and encrypted" });
-      navigate("/dashboard");
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: err instanceof Error ? err.message : "Failed to create capsule",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-      setShowSealModal(false);
-    }
+    })();
   };
 
   if (!currentUser) {

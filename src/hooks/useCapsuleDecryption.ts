@@ -56,7 +56,6 @@ export function useCapsuleDecryption(capsule: EncryptedCapsule | null): Decrypte
 
       // ── OLD CAPSULE: no encryption IVs → use plain text directly ──
       if (!titleEncrypted && !contentEncrypted) {
-        console.log("📝 Old capsule (no encryption) — using plain text");
         setTitle(capsule.title || "Untitled Capsule");
         setContent(capsule.content || "");
         setIsDecrypting(false);
@@ -73,9 +72,9 @@ export function useCapsuleDecryption(capsule: EncryptedCapsule | null): Decrypte
           try {
             const decrypted = await decryptText(key, capsule.title!, capsule.titleIv!);
             setTitle(decrypted);
-          } catch (err) {
-            console.warn("⚠️ Title decryption failed, falling back to raw:", err);
-            setTitle(capsule.title || "Untitled Capsule");
+          } catch {
+            // Key mismatch — encrypted on a different device/browser
+            setTitle("Encrypted Capsule 🔐");
           }
         } else {
           setTitle(capsule.title || "Untitled Capsule");
@@ -86,9 +85,9 @@ export function useCapsuleDecryption(capsule: EncryptedCapsule | null): Decrypte
           try {
             const decrypted = await decryptText(key, capsule.content!, capsule.contentIv!);
             setContent(decrypted);
-          } catch (err) {
-            console.warn("⚠️ Content decryption failed, falling back to raw:", err);
-            setContent(capsule.content || "");
+          } catch {
+            // Key mismatch — encrypted on a different device/browser
+            setContent("This capsule was encrypted with a different key.");
           }
         } else {
           setContent(capsule.content || "");
@@ -96,7 +95,7 @@ export function useCapsuleDecryption(capsule: EncryptedCapsule | null): Decrypte
       } catch (err) {
         console.error("❌ Decryption error:", err);
         setError("Failed to decrypt capsule content");
-        // Fallback to raw values so UI doesn't break
+        // Fallback so UI doesn't break
         setTitle(capsule.title || "Untitled Capsule");
         setContent(capsule.content || "");
       } finally {

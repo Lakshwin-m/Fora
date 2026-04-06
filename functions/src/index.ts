@@ -269,17 +269,14 @@ export const createCapsule = onRequest((req, res) => {
   corsHandler(req, res, async () => {
     try {
       const user = await verifyAuth(req);
-      const userRef = db.collection("users").doc(user.uid);
+      const subRef = db.collection("subscriptions").doc(user.uid);
 
       await db.runTransaction(async (tx) => {
-        const userSnap = await tx.get(userRef);
-        if (!userSnap.exists) throw new Error("User not found");
-
-        const userData = userSnap.data();
-        const plan = userData?.plan;
+        const subSnap = await tx.get(subRef);
+        const plan = subSnap.exists ? subSnap.data() : { tier: "free", usedCapsules: 0 };
         if (!plan) throw new Error("No plan assigned");
 
-        const capsuleLimit = plan.capsuleLimit ?? null;
+        const capsuleLimit = plan.capsuleLimit ?? 5; // Default to free limit of 5
         let usedCapsules = plan.usedCapsules ?? 0;
 
         // 🔁 Monthly reset (starter)
@@ -297,10 +294,10 @@ export const createCapsule = onRequest((req, res) => {
 
           if (isNewMonth) {
             usedCapsules = 0;
-            tx.update(userRef, {
-              "plan.usedCapsules": 0,
-              "plan.lastResetAt": now,
-            });
+            tx.set(subRef, {
+              usedCapsules: 0,
+              lastResetAt: now,
+            }, { merge: true });
           }
         }
 
@@ -314,7 +311,9 @@ export const createCapsule = onRequest((req, res) => {
         tx.set(ref, {
           id: ref.id,
           title: req.body.title,
+          titleIv: req.body.titleIv || null,
           content: req.body.content,
+          contentIv: req.body.contentIv || null,
           triggerType: req.body.triggerType,
           unlockDate: req.body.unlockDate,
           recipientType: req.body.recipientType,
@@ -329,9 +328,9 @@ export const createCapsule = onRequest((req, res) => {
         });
 
         // 🔢 Increment usage (single source of truth)
-        tx.update(userRef, {
-          "plan.usedCapsules": admin.firestore.FieldValue.increment(1),
-        });
+        tx.set(subRef, {
+          usedCapsules: admin.firestore.FieldValue.increment(1),
+        }, { merge: true });
       });
 
       res.json({ success: true });
@@ -424,13 +423,18 @@ export const openCapsule = onRequest((req, res) => {
 });
 
 /**
- * Delete capsule
+ * Delete capsule (Firestore doc + Storage media + scheduledUnlock + decrement usage)
  */
 export const deleteCapsule = onRequest((req, res) => {
   corsHandler(req, res, async () => {
     try {
       const user = await verifyAuth(req);
       const { capsuleId } = req.body;
+
+      if (!capsuleId) {
+        res.status(400).json({ error: "capsuleId is required" });
+        return;
+      }
 
       const ref = db.collection("capsules").doc(capsuleId);
       const snap = await ref.get();
@@ -440,14 +444,58 @@ export const deleteCapsule = onRequest((req, res) => {
         return;
       }
 
-      if (snap.data()?.userId !== user.uid) {
+      const capsuleData = snap.data();
+      if (capsuleData?.userId !== user.uid) {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
 
+      // 1. Delete all media files from Firebase Storage under capsules/{capsuleId}/
+      try {
+        const bucket = admin.storage().bucket();
+        const [files] = await bucket.getFiles({
+          prefix: `capsules/${capsuleId}/`,
+        });
+        if (files.length > 0) {
+          await Promise.all(files.map((file) => file.delete()));
+          console.log(
+            `Deleted ${files.length} storage files for capsule ${capsuleId}`
+          );
+        }
+      } catch (storageErr) {
+        console.error("Storage cleanup error (non-fatal):", storageErr);
+        // Continue even if storage cleanup fails
+      }
+
+      // 2. Delete the scheduledUnlocks doc if it exists
+      try {
+        const scheduledRef = db
+          .collection("scheduledUnlocks")
+          .doc(capsuleId);
+        const scheduledSnap = await scheduledRef.get();
+        if (scheduledSnap.exists) {
+          await scheduledRef.delete();
+        }
+      } catch (scheduleErr) {
+        console.error("ScheduledUnlock cleanup error (non-fatal):", scheduleErr);
+      }
+
+      // 3. Delete the Firestore capsule document
       await ref.delete();
+
+      // 4. Decrement the user's capsule usage count
+      try {
+        const subRef = db.collection("subscriptions").doc(user.uid);
+        await subRef.set({
+          usedCapsules: admin.firestore.FieldValue.increment(-1),
+        }, { merge: true });
+      } catch (usageErr) {
+        console.error("Usage decrement error (non-fatal):", usageErr);
+      }
+
       res.json({ success: true });
     } catch (e: any) {
+      console.error("deleteCapsule error:", e.message);
       res.status(401).json({ error: e.message });
     }
   });
@@ -507,7 +555,9 @@ export const getMyProfile = onRequest((req, res) => {
 
       const userSnap = await db.collection("users").doc(decoded.uid).get();
       const userData = userSnap.exists ? userSnap.data() : {};
-      const rawPlan = userData?.plan || { tier: "free" };
+
+      const subSnap = await db.collection("subscriptions").doc(decoded.uid).get();
+      const rawPlan = subSnap.data() || { tier: "free" };
       let capsuleLimit: number | null = 5;
 
       if (rawPlan.tier === "starter") {
