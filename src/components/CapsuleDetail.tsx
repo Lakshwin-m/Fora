@@ -57,7 +57,16 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   const capsule = [...capsules, ...receivedCapsules].find((c) => c.id === id);
 
   // 🔐 DECRYPT CAPSULE CONTENT
-  const { title, content, isDecrypting } = useCapsuleDecryption(capsule);
+  const { title: decryptedTitle, content: rawContent, isDecrypting } = useCapsuleDecryption(capsule);
+
+  const decodeHTML = (html: string) => {
+    const txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+  };
+
+  const content = rawContent ? decodeHTML(rawContent) : "";
+  const title = decryptedTitle ? decodeHTML(decryptedTitle) : "";
 
   const auth = getAuth();
 
@@ -251,9 +260,9 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                    <h3 className="font-bold text-[15px] leading-tight w-full font-serif mb-1 line-clamp-2 text-[#5D2A42]">
                      {title || "Untitled Capsule"}
                    </h3>
-                   <div className="text-[11px] text-[#1A1A1A]/80 line-clamp-3 leading-snug w-full px-1">
-                     {content || "..."}
-                   </div>
+                    <div className="text-[11px] text-[#1A1A1A]/80 line-clamp-3 leading-snug w-full px-1">
+                      {content ? (() => { const tmp = document.createElement("div"); tmp.innerHTML = content; return tmp.textContent || tmp.innerText || "..."; })() : "..."}
+                    </div>
                 </div>
                 <div className="absolute bottom-[-50px] left-0 right-0 text-center text-[#5D2A42]/60 animate-pulse text-sm font-medium">
                   Click to pull out letter
@@ -309,11 +318,18 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                          </div>
                        </div>
 
-                       <div className="pt-8 pb-4 space-y-6 text-lg md:text-xl leading-[2.5rem] tracking-wide relative">
-                         <p>Dear {isReceived ? (currentUser?.displayName?.split(" ")[0] || "Friend") : "Future Me"},</p>
-                         <div className="whitespace-pre-wrap">{(content || "").split(/\n\s*\n/).filter((p: string) => p.trim()).map((para: string, i: number) => <p key={i} className="mb-4">{para}</p>)}</div>
-                         <p className="mt-8">Sincerely,</p>
-                       </div>
+                        <div className="pt-8 pb-4 space-y-6 text-lg md:text-xl leading-[2.5rem] tracking-wide relative">
+                          <p>Dear {isReceived ? (currentUser?.displayName?.split(" ")[0] || "Friend") : "Future Me"},</p>
+                          {/<[a-z][\s\S]*>/i.test(content) ? (
+                            <div
+                              className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
+                              dangerouslySetInnerHTML={{ __html: content }}
+                            />
+                          ) : (
+                            <div className="whitespace-pre-wrap">{(content || "").split(/\n\s*\n/).filter((p: string) => p.trim()).map((para: string, i: number) => <p key={i} className="mb-4">{para}</p>)}</div>
+                          )}
+                          <p className="mt-8">Sincerely,</p>
+                        </div>
 
                        {hasMedia && (
                           <div className="mt-12 mb-8 bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 shadow-sm">

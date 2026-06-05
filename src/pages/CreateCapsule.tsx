@@ -283,28 +283,35 @@ const CreateCapsule = () => {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
-          <Button variant="ghost" onClick={() => navigate("/dashboard")}>
+          <Button variant="ghost" onClick={() => navigate("/dashboard")} className="text-[#1A1A1A] hover:bg-[#1A1A1A]/5 hover:text-[#1A1A1A]">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-3xl font-bold text-[#1A1A1A]">
             Create a <span className="text-[#FB6376]">Forá</span> Capsule
           </h1>
         </div>
 
         {plan && (
-          <div className="mb-6 rounded-xl border bg-white p-4 flex items-center justify-between">
-            <div>
-              <p className="font-semibold capitalize">{plan.tier} plan</p>
-              <p className="text-sm text-muted-foreground">
+          <div className="mb-8 flex justify-center">
+            <div className="inline-flex items-center gap-3 px-4 py-2 bg-white border border-[#E8E8E8] rounded-full text-sm">
+              <span className="flex items-center gap-2 font-semibold text-[#1A1A1A] capitalize">
+                <div className={`w-2 h-2 rounded-full ${plan.tier === 'pro' ? 'bg-[#FB6376]' : plan.tier === 'starter' ? 'bg-amber-400' : 'bg-[#999]'}`} />
+                {plan.tier} Plan
+              </span>
+              <span className="w-px h-4 bg-[#E8E8E8]" />
+              <span className="text-[#666] font-medium">
                 {plan.capsuleLimit === null
                   ? "Unlimited capsules"
-                  : `${plan.usedCapsules} / ${plan.capsuleLimit} capsules used`}
-              </p>
+                  : `${plan.usedCapsules} / ${plan.capsuleLimit} used`}
+              </span>
+              {hasReachedLimit && (
+                <>
+                  <span className="w-px h-4 bg-[#E8E8E8]" />
+                  <span className="font-semibold text-[#FB6376]">Limit Reached</span>
+                </>
+              )}
             </div>
-            {hasReachedLimit && (
-              <span className="text-sm font-medium text-red-600">Limit reached</span>
-            )}
           </div>
         )}
 

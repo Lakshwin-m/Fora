@@ -695,6 +695,36 @@ export const acceptFriendRequest = onRequest((req, res) => {
     }
   });
 });
+
+export const removeFriend = onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    try {
+      const user = await verifyAuth(req);
+      const { friendshipId } = req.body;
+
+      const ref = db.collection("friends").doc(friendshipId);
+      const snap = await ref.get();
+
+      if (!snap.exists) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
+
+      const data = snap.data();
+      if (!data?.participants.includes(user.uid)) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+
+      await ref.delete();
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error(e);
+      res.status(401).json({ error: "Unauthorized" });
+    }
+  });
+});
+
 export const getPendingRequests = onRequest((req, res) => {
   corsHandler(req, res, async () => {
     try {

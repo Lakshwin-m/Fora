@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AnimatedStatsCard } from "@/components/ui/card-4";
 import { parseFirebaseDate, formatFirebaseDate } from "@/lib/date";
-import { AwardBadge } from "@/components/ui/award-badge";
+import { UsageBadge } from "@/components/ui/bubble-button";
 import {
   Clock,
   Calendar,
@@ -54,6 +54,9 @@ import {
   Mic,
   File,
   CheckCircle,
+  Crown,
+  Sparkles,
+  Zap,
 } from "lucide-react";
 import gsap from "gsap";
 
@@ -267,18 +270,13 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
               className="absolute inset-0 w-full h-full object-contain drop-shadow-sm pointer-events-none"
             />
             {/* The letter area inside the open envelope. */}
-            <div className="absolute top-[32%] left-[22%] right-[22%] h-[35%] flex flex-col items-center justify-start z-10 text-center text-[#1A1A1A] overflow-hidden pt-2">
+            <div className="absolute top-[32%] left-[22%] right-[22%] h-[35%] flex flex-col items-center justify-center z-10 text-center text-[#1A1A1A] overflow-hidden pt-2">
                {isDecrypting ? (
                  <Loader2 className="w-5 h-5 animate-spin text-[#FB6376] mt-4" />
                ) : (
-                 <>
-                   <h3 className="font-bold text-[13px] sm:text-[15px] leading-tight w-full font-serif mb-1 line-clamp-2 text-[#5D2A42]">
-                     {title || "Untitled Capsule"}
-                   </h3>
-                   <div className="text-[10px] sm:text-[11px] text-[#1A1A1A]/80 line-clamp-3 leading-snug w-full px-1">
-                     {content || "No message inside."}
-                   </div>
-                 </>
+                 <h3 className="font-bold text-[13px] sm:text-[15px] leading-tight w-full font-serif text-[#5D2A42] line-clamp-3">
+                   {title || "Untitled Capsule"}
+                 </h3>
                )}
             </div>
             {/* Status Indicator */}
@@ -560,10 +558,31 @@ const Dashboard = () => {
 
             {!planLoading && plan && (
               <div className="absolute top-6 right-8 z-30">
-                <AwardBadge
-                  type={plan.tier as "free" | "starter" | "pro"}
-                  usedCapsules={plan.usedCapsules}
-                  capsuleLimit={plan.capsuleLimit}
+                <UsageBadge
+                  icon={
+                    plan.tier === "pro" ? (
+                      <Crown className="h-4 w-4" />
+                    ) : plan.tier === "starter" ? (
+                      <Zap className="h-4 w-4" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )
+                  }
+                  planName={plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)}
+                  usage={plan.usedCapsules}
+                  limit={plan.capsuleLimit}
+                  tooltipContent={
+                    <div className="space-y-1 text-left">
+                      <p className="font-semibold text-[#5D2A42]">
+                        {plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)} Plan
+                      </p>
+                      <p className="text-xs text-[#5D2A42]/70">
+                        {plan.capsuleLimit === null
+                          ? `${plan.usedCapsules} capsules created`
+                          : `${plan.usedCapsules} of ${plan.capsuleLimit} capsules used`}
+                      </p>
+                    </div>
+                  }
                 />
               </div>
             )}

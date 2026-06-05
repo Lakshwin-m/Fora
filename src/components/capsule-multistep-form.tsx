@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { RichTextEditor, getPlainTextLength } from "@/components/ui/rich-text-editor";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
@@ -18,6 +19,9 @@ import {
   Lock,
   MessageSquare,
   Gift,
+  Eye,
+  FileText,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,7 +34,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -42,6 +45,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
+import {
+  Stepper,
+  StepperItem,
+  StepperTrigger,
+  StepperIndicator,
+  StepperTitle,
+  StepperNav,
+} from "@/components/ui/stepper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -172,6 +183,7 @@ export const CapsuleMultistepForm = ({
   const videoInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
   const [direction, setDirection] = useState(1);
+  const [showPreview, setShowPreview] = useState(false);
 
   const handleNext = () => {
     setDirection(1);
@@ -237,7 +249,7 @@ export const CapsuleMultistepForm = ({
   const isStepValid = () => {
     switch (currentStep) {
       case 0:
-        return title.trim() !== "" && content.trim() !== "";
+        return title.trim() !== "" && getPlainTextLength(content) > 0;
       case 1:
         if (triggerType === "time") {
           return deliveryDate !== undefined && deliveryTime !== "";
@@ -264,54 +276,71 @@ export const CapsuleMultistepForm = ({
     <div className="w-full max-w-4xl mx-auto pb-16">
       {/* Modern Stepper Indicator */}
       <div className="mb-12">
-        <div className="flex justify-between relative z-10">
-          <div className="absolute top-5 left-8 right-8 h-0.5 bg-[#5D2A42]/10 z-[-1]" />
-          <div 
-            className="absolute top-5 left-8 h-0.5 bg-[#FB6376] z-[-1] transition-all duration-500 ease-in-out" 
-            style={{ width: `calc(${(currentStep / (steps.length - 1)) * 100}% - 2rem)` }} 
-          />
-          
-          {steps.map((step, index) => {
-            const Icon = step.icon;
-            const isActive = index === currentStep;
-            const isCompleted = index < currentStep;
-
-            return (
-              <div key={index} className="flex flex-col items-center group relative w-20">
-                <div
-                  className={cn(
-                    "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 font-semibold shadow-sm border-2",
-                    isActive
-                      ? "bg-[#FB6376] border-[#FB6376] text-white scale-110 shadow-md shadow-[#FB6376]/20"
-                      : isCompleted
-                      ? "bg-white border-[#FB6376] text-[#FB6376]"
-                      : "bg-white border-[#E8E8E8] text-[#999]"
-                  )}
+        <Stepper
+          value={currentStep + 1}
+          onValueChange={(val) => {
+            if (val - 1 < currentStep) {
+              // Allow going back to completed steps
+              const diff = currentStep - (val - 1);
+              for (let i = 0; i < diff; i++) onPrevStep();
+            }
+          }}
+        >
+          <StepperNav className="gap-3.5">
+            {steps.map((step, index) => (
+              <StepperItem
+                key={index}
+                step={index + 1}
+                className="relative flex-1 items-start"
+              >
+                <StepperTrigger
+                  className="flex flex-col items-start justify-center gap-3 grow w-full"
+                  disabled={index > currentStep}
                 >
-                  {isCompleted ? <Check className="w-5 h-5" /> : <Icon className="w-4 h-4" />}
-                </div>
-                <div className="mt-3 text-center">
-                  <div className={cn(
-                    "text-sm font-semibold transition-colors duration-300",
-                    isActive ? "text-[#1A1A1A]" : isCompleted ? "text-[#FB6376]" : "text-[#999]"
-                  )}>
-                    {step.title}
+                  <StepperIndicator
+                    className={cn(
+                      "rounded-full h-1 w-full transition-all duration-500 ease-out",
+                      index < currentStep
+                        ? "bg-[#FB6376]"
+                        : index === currentStep
+                        ? "bg-[#FB6376] shadow-[0_0_12px_rgba(251,99,118,0.35)]"
+                        : "bg-[#5D2A42]/20"
+                    )}
+                  />
+                  <div className="flex flex-col items-start gap-0.5">
+                    <StepperTitle
+                      className={cn(
+                        "text-start font-semibold text-sm transition-colors duration-300",
+                        index === currentStep
+                          ? "text-[#1A1A1A]"
+                          : index < currentStep
+                          ? "text-[#FB6376]"
+                          : "text-[#999]"
+                      )}
+                    >
+                      <span className="opacity-50 mr-1.5">{index + 1}.</span>
+                      {step.title}
+                    </StepperTitle>
+                    <span
+                      className={cn(
+                        "text-[11px] hidden md:block leading-tight transition-colors duration-300",
+                        index === currentStep
+                          ? "text-[#555]"
+                          : "text-[#999]"
+                      )}
+                    >
+                      {step.description}
+                    </span>
                   </div>
-                  <div className="text-[10px] text-[#999] hidden md:block max-w-[80px] leading-tight">
-                    {step.description}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                </StepperTrigger>
+              </StepperItem>
+            ))}
+          </StepperNav>
+        </Stepper>
       </div>
 
       {/* Form Card */}
-      <Card className="border-0 shadow-xl bg-white rounded-3xl overflow-hidden relative min-h-[500px]">
-        {/* Top subtle gradient bar */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-[#FB6376] via-[#FCB1A6] to-[#FFDCCC]" />
-        
+      <Card className="border border-[#EAEAEA] shadow-sm bg-white rounded-[2rem] overflow-hidden relative min-h-[500px]">
         <div className="flex flex-col h-full relative">
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
@@ -325,14 +354,14 @@ export const CapsuleMultistepForm = ({
             >
               {/* Step 0: Basic Information */}
               {currentStep === 0 && (
-                <div className="p-8 md:p-10 h-full flex flex-col">
-                  <div className="mb-8">
-                    <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">What's your message?</h2>
-                    <p className="text-[#666] text-sm">Write the contents of your time capsule.</p>
+                <div className="p-10 md:p-14 h-full flex flex-col gap-10">
+                  <div>
+                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">What's your message?</h2>
+                    <p className="text-[#666] text-base font-medium">Write the contents of your time capsule.</p>
                   </div>
-                  <div className="space-y-6 flex-1">
-                    <div className="space-y-2">
-                      <Label htmlFor="title" className="text-sm font-semibold text-[#1A1A1A]">
+                  <div className="flex-1 flex flex-col gap-8">
+                    <div className="flex flex-col gap-3">
+                      <Label htmlFor="title" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
                         Capsule Title
                       </Label>
                       <Input
@@ -340,19 +369,21 @@ export const CapsuleMultistepForm = ({
                         placeholder="e.g. Letter to my 30-year-old self"
                         value={title}
                         onChange={(e) => onTitleChange(e.target.value)}
-                        className="h-12 border-[#E8E8E8] bg-white text-base rounded-xl focus-visible:ring-1 focus-visible:ring-[#FB6376] focus-visible:border-[#FB6376] transition-all shadow-sm"
+                        className="h-12 border-[#E8E8E8] bg-white text-[#1A1A1A] placeholder:text-[#999] text-base rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#FB6376] transition-all shadow-sm"
                       />
                     </div>
-                    <div className="space-y-2 flex-1 flex flex-col">
-                      <Label htmlFor="content" className="text-sm font-semibold text-[#1A1A1A]">
-                        The Message
-                      </Label>
-                      <Textarea
-                        id="content"
-                        placeholder="Write your message to the future..."
+                    <div className="flex-1 flex flex-col gap-3">
+                      <div className="flex justify-between items-end">
+                        <Label htmlFor="content" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                          The Message
+                        </Label>
+                        <span className="text-xs font-bold text-[#FB6376]">{getPlainTextLength(content)} chars</span>
+                      </div>
+                      <RichTextEditor
                         value={content}
-                        onChange={(e) => onContentChange(e.target.value)}
-                        className="flex-1 min-h-[200px] border-[#E8E8E8] bg-white text-base rounded-xl focus-visible:ring-1 focus-visible:ring-[#FB6376] focus-visible:border-[#FB6376] transition-all resize-none shadow-sm leading-relaxed"
+                        onChange={onContentChange}
+                        placeholder="Write your message to the future..."
+                        className="flex-1"
                       />
                     </div>
                   </div>
@@ -361,30 +392,30 @@ export const CapsuleMultistepForm = ({
 
               {/* Step 1: Trigger Configuration */}
               {currentStep === 1 && (
-                <div className="p-8 md:p-10 h-full flex flex-col">
-                  <div className="mb-8">
-                    <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">When should it open?</h2>
-                    <p className="text-[#666] text-sm">Choose the exact moment this capsule becomes unlocked.</p>
+                <div className="p-10 md:p-14 h-full flex flex-col gap-10">
+                  <div>
+                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">When should it open?</h2>
+                    <p className="text-[#666] text-base font-medium">Choose the exact moment this capsule becomes unlocked.</p>
                   </div>
                   
                   <Tabs
                     value={triggerType}
                     onValueChange={(value) => onTriggerTypeChange(value as any)}
-                    className="flex flex-col flex-1"
+                    className="flex flex-col flex-1 gap-6"
                   >
-                    <TabsList className="grid w-full grid-cols-3 bg-[#f8f8f8] p-1.5 rounded-xl border border-[#E8E8E8] mb-8">
+                    <TabsList className="grid w-full h-auto grid-cols-3 bg-[#FFF9EC] p-2 rounded-2xl border border-[#FFDCCC]">
                       {triggerOptions.map((option) => (
                         <TabsTrigger
                           key={option.id}
                           value={option.id}
-                          className="text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#1A1A1A] data-[state=active]:shadow-sm text-[#666] transition-all"
+                          className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12"
                         >
                           {option.label}
                         </TabsTrigger>
                       ))}
                     </TabsList>
                     
-                    <div className="flex-1 mt-4 overflow-y-auto no-scrollbar pb-6">
+                    <div className="flex-1 mt-2 overflow-y-auto no-scrollbar pb-6">
                         <TabsContent value="time" className="mt-0 outline-none">
                           <DateTimePicker 
                             date={deliveryDate} 
@@ -394,32 +425,32 @@ export const CapsuleMultistepForm = ({
                           />
                         </TabsContent>
                         <TabsContent value="event" className="mt-0 space-y-4 outline-none">
-                          <div className="p-5 bg-[#FFF9EC] border border-[#FFDCCC] rounded-2xl">
-                            <Label htmlFor="eventTrigger" className="text-[#1A1A1A] font-semibold mb-2 block">
+                          <div className="flex flex-col gap-3">
+                            <Label htmlFor="eventTrigger" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
                               Describe the Event
                             </Label>
                             <Input
                               id="eventTrigger"
                               placeholder="e.g., The day I graduate college"
-                              className="h-12 border-[#FFDCCC] bg-white focus-visible:ring-[#FB6376] text-black"
+                              className="h-14 border-[#E8E8E8] bg-[#FFF9EC] hover:bg-white text-[#1A1A1A] placeholder:text-[#999] rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#5D2A42] transition-all px-5"
                             />
-                            <p className="text-xs text-[#666] mt-3 leading-relaxed">
-                              Event-based capsules remain locked until you manually mark the event as occurred from your dashboard.
+                            <p className="text-xs font-medium text-[#FB6376] mt-2">
+                              Event-based capsules remain locked until you manually mark the event as occurred.
                             </p>
                           </div>
                         </TabsContent>
-                        <TabsContent value="connection" className="mt-0 space-y-4">
-                          <div className="p-5 bg-[#FB6376]/5 border border-[#FB6376]/20 rounded-2xl">
-                            <Label htmlFor="connectionTrigger" className="text-[#1A1A1A] font-semibold mb-2 block">
+                        <TabsContent value="connection" className="mt-0 space-y-4 outline-none">
+                          <div className="flex flex-col gap-3">
+                            <Label htmlFor="connectionTrigger" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
                               Connection Condition
                             </Label>
                             <Input
                               id="connectionTrigger"
                               placeholder="e.g., We meet again in person"
-                              className="h-12 border-[#FB6376]/20 bg-white focus-visible:ring-[#FB6376] text-black"
+                              className="h-14 border-[#E8E8E8] bg-[#FFF9EC] hover:bg-white text-[#1A1A1A] placeholder:text-[#999] rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#5D2A42] transition-all px-5"
                             />
-                            <p className="text-xs text-[#666] mt-3 leading-relaxed">
-                              This capsule will require both you and the tagged connection to mutually confirm the trigger has been met.
+                            <p className="text-xs font-medium text-[#FB6376] mt-2">
+                              Requires both you and the tagged connection to mutually confirm the trigger.
                             </p>
                           </div>
                         </TabsContent>
@@ -430,37 +461,34 @@ export const CapsuleMultistepForm = ({
 
               {/* Step 2: Recipients */}
               {currentStep === 2 && (
-                <div className="p-8 md:p-10 h-full flex flex-col">
-                  <div className="mb-8">
-                    <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Who is this for?</h2>
-                    <p className="text-[#666] text-sm">Select the recipients who will unlock this capsule.</p>
+                <div className="p-10 md:p-14 h-full flex flex-col gap-10">
+                  <div>
+                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">Who is this for?</h2>
+                    <p className="text-[#666] text-base font-medium">Select the recipients who will unlock this capsule.</p>
                   </div>
                   
                   <Tabs
                     value={recipientType}
                     onValueChange={(value) => onRecipientTypeChange(value as any)}
-                    className="flex flex-col flex-1"
+                    className="flex flex-col flex-1 gap-6"
                   >
-                    <TabsList className="grid w-full grid-cols-3 bg-[#f8f8f8] p-1.5 rounded-xl border border-[#E8E8E8] mb-8">
-                      <TabsTrigger value="self" className="text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#1A1A1A] data-[state=active]:shadow-sm text-[#666] transition-all">
+                    <TabsList className="grid w-full h-auto grid-cols-3 bg-[#FFF9EC] p-2 rounded-2xl border border-[#FFDCCC]">
+                      <TabsTrigger value="self" className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12">
                         Just Me
                       </TabsTrigger>
-                      <TabsTrigger value="friends" className="text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#1A1A1A] data-[state=active]:shadow-sm text-[#666] transition-all">
+                      <TabsTrigger value="friends" className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12">
                         Connections
                       </TabsTrigger>
-                      <TabsTrigger value="public" className="text-sm rounded-lg data-[state=active]:bg-white data-[state=active]:text-[#1A1A1A] data-[state=active]:shadow-sm text-[#666] transition-all">
+                      <TabsTrigger value="public" className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12">
                         Public
                       </TabsTrigger>
                     </TabsList>
 
-                    <div className="flex-1 mt-4 overflow-y-auto no-scrollbar pb-6">
+                    <div className="flex-1 mt-2 overflow-y-auto no-scrollbar pb-6">
                           <TabsContent value="self" className="mt-0 outline-none">
-                            <div className="flex flex-col items-center justify-center py-12 px-6 border border-[#E8E8E8] rounded-2xl bg-[#fafafa]">
-                              <div className="w-16 h-16 bg-[#FFDCCC]/50 rounded-full flex items-center justify-center mb-4">
-                                <Lock className="w-8 h-8 text-[#5D2A42]" />
-                              </div>
-                              <h3 className="text-lg font-bold text-[#1A1A1A] mb-2">A gift to your future self</h3>
-                              <p className="text-[#666] text-center max-w-sm text-sm leading-relaxed">
+                            <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC]">
+                              <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">A gift to your future self</h3>
+                              <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
                                 This capsule will be stored privately in your vault and only you will be able to unlock it when the time comes.
                               </p>
                             </div>
@@ -469,63 +497,60 @@ export const CapsuleMultistepForm = ({
                           <TabsContent value="friends" className="mt-0">
                             {loadingFriends ? (
                               <div className="flex items-center justify-center py-16">
-                                <Loader2 className="w-8 h-8 animate-spin text-[#FB6376]" />
+                                <span className="text-[#FB6376] font-bold">Loading...</span>
                               </div>
                             ) : friends.length === 0 ? (
-                              <div className="flex flex-col items-center justify-center py-12 px-6 border border-[#E8E8E8] rounded-2xl bg-[#fafafa]">
-                                <div className="w-16 h-16 bg-[#E8E8E8] rounded-full flex items-center justify-center mb-4">
-                                  <Users className="w-8 h-8 text-[#999]" />
-                                </div>
-                                <h3 className="text-lg font-bold text-[#1A1A1A] mb-2">No Connections Yet</h3>
-                                <p className="text-[#666] text-center max-w-sm text-sm">
+                              <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC]">
+                                <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">No Connections Yet</h3>
+                                <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
                                   You need to add connections first before you can send them a capsule.
                                 </p>
                               </div>
                             ) : (
                               <div className="space-y-4">
                                 <div className="flex items-center justify-between pb-2">
-                                  <Label className="text-[#1A1A1A] font-semibold text-sm">
-                                    Select Connections <Badge variant="secondary" className="ml-2 bg-[#FB6376]/10 text-[#FB6376] hover:bg-[#FB6376]/20">{selectedFriends.length} selected</Badge>
+                                  <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                                    Select Connections <Badge variant="secondary" className="ml-2 bg-[#FB6376] text-white hover:bg-[#e8556a]">{selectedFriends.length} selected</Badge>
                                   </Label>
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
                                     onClick={selectAllFriends}
-                                    className="text-[#FB6376] hover:text-[#e8556a] hover:bg-[#FB6376]/5 text-xs font-semibold h-8"
+                                    className="text-[#FB6376] hover:text-[#e8556a] hover:bg-[#FFF9EC] text-xs font-bold h-8 uppercase tracking-wider"
                                   >
                                     {selectedFriends.length === friends.length ? "Deselect All" : "Select All"}
                                   </Button>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                   {friends.map((friend) => {
                                     const isSelected = selectedFriends.includes(friend.id);
                                     return (
                                       <div
                                         key={friend.id}
                                         className={cn(
-                                          "flex items-center p-3 rounded-xl cursor-pointer transition-all duration-200 border group",
+                                          "flex items-center p-4 rounded-2xl cursor-pointer transition-all duration-200 border",
                                           isSelected 
-                                            ? "border-[#FB6376] bg-[#FB6376]/5 shadow-sm" 
-                                            : "border-[#E8E8E8] hover:border-[#FB6376]/50 hover:bg-[#fafafa]"
+                                            ? "border-[#FB6376] bg-[#FFF9EC]" 
+                                            : "border-[#E8E8E8] bg-white hover:border-[#FB6376] hover:bg-[#FFF9EC]"
                                         )}
                                         onClick={() => toggleFriendSelection(friend.id)}
                                       >
                                         <Checkbox
                                           checked={isSelected}
                                           onCheckedChange={() => toggleFriendSelection(friend.id)}
-                                          className="mr-3 data-[state=checked]:bg-[#FB6376] data-[state=checked]:border-[#FB6376]"
+                                          className="mr-4 w-5 h-5 data-[state=checked]:bg-[#FB6376] data-[state=checked]:border-[#FB6376]"
                                         />
-                                        <Avatar className="w-10 h-10 border border-[#E8E8E8]">
+                                        <Avatar className="w-12 h-12 border border-[#E8E8E8]">
                                           <AvatarImage src={friend.photoURL} alt={friend.name} />
-                                          <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-xs font-semibold">
+                                          <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-sm font-bold">
                                             {getInitials(friend.name)}
                                           </AvatarFallback>
                                         </Avatar>
-                                        <div className="ml-3 flex-1 min-w-0">
-                                          <p className="text-sm font-semibold text-[#1A1A1A] truncate">{friend.name}</p>
-                                          <p className="text-xs text-[#999] truncate">{friend.email}</p>
+                                        <div className="ml-4 flex-1 min-w-0">
+                                          <p className="text-base font-bold text-[#1A1A1A] truncate">{friend.name}</p>
+                                          <p className="text-sm font-medium text-[#999] truncate">{friend.email}</p>
                                         </div>
                                       </div>
                                     );
@@ -536,32 +561,29 @@ export const CapsuleMultistepForm = ({
                           </TabsContent>
 
                           <TabsContent value="public" className="mt-0">
-                            <div className="flex flex-col items-center justify-center py-8 px-6 border border-[#E8E8E8] rounded-2xl bg-[#fafafa] mb-6">
-                              <div className="w-16 h-16 bg-[#5D2A42]/10 rounded-full flex items-center justify-center mb-4">
-                                <Users className="w-8 h-8 text-[#5D2A42]" />
-                              </div>
-                              <h3 className="text-lg font-bold text-[#1A1A1A] mb-2">Share with the World</h3>
-                              <p className="text-[#666] text-center max-w-sm text-sm leading-relaxed">
+                            <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC] mb-8">
+                              <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">Share with the World</h3>
+                              <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
                                 Public capsules are completely anonymous initially but visible to the entire community on the timeline.
                               </p>
                             </div>
 
-                            <div className="space-y-2">
-                              <Label htmlFor="category" className="text-[#1A1A1A] font-semibold text-sm">
+                            <div className="flex flex-col gap-3">
+                              <Label htmlFor="category" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
                                 Community Category
                               </Label>
                               <Select value={capsuleCategory} onValueChange={onCapsuleCategoryChange}>
-                                <SelectTrigger id="category" className="h-12 border-[#E8E8E8] bg-white text-base rounded-xl focus:ring-[#FB6376]">
+                                <SelectTrigger id="category" className="h-14 border-[#E8E8E8] bg-white text-base font-medium rounded-2xl focus:ring-0 focus:border-[#5D2A42]">
                                   <SelectValue placeholder="Select a category..." />
                                 </SelectTrigger>
-                                <SelectContent className="rounded-xl border-[#E8E8E8] shadow-lg">
-                                  <SelectItem value="memories" className="rounded-lg h-10">Memories</SelectItem>
-                                  <SelectItem value="reflections" className="rounded-lg h-10">Reflections</SelectItem>
-                                  <SelectItem value="moments" className="rounded-lg h-10">Moments</SelectItem>
-                                  <SelectItem value="stories" className="rounded-lg h-10">Stories</SelectItem>
-                                  <SelectItem value="milestones" className="rounded-lg h-10">Milestones</SelectItem>
-                                  <SelectItem value="wisdom" className="rounded-lg h-10">Wisdom</SelectItem>
-                                  <SelectItem value="other" className="rounded-lg h-10">Other</SelectItem>
+                                <SelectContent className="rounded-2xl border-[#E8E8E8] shadow-sm">
+                                  <SelectItem value="memories" className="rounded-xl h-12 font-medium">Memories</SelectItem>
+                                  <SelectItem value="reflections" className="rounded-xl h-12 font-medium">Reflections</SelectItem>
+                                  <SelectItem value="moments" className="rounded-xl h-12 font-medium">Moments</SelectItem>
+                                  <SelectItem value="stories" className="rounded-xl h-12 font-medium">Stories</SelectItem>
+                                  <SelectItem value="milestones" className="rounded-xl h-12 font-medium">Milestones</SelectItem>
+                                  <SelectItem value="wisdom" className="rounded-xl h-12 font-medium">Wisdom</SelectItem>
+                                  <SelectItem value="other" className="rounded-xl h-12 font-medium">Other</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -573,39 +595,33 @@ export const CapsuleMultistepForm = ({
 
               {/* Step 3: Attachments */}
               {currentStep === 3 && (
-                <div className="p-8 md:p-10 h-full flex flex-col">
-                  <div className="mb-8">
-                    <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Add Memories</h2>
-                    <p className="text-[#666] text-sm">Include photos, videos, or audio to enrich your capsule.</p>
+                <div className="p-10 md:p-14 h-full flex flex-col gap-10">
+                  <div>
+                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">Add Memories</h2>
+                    <p className="text-[#666] text-base font-medium">Include photos, videos, or audio to enrich your capsule.</p>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div 
                       onClick={() => imageInputRef.current?.click()}
-                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] hover:bg-[#FB6376]/5 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 group text-center min-h-[140px]"
+                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] bg-white hover:bg-[#FFF9EC] rounded-3xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 text-center min-h-[160px]"
                     >
-                       <div className="w-12 h-12 bg-[#FB6376]/10 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                         <Image className="w-6 h-6 text-[#FB6376]" />
-                       </div>
-                       <span className="font-semibold text-sm text-[#1A1A1A]">Photos</span>
+                       <span className="font-extrabold text-lg text-[#5D2A42] uppercase tracking-wider mb-2">Photos</span>
+                       <span className="text-sm font-medium text-[#999]">Browse files</span>
                     </div>
                     <div 
                       onClick={() => videoInputRef.current?.click()}
-                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] hover:bg-[#FB6376]/5 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 group text-center min-h-[140px]"
+                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] bg-white hover:bg-[#FFF9EC] rounded-3xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 text-center min-h-[160px]"
                     >
-                       <div className="w-12 h-12 bg-[#FB6376]/10 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                         <Video className="w-6 h-6 text-[#FB6376]" />
-                       </div>
-                       <span className="font-semibold text-sm text-[#1A1A1A]">Videos</span>
+                       <span className="font-extrabold text-lg text-[#5D2A42] uppercase tracking-wider mb-2">Videos</span>
+                       <span className="text-sm font-medium text-[#999]">Browse files</span>
                     </div>
                     <div 
                       onClick={() => audioInputRef.current?.click()}
-                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] hover:bg-[#FB6376]/5 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 group text-center min-h-[140px]"
+                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] bg-white hover:bg-[#FFF9EC] rounded-3xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 text-center min-h-[160px]"
                     >
-                       <div className="w-12 h-12 bg-[#FB6376]/10 rounded-full flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                         <Music className="w-6 h-6 text-[#FB6376]" />
-                       </div>
-                       <span className="font-semibold text-sm text-[#1A1A1A]">Voice Notes</span>
+                       <span className="font-extrabold text-lg text-[#5D2A42] uppercase tracking-wider mb-2">Voice Notes</span>
+                       <span className="text-sm font-medium text-[#999]">Browse files</span>
                     </div>
                   </div>
 
@@ -616,29 +632,29 @@ export const CapsuleMultistepForm = ({
 
                   {attachments.length > 0 && (
                     <div className="flex-1">
-                      <h4 className="text-sm font-semibold text-[#1A1A1A] mb-3 flex items-center justify-between">
-                        Uploaded Files <Badge variant="outline" className="text-xs bg-black/5">{attachments.length}</Badge>
-                      </h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div className="flex items-center justify-between mb-4">
+                        <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                          Uploaded Files
+                        </Label>
+                        <Badge variant="secondary" className="bg-[#FB6376] text-white hover:bg-[#e8556a]">{attachments.length} items</Badge>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                         {attachments.map((attachment) => (
-                          <div key={attachment.id} className="border border-[#E8E8E8] rounded-xl p-3 flex items-center bg-[#fafafa]">
-                            <div className="w-8 h-8 rounded-lg bg-black/5 flex items-center justify-center mr-3 flex-shrink-0">
-                               {getFileIcon(attachment.type)}
-                            </div>
-                            <span className="flex-1 truncate text-sm font-medium text-[#333]">
+                          <div key={attachment.id} className="border border-[#E8E8E8] rounded-2xl p-4 flex items-center bg-[#FFF9EC] shadow-sm">
+                            <span className="flex-1 truncate text-base font-bold text-[#1A1A1A]">
                               {attachment.name}
                             </span>
                             {attachment.uploading ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-[#FB6376] ml-2" />
+                              <span className="text-[#FB6376] font-bold text-xs ml-3 uppercase tracking-wider">Uploading</span>
                             ) : (
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 w-7 p-0 ml-1 hover:bg-black/10 rounded-md text-[#999]"
+                                className="h-8 w-8 p-0 ml-2 hover:bg-white hover:text-[#FB6376] rounded-xl text-[#999] transition-colors"
                                 onClick={() => onRemoveAttachment(attachment.id)}
                               >
-                                <X className="w-4 h-4" />
+                                X
                               </Button>
                             )}
                           </div>
@@ -651,77 +667,188 @@ export const CapsuleMultistepForm = ({
 
               {/* Step 4: Review */}
               {currentStep === 4 && (
-                <div className="p-8 md:p-10 h-full flex flex-col">
-                  <div className="mb-8 flex items-center justify-between">
+                <div className="p-10 md:p-14 h-full flex flex-col gap-8">
+                  <div className="flex items-start justify-between">
                     <div>
-                      <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Final Review</h2>
-                      <p className="text-[#666] text-sm">Ensure everything is exactly how you want it.</p>
+                      <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">Final Review</h2>
+                      <p className="text-[#666] text-base font-medium">Ensure everything is exactly how you want it.</p>
                     </div>
-                    <div className="w-16 h-16 bg-[#FFF9EC] rounded-2xl flex items-center justify-center shadow-inner border border-[#FFDCCC]/50">
-                      <Gift className="w-8 h-8 text-[#FB6376] animate-pulse" />
-                    </div>
-                  </div>
-
-                  <div className="bg-[#fafafa] border border-[#E8E8E8] rounded-2xl p-6 flex-1 space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-[#E8E8E8]">
-                      <div>
-                        <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Title</span>
-                        <span className="text-base font-semibold text-[#1A1A1A]">{title}</span>
-                      </div>
-                      <div>
-                        <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Message Length</span>
-                        <span className="text-base font-medium text-[#1A1A1A]">{content.length} characters</span>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b border-[#E8E8E8]">
-                      <div>
-                        <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Trigger Condition</span>
-                        <span className="text-base font-medium text-[#1A1A1A] capitalize flex items-center gap-2">
-                           <Clock className="w-4 h-4 text-[#FB6376]" />
-                           {triggerType}
-                        </span>
-                      </div>
-                      {triggerType === "time" && deliveryDate && (
-                        <div>
-                          <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Unlock Date</span>
-                          <span className="text-base font-medium text-[#1A1A1A]">
-                            {deliveryDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {deliveryTime}
-                          </span>
-                        </div>
+                    <Button
+                      type="button"
+                      variant={showPreview ? "default" : "outline"}
+                      onClick={() => setShowPreview(!showPreview)}
+                      className={cn(
+                        "rounded-2xl h-12 px-5 font-bold uppercase tracking-wider text-xs transition-all flex-shrink-0",
+                        showPreview
+                          ? "bg-[#FB6376] hover:bg-[#e8556a] text-white"
+                          : "border-[#EAEAEA] text-[#5D2A42] hover:bg-[#FFF9EC] hover:border-[#FFDCCC]"
                       )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Recipients</span>
-                        <span className="text-base font-medium text-[#1A1A1A] capitalize flex items-center gap-2">
-                          <Users className="w-4 h-4 text-[#5D2A42]" />
-                          {recipientType === "self" ? "Just Myself" : recipientType === "friends" ? `${selectedFriends.length} Connection(s)` : "Public Community"}
-                        </span>
-                      </div>
-                      <div>
-                         <span className="text-xs uppercase tracking-wider font-semibold text-[#999] block mb-1">Memories Attached</span>
-                         <span className="text-base font-medium text-[#1A1A1A] flex items-center gap-2">
-                            <Image className="w-4 h-4 text-[#FB6376]" />
-                            {attachments.length} file(s)
-                         </span>
-                      </div>
-                    </div>
+                    >
+                      <Eye className="w-4 h-4 mr-2" />
+                      {showPreview ? "Hide Preview" : "Preview Letter"}
+                    </Button>
                   </div>
+
+                  <AnimatePresence mode="wait">
+                    {!showPreview ? (
+                      <motion.div
+                        key="summary"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="bg-[#FFF9EC] border border-[#FFDCCC] rounded-3xl p-8 flex-1 flex flex-col justify-between shadow-sm"
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8 border-b border-[#E8E8E8]">
+                          <div>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Title</span>
+                            <span className="text-xl font-bold text-[#1A1A1A]">{title}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Message Length</span>
+                            <span className="text-xl font-bold text-[#1A1A1A]">{getPlainTextLength(content)} chars</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-8 border-b border-[#E8E8E8]">
+                          <div>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Trigger Condition</span>
+                            <span className="text-xl font-bold text-[#1A1A1A] capitalize">
+                               {triggerType}
+                            </span>
+                          </div>
+                          {triggerType === "time" && deliveryDate && (
+                            <div>
+                              <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Unlock Date</span>
+                              <span className="text-xl font-bold text-[#1A1A1A]">
+                                {deliveryDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {deliveryTime}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8">
+                          <div>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Recipients</span>
+                            <span className="text-xl font-bold text-[#1A1A1A] capitalize">
+                              {recipientType === "self" ? "Just Myself" : recipientType === "friends" ? `${selectedFriends.length} Connection(s)` : "Public Community"}
+                            </span>
+                          </div>
+                          <div>
+                             <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Memories Attached</span>
+                             <span className="text-xl font-bold text-[#1A1A1A]">
+                                {attachments.length} file(s)
+                             </span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="preview"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.25 }}
+                        className="flex-1"
+                      >
+                        {/* Letter Preview on Canvas */}
+                        <div className="w-full relative rounded-2xl overflow-hidden shadow-xl bg-[#EBE4D5]">
+                          <div
+                            className="w-full relative min-h-[500px] p-8 md:p-12"
+                            style={{
+                              backgroundImage: "url('/canvas-background-BYlUkw-J.png')",
+                              backgroundSize: "cover",
+                              backgroundRepeat: "repeat-y",
+                              backgroundPosition: "top center",
+                            }}
+                          >
+                            <div className="max-w-xl mx-auto space-y-6 relative z-10 font-serif text-[#5D2A42]">
+                              {/* Header */}
+                              <div className="text-center mb-8 pt-2">
+                                <span className="inline-flex items-center border border-[#5D2A42]/30 text-[#5D2A42] bg-[#EBE4D5]/60 mb-4 px-3 py-1 rounded-full uppercase text-[10px] tracking-widest font-bold backdrop-blur-sm shadow-sm">
+                                  <FileText className="w-3 h-3 mr-1.5 inline" /> LETTER PREVIEW
+                                </span>
+                                <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-widest mb-4 text-[#5D2A42]">
+                                  {title || "Untitled Capsule"}
+                                </h1>
+                                <div className="flex items-center justify-center gap-4 text-xs text-[#5D2A42]/70">
+                                  <div className="flex items-center"><MapPin className="w-3 h-3 mr-1" /> Digital Archive</div>
+                                  <div className="flex items-center"><Calendar className="w-3 h-3 mr-1" /> {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                                </div>
+                              </div>
+
+                              <hr className="border-[#5D2A42]/10 my-6" />
+
+                              {/* Meta */}
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <span className="text-[10px] text-[#5D2A42]/50 block mb-0.5">Date Written:</span>
+                                  <span className="font-semibold text-sm">{new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="text-[10px] text-[#5D2A42]/50 block mb-0.5">To:</span>
+                                  <span className="font-semibold text-sm">
+                                    {recipientType === "self" ? "My Future Self" : recipientType === "friends" ? `${selectedFriends.length} Connection(s)` : "The World"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Body */}
+                              <div className="pt-6 pb-4 space-y-4 text-base md:text-lg leading-[2rem] tracking-wide relative">
+                                <p>Dear {recipientType === "self" ? "Future Me," : "Friend,"}</p>
+                                <div
+                                  className="prose prose-base max-w-none text-[#5D2A42] prose-p:my-2 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-0.5 prose-img:rounded-xl prose-img:max-w-full prose-img:my-3 prose-strong:text-inherit prose-em:text-inherit"
+                                  dangerouslySetInnerHTML={{ 
+                                    __html: content ? (() => { 
+                                      const txt = document.createElement("textarea"); 
+                                      txt.innerHTML = content; 
+                                      return txt.value; 
+                                    })() : "<p><em>Your message will appear here...</em></p>" 
+                                  }}
+                                />
+                                <p className="mt-6">Sincerely,</p>
+                              </div>
+
+                              {/* Signature area placeholder */}
+                              <div className="pt-6">
+                                <span className="text-[10px] text-[#5D2A42]/50 block mb-2">Original Signature:</span>
+                                <div className="bg-white/40 backdrop-blur-md rounded-xl border border-white/60 border-dashed p-4 min-h-[80px] max-w-xs flex items-center justify-center shadow-sm">
+                                  <span className="font-sans text-xs text-[#5D2A42]/60 uppercase tracking-widest text-center px-4">
+                                    You will draw your signature upon sealing
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="pt-6">
+                                <h3 className="font-bold text-lg">{username}</h3>
+                                <p className="text-[#5D2A42]/50 text-xs">{new Date().getFullYear()}</p>
+                              </div>
+
+                              <hr className="border-[#5D2A42]/10 my-6" />
+
+                              <div className="flex items-center justify-center text-xs italic text-[#5D2A42]/50 pb-4 tracking-wide">
+                                <Clock className="w-3.5 h-3.5 mr-1.5" />
+                                a short time to reach you today.
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
             </motion.div>
           </AnimatePresence>
 
           {/* Footer Navigation */}
-          <div className="p-8 border-t border-[#E8E8E8] bg-white flex justify-between items-center z-10">
+          <div className="p-8 border-t border-[#EAEAEA] bg-white flex justify-between items-center z-10">
             <Button
               type="button"
               variant="outline"
               onClick={currentStep === 0 ? onCancel : handlePrev}
               disabled={isSubmitting}
-              className="h-12 px-6 rounded-xl border-[#E8E8E8] text-[#1A1A1A] font-semibold hover:bg-[#fafafa]"
+              className="h-14 px-8 rounded-2xl border-[#EAEAEA] bg-white text-[#1A1A1A] font-bold hover:bg-[#FFF9EC] hover:text-[#5D2A42] hover:border-[#FFDCCC] transition-all uppercase tracking-wider text-sm"
             >
               {currentStep === 0 ? "Cancel" : "Go Back"}
             </Button>
@@ -730,19 +857,14 @@ export const CapsuleMultistepForm = ({
               type="button"
               onClick={currentStep === steps.length - 1 ? onSubmit : handleNext}
               disabled={!isStepValid() || isSubmitting}
-              className={cn(
-                "h-12 px-8 rounded-xl font-bold transition-all shadow-md",
-                currentStep === steps.length - 1
-                  ? "bg-[#1A1A1A] hover:bg-[#333] text-white"
-                  : "bg-[#FB6376] hover:bg-[#e8556a] text-white"
-              )}
+              className="h-14 px-10 rounded-2xl bg-[#FB6376] hover:bg-[#e8556a] text-white font-bold transition-all uppercase tracking-wider text-sm"
             >
               {isSubmitting ? (
-                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...</>
+                "Processing..."
               ) : currentStep === steps.length - 1 ? (
-                <><Lock className="w-5 h-5 mr-2" /> Seal Capsule</>
+                "Seal Capsule"
               ) : (
-                <>Next Step <ChevronRight className="w-5 h-5 ml-2" /></>
+                "Next Step"
               )}
             </Button>
           </div>

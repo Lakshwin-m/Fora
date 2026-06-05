@@ -33,6 +33,7 @@ import { getAuth } from "firebase/auth";
 
 // 🔐 IMPORT DECRYPTION HOOK
 import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
+import { getPlainTextLength } from "@/components/ui/rich-text-editor";
 
 const CapsuleDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -53,16 +54,26 @@ const CapsuleDetailPage = () => {
   // 🔐 USE DECRYPTION HOOK
   const { 
     title: decryptedTitle, 
-    content: decryptedContent, 
+    content: rawDecryptedContent, 
     isDecrypting 
   } = useCapsuleDecryption(capsule);
+
+  const decodeHTML = (html: string) => {
+    const txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+  };
+
+  const decryptedContent = rawDecryptedContent ? decodeHTML(rawDecryptedContent) : "";
 
   // 🔐 DECRYPT ORIGINAL CAPSULE (for reshares)
   const {
     title: originalDecryptedTitle,
-    content: originalDecryptedContent,
+    content: rawOriginalContent,
     isDecrypting: isDecryptingOriginal,
   } = useCapsuleDecryption(capsule?.originalCapsule || null);
+
+  const originalDecryptedContent = rawOriginalContent ? decodeHTML(rawOriginalContent) : "";
 
   useEffect(() => {
     const loadCapsule = async () => {
@@ -242,7 +253,7 @@ const CapsuleDetailPage = () => {
                    {decryptedTitle || "Untitled Capsule"}
                  </h3>
                  <div className="text-[11px] text-[#1A1A1A]/80 line-clamp-3 leading-snug w-full px-1">
-                   {decryptedContent || "..."}
+                   {decryptedContent ? (() => { const tmp = document.createElement("div"); tmp.innerHTML = decryptedContent; return tmp.textContent || tmp.innerText || "..."; })() : "..."}
                  </div>
               </div>
               <div className="absolute bottom-[-50px] left-0 right-0 text-center text-[#5D2A42]/60 animate-bounce text-sm font-medium">
@@ -303,7 +314,10 @@ const CapsuleDetailPage = () => {
                      {/* Body Context - adjusting line-height for visual alignment with canvas */}
                      <div className="pt-8 pb-4 space-y-6 text-lg md:text-xl leading-[2.5rem] tracking-wide relative">
                        <p>Dear {capsule.recipientType === "self" ? "Future Me," : "Friend,"}</p>
-                       <div className="whitespace-pre-wrap">{decryptedContent}</div>
+                       <div
+                         className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
+                         dangerouslySetInnerHTML={{ __html: decryptedContent || "" }}
+                       />
                        <p className="mt-8">Sincerely,</p>
                      </div>
 

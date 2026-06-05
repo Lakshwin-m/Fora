@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isRecipient(recipients) {
+      return isSignedIn() && request.auth.uid in recipients;
+    }
+
+    function hasOnlyKeys(keys) {
+      return request.resource.data.keys().hasOnly(keys);
+    }
+
+    function hasRequiredKeys(keys) {
+      return request.resource.data.keys().hasAll(keys);
+    }
+        /* PAYMENTS */
+    match /payments/{paymentId} {
+
+      // 🔍 User can read ONLY their own payments
+      allow read: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+
+      // 🚫 No client-side writes EVER
+      allow create, update, delete: if false;
+    }
+
+
+      /* USERS */
+    match /users/{userId} {
+      allow read: if isSignedIn();
+
+      allow create: if isOwner(userId)
+        && hasRequiredKeys(["username", "email", "uid"]);
+
+      // We allow updating specific fields while preserving existing ones
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "name",
+          "username",
+          "photoURL",
+          "bio",
+          "location",
+          "updatedAt",
+          "connections",
+          "stats",
+          "settings",
+          "dateOfBirth",
+          "privacyLevel",
+          "onboardingCompleted"
+        ]);
+
+      allow delete: if false;
+    }
+
+
+    /* FRIENDS */
+   match /friends/{friendshipId} {
+
+  // QUERY-SAFE READ
+  allow read: if request.auth != null
+    && (
+      request.query.requesterId == request.auth.uid ||
+      request.query.receiverId == request.auth.uid
+    );
+
+  // CREATE friend request
+  allow create: if request.auth != null
+    && request.resource.data.requesterId == request.auth.uid
+    && request.resource.data.requesterId != request.resource.data.receiverId
+    && request.resource.data.status == "pending";
+
+  // ACCEPT / REJECT
+  allow update: if request.auth != null
+    && (
+      resource.data.receiverId == request.auth.uid ||
+      resource.data.requesterId == request.auth.uid
+    )
+    && request.resource.data.status in ["accepted", "rejected"];
+
+  // UNFRIEND / CANCEL
+  allow delete: if request.auth != null
+    && (
+      resource.data.requesterId == request.auth.uid ||
+      resource.data.receiverId == request.auth.uid
+    );
+}
+
+    /* CAPSULES */
+    match /capsules/{capsuleId} {
+
+      allow read: if isSignedIn() && (
+        resource.data.visibility == "public"
+        || resource.data.userId == request.auth.uid
+        || isRecipient(resource.data.recipients)
+        || request.auth.uid in resource.data.likedBy
+      );
+
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+
+      allow update: if isSignedIn()
+        && (
+          resource.data.userId == request.auth.uid ||
+          isRecipient(resource.data.recipients)
+        );
+
+      allow delete: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+  }
+}

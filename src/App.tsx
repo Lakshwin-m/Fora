@@ -7,6 +7,7 @@ import {
 import { SignUpLoginForm } from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import UserProfile from "./pages/UserProfile";
 import ProtectedRoute from "./pages/ProtectedRoutes";
 import { CapsuleProvider } from "./contexts/CapsuleContext";
 import CreateCapsule from "./pages/CreateCapsule";
@@ -20,9 +21,8 @@ import { useEffect } from "react";
 import { getFCMToken, onForegroundMessage } from "./notifications.js";
 import { PricingDemo } from "./pages/PricingPage";
 import Garden from "./pages/Garden.tsx";
-import DigiBouquetLanding from "./pages/DigiBouquetLanding";
-import DigiBouquetPicker from "./pages/DigiBouquetPicker";
-import DigiBouquetGallery from "./pages/DigiBouquetGallery";
+import Index from "./pages/Index";
+import Onboarding from "./pages/Onboarding";
 function App() {
   useEffect(() => {
     getFCMToken().then((token) => {
@@ -37,6 +37,7 @@ function App() {
         <Routes>
           <Route path="/signup" element={<SignUpLoginForm />} />
           <Route path="/login" element={<SignUpLoginForm />} />
+          <Route path="/onboarding" element={<Onboarding />} />
 
           {/* Protected Routes */}
           <Route
@@ -61,6 +62,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/:uid"
+            element={
+              <ProtectedRoute>
+                <UserProfile />
               </ProtectedRoute>
             }
           />
@@ -108,32 +117,6 @@ function App() {
             }
           />
 
-          {/* DigiBouquet Routes */}
-          <Route
-            path="/digibouquet"
-            element={
-              <ProtectedRoute>
-                <DigiBouquetLanding />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/digibouquet/picker"
-            element={
-              <ProtectedRoute>
-                <DigiBouquetPicker />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/digibouquet/gallery"
-            element={
-              <ProtectedRoute>
-                <DigiBouquetGallery />
-              </ProtectedRoute>
-            }
-          />
-
           <Route
             path="/pricing"
             element={
@@ -143,7 +126,7 @@ function App() {
             }
           />
 
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Index />} />
         </Routes>
       </Router>
     </CapsuleProvider>

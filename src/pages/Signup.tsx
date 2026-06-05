@@ -7,21 +7,14 @@ import {
   signInWithPopup,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  updateProfile,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
-import { SunIcon as Sunburst } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
 import { IconCheck, IconX, IconAlertCircle } from "@tabler/icons-react";
 
 export function SignUpLoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [isLogin, setIsLogin] = useState(true);
-  const [showUsernameStep, setShowUsernameStep] = useState(false);
-  const [tempUser, setTempUser] = useState<any>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -59,39 +52,6 @@ export function SignUpLoginForm() {
 
   const isPasswordValid = Object.values(passwordValidation).every(Boolean);
 
-  const createUserProfile = async (
-    user: any,
-    displayName: string,
-    photoURL: string | null = null
-  ) => {
-    try {
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          uid: user.uid,
-          name: displayName,
-          firstName: firstName || "",
-          lastName: lastName || "",
-          email: user.email,
-          photoURL: photoURL || "",
-          bio: "",
-          location: "",
-          joinDate: new Date().toISOString(),
-          stats: {
-            totalCapsules: 0,
-            connections: 0,
-            opened: 0,
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Error creating user profile:", error);
-      throw error;
-    }
-  };
-
   const handleEmailAuth = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
@@ -106,16 +66,18 @@ export function SignUpLoginForm() {
 
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
-        navigate("/dashboard");
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        const userRef = doc(db, "users", cred.user.uid);
+        const snap = await getDoc(userRef);
+        
+        if (!snap.exists() || !snap.data().onboardingCompleted) {
+          navigate("/onboarding");
+        } else {
+          navigate("/dashboard");
+        }
       } else {
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password
-        );
-        setTempUser(userCredential.user);
-        setShowUsernameStep(true);
+        await createUserWithEmailAndPassword(auth, email, password);
+        navigate("/onboarding");
       }
     } catch (error: any) {
       let errorMessage = "An error occurred during authentication";
@@ -157,35 +119,6 @@ export function SignUpLoginForm() {
     }
   };
 
-  const handleUsernameSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
-
-    if (!username.trim()) {
-      setError("Please enter a username");
-      return;
-    }
-
-    if (username.length < 3) {
-      setError("Username must be at least 3 characters long");
-      return;
-    }
-
-    try {
-      const displayName =
-        firstName && lastName ? `${firstName} ${lastName}` : username;
-
-      await updateProfile(tempUser, {
-        displayName: displayName,
-      });
-
-      await createUserProfile(tempUser, displayName);
-      navigate("/dashboard");
-    } catch (error: any) {
-      setError(error.message || "Failed to create profile");
-    }
-  };
-
   const handleGoogleSignIn = async () => {
     setError("");
     setLoading(true);
@@ -195,8 +128,14 @@ export function SignUpLoginForm() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      await createUserProfile(user, user.displayName || "User", user.photoURL);
-      navigate("/dashboard");
+      const userRef = doc(db, "users", user.uid);
+      const snap = await getDoc(userRef);
+
+      if (!snap.exists() || !snap.data().onboardingCompleted) {
+        navigate("/onboarding");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (error: any) {
       let errorMessage = "Google sign-in failed";
 
@@ -214,10 +153,9 @@ export function SignUpLoginForm() {
     }
   };
 
-  // Password validation component - ALL RED INITIALLY
   const PasswordValidation = () => (
-    <div className="mt-3 space-y-2">
-      <p className="text-sm font-medium text-gray-700">
+    <div className="mt-4 space-y-2">
+      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
         Password must contain:
       </p>
       <div className="grid grid-cols-1 gap-2">
@@ -245,163 +183,45 @@ export function SignUpLoginForm() {
     </div>
   );
 
-  if (showUsernameStep) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
-        <div className="w-full max-w-5xl bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col md:flex-row">
-          {/* Left Side */}
-          <div className="md:w-1/2 bg-red- p-8 md:p-12 relative overflow-hidden">
-            {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
-
-            {/* Gradient stripes */}
-            <div className="absolute inset-0 flex">
-              {[...Array(6)].map((_, i) => (
-                <div
-                  key={i}
-                  className="h-full w-16 opacity-20"
-                  style={{
-                    background: `linear-gradient(90deg, 
-                      rgba(255,255,255,0) 0%, 
-                      rgba(0,0,0,0.8) 50%, 
-                      rgba(255,255,255,0.2) 100%)`,
-                    marginRight: i < 5 ? "0.5rem" : "0",
-                  }}
-                ></div>
-              ))}
-            </div>
-
-            {/* Content */}
-            <div className="relative z-10">
-              <h1 className="text-2xl md:text-3xl font-medium leading-tight text-white">
-                Welcome to Time Capsule
-              </h1>
-              <p className="mt-4 text-gray-300">
-                Just one more step to complete your profile and start creating
-                memories
-              </p>
-            </div>
-          </div>
-
-          {/* Right Side - Username Form */}
-          <div className="md:w-1/2 p-8 md:p-12 flex flex-col">
-            <div className="flex flex-col mb-8">
-              <div className="text-orange-500 mb-4">
-                <Sunburst className="h-10 w-10" />
-              </div>
-              <h2 className="text-3xl font-medium mb-2 tracking-tight">
-                Complete Your Profile
-              </h2>
-              <p className="text-gray-600">
-                Choose how you'll appear to others
-              </p>
-            </div>
-
-            {error && (
-              <div className="mb-6 flex items-center gap-3 rounded-lg bg-red-50 p-4 text-sm text-red-600">
-                <IconAlertCircle className="h-5 w-5 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <form
-              className="flex flex-col gap-4"
-              onSubmit={handleUsernameSubmit}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label
-                    htmlFor="firstname"
-                    className="block text-sm mb-2 text-gray-700"
-                  >
-                    First name
-                  </label>
-                  <input
-                    type="text"
-                    id="firstname"
-                    placeholder="First name"
-                    className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="lastname"
-                    className="block text-sm mb-2 text-gray-700"
-                  >
-                    Last name
-                  </label>
-                  <input
-                    type="text"
-                    id="lastname"
-                    placeholder="Last name"
-                    className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="username"
-                  className="block text-sm mb-2 text-gray-700"
-                >
-                  Username *
-                </label>
-                <input
-                  type="text"
-                  id="username"
-                  placeholder="Choose a username"
-                  className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                  minLength={3}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={loading}
-              >
-                {loading ? "Creating profile..." : "Complete Sign Up"}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
-      <div className="w-full max-w-5xl bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col md:flex-row">
-        <div className="md:w-1/2 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
+      {/* Background ambient glow */}
+      <div className="absolute top-1/4 -left-32 w-96 h-96 bg-primary/20 rounded-full blur-[128px] pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-secondary/20 rounded-full blur-[128px] pointer-events-none" />
+
+      <div className="w-full max-w-5xl bg-surface/80 backdrop-blur-xl border border-border shadow-card rounded-3xl overflow-hidden flex flex-col md:flex-row relative z-10">
+        
+        {/* Left Side - Image Placeholder */}
+        <div className="md:w-1/2 relative overflow-hidden min-h-[300px] md:min-h-full">
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-1000 hover:scale-105"
+            style={{ backgroundImage: 'url(/auth-bg.png)' }}
+          />
+          {/* Gradient overlays to blend into the background */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent mix-blend-multiply"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent to-surface/90 md:to-surface/80"></div>
+          
           {/* Content */}
-          <div className="relative z-10 p-8 md:p-12 h-full flex flex-col justify-center bg-red-500">
-            <h1 className="text-2xl md:text-3xl font-medium leading-tight text-white">
-              Messages for the moments
-              <br />
-              that matter most.
+          <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12 z-10 pb-16">
+            <h1 className="text-3xl md:text-5xl font-heading font-bold leading-tight text-foreground tracking-tight drop-shadow-md">
+              Messages for<br/>
+              <span className="bg-gradient-primary bg-clip-text text-transparent">moments that matter.</span>
             </h1>
-            <p className="mt-4 text-gray-300">
+            <p className="mt-4 text-gray-300 text-lg max-w-md drop-shadow-sm font-medium">
               {isLogin
                 ? "There you are. Shall we make more moments worth saving?"
-                : "Join our community to create and share memories that last forever"}
+                : "Join our community to create and share memories that last forever."}
             </p>
           </div>
         </div>
 
         {/* Right Side - Auth Form */}
-        <div className="md:w-1/2 p-8 md:p-12 flex flex-col">
+        <div className="md:w-1/2 p-8 md:p-12 flex flex-col justify-center bg-surface/40 backdrop-blur-md">
           <div className="flex flex-col mb-8">
-            <h2 className="text-3xl font-medium mb-2 tracking-tight">
+            <h2 className="text-3xl md:text-4xl font-heading font-bold mb-2 tracking-tight text-foreground">
               {isLogin ? "Welcome Back" : "Get Started"}
             </h2>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground text-lg">
               {isLogin
                 ? "Sign in to continue your journey"
                 : "Create an account to start your journey"}
@@ -409,20 +229,20 @@ export function SignUpLoginForm() {
           </div>
 
           {error && (
-            <div className="mb-6 flex items-center gap-3 rounded-lg bg-red-50 p-4 text-sm text-red-600">
+            <div className="mb-6 flex items-center gap-3 rounded-lg bg-destructive/10 border border-destructive/20 p-4 text-sm text-destructive">
               <IconAlertCircle className="h-5 w-5 flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          <form className="flex flex-col gap-4" onSubmit={handleEmailAuth}>
+          <form className="flex flex-col gap-5" onSubmit={handleEmailAuth}>
             {isLogin && (
               <>
                 <button
                   type="button"
                   onClick={handleGoogleSignIn}
                   disabled={loading}
-                  className="w-full border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                  className="w-full border border-border bg-input hover:bg-elevated text-foreground font-medium py-3.5 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-sm hover:shadow-md"
                 >
                   <img
                     src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg"
@@ -434,10 +254,10 @@ export function SignUpLoginForm() {
 
                 <div className="relative my-4">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-300"></div>
+                    <div className="w-full border-t border-border"></div>
                   </div>
                   <div className="relative flex justify-center text-xs">
-                    <span className="bg-white px-4 text-gray-500 uppercase">
+                    <span className="bg-surface px-4 text-muted-foreground uppercase font-medium tracking-wider">
                       OR
                     </span>
                   </div>
@@ -445,49 +265,10 @@ export function SignUpLoginForm() {
               </>
             )}
 
-            {!isLogin && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label
-                    htmlFor="firstname"
-                    className="block text-sm mb-2 text-gray-700"
-                  >
-                    First name *
-                  </label>
-                  <input
-                    type="text"
-                    id="firstname"
-                    placeholder="First name"
-                    className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    required={!isLogin}
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="lastname"
-                    className="block text-sm mb-2 text-gray-700"
-                  >
-                    Last name *
-                  </label>
-                  <input
-                    type="text"
-                    id="lastname"
-                    placeholder="Last name"
-                    className="w-full py-2 px-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    required={!isLogin}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div>
+            <div className="space-y-2">
               <label
                 htmlFor="email"
-                className="block text-sm mb-2 text-gray-700"
+                className="block text-sm font-medium text-foreground"
               >
                 Email *
               </label>
@@ -495,8 +276,8 @@ export function SignUpLoginForm() {
                 type="email"
                 id="email"
                 placeholder="you@example.com"
-                className={`w-full py-2 px-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                  error.includes("email") ? "border-red-500" : "border-gray-300"
+                className={`w-full py-3 px-4 bg-input border text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-smooth placeholder:text-muted-foreground ${
+                  error.toLowerCase().includes("email") ? "border-destructive" : "border-border"
                 }`}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -504,10 +285,10 @@ export function SignUpLoginForm() {
               />
             </div>
 
-            <div>
+            <div className="space-y-2">
               <label
                 htmlFor="password"
-                className="block text-sm mb-2 text-gray-700"
+                className="block text-sm font-medium text-foreground"
               >
                 {isLogin ? "Password *" : "Create Password *"}
               </label>
@@ -517,10 +298,10 @@ export function SignUpLoginForm() {
                 placeholder={
                   isLogin ? "Your password" : "At least 8 characters"
                 }
-                className={`w-full py-2 px-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                  error.includes("password") || error.includes("Password")
-                    ? "border-red-500"
-                    : "border-gray-300"
+                className={`w-full py-3 px-4 bg-input border text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-smooth placeholder:text-muted-foreground ${
+                  error.toLowerCase().includes("password")
+                    ? "border-destructive"
+                    : "border-border"
                 }`}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -533,7 +314,7 @@ export function SignUpLoginForm() {
               <div className="text-right">
                 <button
                   type="button"
-                  className="text-sm text-gray-600 hover:text-gray-800"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium"
                 >
                   Forgot password?
                 </button>
@@ -542,7 +323,7 @@ export function SignUpLoginForm() {
 
             <button
               type="submit"
-              className="w-full bg-red-600 hover:bg-orange-600 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full mt-2 bg-primary hover:opacity-90 text-primary-foreground font-semibold py-3.5 rounded-xl transition-all shadow-glow disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading || (!isLogin && !isPasswordValid)}
             >
               {loading
@@ -554,11 +335,11 @@ export function SignUpLoginForm() {
                 : "Create Account"}
             </button>
 
-            <div className="text-center text-xs text-gray-600 py-2">
+            <div className="text-center text-xs text-muted-foreground py-2 mt-2">
               By continuing, you agree to our{" "}
               <button
                 type="button"
-                className="underline hover:text-gray-800"
+                className="text-foreground hover:text-primary underline transition-colors"
                 onClick={() => {
                   /* Add terms modal */
                 }}
@@ -568,7 +349,7 @@ export function SignUpLoginForm() {
               and{" "}
               <button
                 type="button"
-                className="underline hover:text-gray-800"
+                className="text-foreground hover:text-primary underline transition-colors"
                 onClick={() => {
                   /* Add privacy modal */
                 }}
@@ -577,7 +358,7 @@ export function SignUpLoginForm() {
               </button>
             </div>
 
-            <div className="text-center text-sm text-gray-600">
+            <div className="text-center text-sm text-muted-foreground mt-2">
               {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
               <button
                 type="button"
@@ -595,13 +376,20 @@ export function SignUpLoginForm() {
                     });
                   }
                 }}
-                className="font-semibold text-orange-500 hover:text-orange-600 underline"
+                className="font-semibold text-primary hover:text-primary/80 transition-colors ml-1"
               >
                 {isLogin ? "Sign up" : "Sign in"}
               </button>
             </div>
           </form>
         </div>
+      </div>
+
+      {/* Product By */}
+      <div className="absolute bottom-6 left-0 right-0 text-center z-10">
+        <p className="text-xs text-muted-foreground font-medium">
+          A Product by <span style={{ fontFamily: '"JetBrains Mono", monospace' }} className="text-foreground/80 font-semibold tracking-tight">./localhost</span>
+        </p>
       </div>
     </div>
   );
@@ -618,11 +406,11 @@ const ValidationItem = ({
 }) => (
   <div className={`flex items-center gap-2 ${className}`}>
     {isValid ? (
-      <IconCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
+      <IconCheck className="h-4 w-4 text-success flex-shrink-0" />
     ) : (
-      <IconX className="h-4 w-4 text-red-500 flex-shrink-0" />
+      <IconX className="h-4 w-4 text-destructive flex-shrink-0" />
     )}
-    <span className={`text-sm ${isValid ? "text-green-600" : "text-red-500"}`}>
+    <span className={`text-xs font-medium ${isValid ? "text-success" : "text-destructive"}`}>
       {text}
     </span>
   </div>
