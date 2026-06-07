@@ -291,7 +291,6 @@ const CapsuleDetailPage = () => {
                          {decryptedTitle}
                        </h1>
                        <div className="flex items-center justify-center space-x-6 text-sm text-[#5D2A42]/80">
-                         <div className="flex items-center"><MapPin className="w-4 h-4 mr-1.5" /> Digital Archive</div>
                          <div className="flex items-center"><Calendar className="w-4 h-4 mr-1.5" /> {format(capsule.createdAt.toDate(), "dd MMM yyyy, hh:mm a")}</div>
                        </div>
                      </div>
@@ -306,7 +305,15 @@ const CapsuleDetailPage = () => {
                        </div>
                        <div className="text-right">
                          <span className="text-xs text-[#5D2A42]/60 block mb-1">To:</span>
-                         <span className="font-semibold text-lg">{capsule.recipientType === "self" ? "My Future Self" : capsule.recipients?.join(", ") || "Unknown"}</span>
+                         <span className="font-semibold text-lg">
+                           {capsule.recipientType === "self" 
+                             ? "My Future Self" 
+                             : capsule.recipientType === "friends" 
+                               ? (capsule.recipientNames && capsule.recipientNames.length > 0 ? capsule.recipientNames.join(', ') : "My Connections")
+                               : capsule.recipientType === "public"
+                                 ? "The World"
+                                 : "My Future Self"}
+                         </span>
                          <div className="text-xs text-[#5D2A42]/60 mt-1">Present Day</div>
                        </div>
                      </div>
@@ -318,12 +325,11 @@ const CapsuleDetailPage = () => {
                          className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
                          dangerouslySetInnerHTML={{ __html: decryptedContent || "" }}
                        />
-                       <p className="mt-8">Sincerely,</p>
+                       <p className="mt-8 text-xl">Sincerely,</p>
                      </div>
 
                      {/* Signature block */}
-                     <div className="pt-8">
-                       <span className="text-xs text-[#5D2A42]/60 block mb-3">Original Signature:</span>
+                     <div className="pt-6">
                        <div className="bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 min-h-[140px] max-w-sm flex items-center justify-center shadow-sm">
                          {(capsule as any).signature ? (
                            <img 
@@ -332,22 +338,16 @@ const CapsuleDetailPage = () => {
                              alt="Signature" 
                            />
                          ) : (
-                           <span className="font-signature text-4xl opacity-70 italic">{capsule.creatorName}</span>
+                           <span className="font-signature text-xl opacity-70 italic">{capsule.creatorName}</span>
                          )}
                        </div>
                      </div>
 
-                     <div className="pt-10">
-                       <h3 className="font-bold text-xl">{capsule.creatorName}</h3>
-                       <p className="text-[#5D2A42]/60 text-sm">{format(capsule.createdAt.toDate(), "yyyy")}</p>
+                     <div className="pt-6 pb-6">
+                       <p className="font-bold text-xl text-[#5D2A42]">{capsule.creatorName}</p>
                      </div>
 
-                     <hr className="border-[#5D2A42]/10 my-10" />
 
-                     <div className="flex items-center justify-center text-sm italic text-[#5D2A42]/60 pb-8 tracking-wide">
-                       <Clock className="w-4 h-4 mr-2" />
-                       a short time to reach you today.
-                     </div>
                   </div>
                 </div>
 

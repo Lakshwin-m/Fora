@@ -122,6 +122,7 @@ export default function Onboarding() {
 
       await setDoc(userRef, {
         uid,
+        email: auth.currentUser.email || "",
         name,
         username: username || name.split(' ')[0].toLowerCase(),
         bio,

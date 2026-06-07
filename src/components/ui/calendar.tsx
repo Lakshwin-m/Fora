@@ -28,13 +28,28 @@ export function Calendar({
       <MultiDatePicker
         value={selected}
         onChange={handleChange}
+        format="MMMM YYYY"
         mapDays={({ date }) => {
           let isDateDisabled = false;
-          // Handle the 'disabled' prop from react-day-picker format (e.g. { before: Date })
-          if (disabled?.before && date.toDate() < new Date(disabled.before.setHours(0,0,0,0))) {
-            isDateDisabled = true;
+          
+          if (Array.isArray(disabled)) {
+            disabled.forEach((rule) => {
+              if (rule.before && date.toDate() < new Date(new Date(rule.before).setHours(0,0,0,0))) {
+                isDateDisabled = true;
+              }
+              if (rule.after && date.toDate() > new Date(new Date(rule.after).setHours(0,0,0,0))) {
+                isDateDisabled = true;
+              }
+            });
+          } else if (disabled?.before) {
+            if (date.toDate() < new Date(new Date(disabled.before).setHours(0,0,0,0))) {
+              isDateDisabled = true;
+            }
           }
-          if (isDateDisabled) return { disabled: true };
+          
+          if (isDateDisabled) {
+             return { disabled: true };
+          }
           return {};
         }}
         showOtherDays={false}

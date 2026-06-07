@@ -537,7 +537,7 @@ export const RichTextEditor = ({
     editorProps: {
       attributes: {
         class:
-          "min-h-[200px] px-5 py-4 text-[#1A1A1A] text-base leading-relaxed focus:outline-none prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-img:rounded-xl prose-img:max-w-full",
+          "min-h-[200px] px-5 py-4 text-[#1A1A1A] text-base leading-relaxed focus:outline-none prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-img:rounded-xl prose-img:max-w-full prose-strong:text-inherit prose-em:text-inherit",
       },
     },
   });

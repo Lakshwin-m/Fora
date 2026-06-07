@@ -5,10 +5,11 @@ import {
   revokeMediaURL,
   MediaAttachment,
 } from "@/services/mediaService";
-import { Loader2 } from "lucide-react";
+import { Loader2, Play, Pause } from "lucide-react";
 import { getAuth } from "firebase/auth";
 import { getStorage, ref, getBlob } from "firebase/storage";
 import { storage } from "@/firebase";
+import { AudioVisualizer } from "./AudioVisualizer";
 interface MediaRendererProps {
   attachment: MediaAttachment;
   isUnlocked: boolean;
@@ -110,33 +111,72 @@ const MediaRenderer = ({
   switch (attachment.type) {
     case "image":
       return (
-        <img
-          src={url}
-          alt={attachment.name}
-          className={`max-w-full rounded-md ${className ?? ""}`}
-          loading="lazy"
-          style={{ imageRendering: "auto" }}
-        />
+        <div className={`break-inside-avoid rounded-2xl overflow-hidden border border-[#5D2A42]/20 shadow-sm bg-white/50 backdrop-blur-sm mb-4 ${className ?? ""}`}>
+          <img
+            src={url}
+            alt={attachment.altText || attachment.name}
+            className="w-full h-auto object-cover"
+            loading="lazy"
+            style={{ imageRendering: "auto" }}
+          />
+          {attachment.altText && attachment.altText.trim() !== '' && (
+            <div className="p-3 bg-white/80 border-t border-[#5D2A42]/10">
+              <span className="font-semibold text-xs text-[#5D2A42] block">
+                {attachment.altText}
+              </span>
+            </div>
+          )}
+        </div>
       );
 
     case "video":
       return (
-        <video
-          src={url}
-          controls
-          preload="metadata"
-          className={`max-w-full rounded-md ${className ?? ""}`}
-        />
+        <div className={`break-inside-avoid rounded-2xl overflow-hidden border border-[#5D2A42]/20 shadow-sm bg-white/50 backdrop-blur-sm mb-4 ${className ?? ""}`}>
+          <div className="relative w-full bg-black group cursor-pointer" onClick={(e) => {
+            const video = e.currentTarget.querySelector('video');
+            const playIcon = e.currentTarget.querySelector('.play-icon');
+            if (video) {
+              if (video.paused) { video.play(); playIcon?.classList.add('hidden'); }
+              else { video.pause(); playIcon?.classList.remove('hidden'); }
+            }
+          }}>
+            <video
+              src={url}
+              preload="metadata"
+              className="w-full h-auto object-cover max-h-[400px]"
+              onEnded={(e) => {
+                const playIcon = e.currentTarget.parentElement?.querySelector('.play-icon');
+                playIcon?.classList.remove('hidden');
+              }}
+            />
+            <div className="play-icon absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-all">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/40">
+                <Play className="w-5 h-5 text-white ml-1 fill-white" />
+              </div>
+            </div>
+          </div>
+          {attachment.altText && attachment.altText.trim() !== '' && (
+            <div className="p-3 bg-white/80 border-t border-[#5D2A42]/10">
+              <span className="font-semibold text-xs text-[#5D2A42] block">
+                {attachment.altText}
+              </span>
+            </div>
+          )}
+        </div>
       );
 
     case "audio":
       return (
-        <audio
-          src={url}
-          controls
-          preload="metadata"
-          className={`w-full ${className ?? ""}`}
-        />
+        <div className={`break-inside-avoid rounded-2xl overflow-hidden border border-[#5D2A42]/20 shadow-sm bg-white/50 backdrop-blur-sm mb-4 ${className ?? ""}`}>
+          <AudioVisualizer url={url} />
+          {attachment.altText && attachment.altText.trim() !== '' && (
+            <div className="p-3 bg-white/80 border-t border-[#5D2A42]/10">
+              <span className="font-semibold text-xs text-[#5D2A42] block">
+                {attachment.altText}
+              </span>
+            </div>
+          )}
+        </div>
       );
 
     default:

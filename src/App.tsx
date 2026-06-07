@@ -23,6 +23,8 @@ import { PricingDemo } from "./pages/PricingPage";
 import Garden from "./pages/Garden.tsx";
 import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
+import { GlobalAlertManager } from "./components/GlobalAlertManager";
+
 function App() {
   useEffect(() => {
     getFCMToken().then((token) => {
@@ -33,6 +35,7 @@ function App() {
 
   return (
     <CapsuleProvider>
+      <GlobalAlertManager />
       <Router>
         <Routes>
           <Route path="/signup" element={<SignUpLoginForm />} />

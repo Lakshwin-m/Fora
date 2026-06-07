@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useState, useRef } from "react";
 import { RichTextEditor, getPlainTextLength } from "@/components/ui/rich-text-editor";
 import { motion, AnimatePresence } from "framer-motion";
@@ -22,6 +23,8 @@ import {
   Eye,
   FileText,
   MapPin,
+  Play,
+  Pause,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +58,7 @@ import {
 } from "@/components/ui/stepper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AudioVisualizer } from "./AudioVisualizer";
 
 const steps = [
   { id: "basic", title: "Message", description: "Write your capsule", icon: MessageSquare },
@@ -186,6 +190,13 @@ export const CapsuleMultistepForm = ({
   const [showPreview, setShowPreview] = useState(false);
 
   const handleNext = () => {
+    if (currentStep === 1) {
+      if (triggerType === "time" && deliveryDate && deliveryTime) {
+        toast.success("Delivery Time Confirmed", {
+          description: `Capsule will unlock on ${deliveryDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} at ${deliveryTime}.`
+        });
+      }
+    }
     setDirection(1);
     onNextStep();
   };
@@ -236,13 +247,8 @@ export const CapsuleMultistepForm = ({
     },
     {
       id: "event",
-      label: "Specific Event",
-      description: "Unlock after a specific event occurs",
-    },
-    {
-      id: "connection",
-      label: "A Connection",
-      description: "Unlock when tagged connection confirms",
+      label: "Auto Reminders",
+      description: "Set automatic reminders to unlock",
     },
   ];
 
@@ -299,34 +305,36 @@ export const CapsuleMultistepForm = ({
                 >
                   <StepperIndicator
                     className={cn(
-                      "rounded-full h-1 w-full transition-all duration-500 ease-out",
+                      "rounded-full h-[3px] w-full transition-all duration-500 ease-out",
                       index < currentStep
-                        ? "bg-[#FB6376]"
+                        ? "bg-[#5D2A42]" // Completed: Premium Plum
                         : index === currentStep
-                        ? "bg-[#FB6376] shadow-[0_0_12px_rgba(251,99,118,0.35)]"
-                        : "bg-[#5D2A42]/20"
+                        ? "bg-[#FB6376]" // Active: Forá Coral (no glow)
+                        : "bg-[#E8E8E8]" // Upcoming: Clean light gray
                     )}
                   />
                   <div className="flex flex-col items-start gap-0.5">
                     <StepperTitle
                       className={cn(
-                        "text-start font-semibold text-sm transition-colors duration-300",
+                        "text-start font-bold text-sm tracking-wide transition-colors duration-300",
                         index === currentStep
-                          ? "text-[#1A1A1A]"
+                          ? "text-[#5D2A42]" // Active text
                           : index < currentStep
-                          ? "text-[#FB6376]"
-                          : "text-[#999]"
+                          ? "text-[#1A1A1A]" // Completed text
+                          : "text-[#999]"    // Upcoming text
                       )}
                     >
-                      <span className="opacity-50 mr-1.5">{index + 1}.</span>
+                      <span className="opacity-40 font-semibold mr-1.5">{index + 1}.</span>
                       {step.title}
                     </StepperTitle>
                     <span
                       className={cn(
-                        "text-[11px] hidden md:block leading-tight transition-colors duration-300",
+                        "text-xs font-medium hidden md:block leading-tight transition-colors duration-300",
                         index === currentStep
-                          ? "text-[#555]"
-                          : "text-[#999]"
+                          ? "text-[#FB6376]" // Active description accent
+                          : index < currentStep
+                          ? "text-[#999]"
+                          : "text-[#CCC]"
                       )}
                     >
                       {step.description}
@@ -403,7 +411,7 @@ export const CapsuleMultistepForm = ({
                     onValueChange={(value) => onTriggerTypeChange(value as any)}
                     className="flex flex-col flex-1 gap-6"
                   >
-                    <TabsList className="grid w-full h-auto grid-cols-3 bg-[#FFF9EC] p-2 rounded-2xl border border-[#FFDCCC]">
+                    <TabsList className="grid w-full h-auto grid-cols-2 bg-[#FFF9EC] p-2 rounded-2xl border border-[#FFDCCC]">
                       {triggerOptions.map((option) => (
                         <TabsTrigger
                           key={option.id}
@@ -427,30 +435,15 @@ export const CapsuleMultistepForm = ({
                         <TabsContent value="event" className="mt-0 space-y-4 outline-none">
                           <div className="flex flex-col gap-3">
                             <Label htmlFor="eventTrigger" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                              Describe the Event
+                              Reminder Schedule
                             </Label>
                             <Input
                               id="eventTrigger"
-                              placeholder="e.g., The day I graduate college"
+                              placeholder="e.g., Every year on my birthday"
                               className="h-14 border-[#E8E8E8] bg-[#FFF9EC] hover:bg-white text-[#1A1A1A] placeholder:text-[#999] rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#5D2A42] transition-all px-5"
                             />
                             <p className="text-xs font-medium text-[#FB6376] mt-2">
-                              Event-based capsules remain locked until you manually mark the event as occurred.
-                            </p>
-                          </div>
-                        </TabsContent>
-                        <TabsContent value="connection" className="mt-0 space-y-4 outline-none">
-                          <div className="flex flex-col gap-3">
-                            <Label htmlFor="connectionTrigger" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                              Connection Condition
-                            </Label>
-                            <Input
-                              id="connectionTrigger"
-                              placeholder="e.g., We meet again in person"
-                              className="h-14 border-[#E8E8E8] bg-[#FFF9EC] hover:bg-white text-[#1A1A1A] placeholder:text-[#999] rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#5D2A42] transition-all px-5"
-                            />
-                            <p className="text-xs font-medium text-[#FB6376] mt-2">
-                              Requires both you and the tagged connection to mutually confirm the trigger.
+                              We'll send automatic reminders based on your schedule to ensure the capsule gets unlocked.
                             </p>
                           </div>
                         </TabsContent>
@@ -597,71 +590,133 @@ export const CapsuleMultistepForm = ({
               {currentStep === 3 && (
                 <div className="p-10 md:p-14 h-full flex flex-col gap-10">
                   <div>
-                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">Add Memories</h2>
-                    <p className="text-[#666] text-base font-medium">Include photos, videos, or audio to enrich your capsule.</p>
+                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">Curate Your Memories</h2>
+                    <p className="text-[#666] text-lg font-medium">Upload the moments that make this capsule special.</p>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div 
-                      onClick={() => imageInputRef.current?.click()}
-                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] bg-white hover:bg-[#FFF9EC] rounded-3xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 text-center min-h-[160px]"
-                    >
-                       <span className="font-extrabold text-lg text-[#5D2A42] uppercase tracking-wider mb-2">Photos</span>
-                       <span className="text-sm font-medium text-[#999]">Browse files</span>
+                  {attachments.length === 0 ? (
+                    /* Premium Bento Box Empty State */
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[400px]">
+                      <div 
+                        onClick={() => imageInputRef.current?.click()}
+                        className="md:row-span-2 bg-[#F8F8F8] hover:bg-[#F0F0F0] border border-[#E8E8E8] rounded-[32px] p-8 flex flex-col justify-between cursor-pointer transition-all group"
+                      >
+                         <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center border border-[#E8E8E8] group-hover:scale-110 transition-transform">
+                           <span className="font-bold text-[#1A1A1A] uppercase text-xs tracking-widest">IMG</span>
+                         </div>
+                         <div>
+                           <h3 className="text-3xl font-extrabold text-[#1A1A1A] tracking-tight mb-1">Photos</h3>
+                           <p className="text-[#666] font-medium">Add high-quality images</p>
+                         </div>
+                      </div>
+                      <div 
+                        onClick={() => videoInputRef.current?.click()}
+                        className="bg-[#FFF9EC] hover:bg-[#FDEED2] border border-[#FBE0B5] rounded-[32px] p-8 flex flex-col justify-between cursor-pointer transition-all group"
+                      >
+                         <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center border border-[#FBE0B5] group-hover:scale-110 transition-transform">
+                           <span className="font-bold text-[#5D2A42] uppercase text-[10px] tracking-widest">MP4</span>
+                         </div>
+                         <h3 className="text-2xl font-extrabold text-[#5D2A42] tracking-tight">Videos</h3>
+                      </div>
+                      <div 
+                        onClick={() => audioInputRef.current?.click()}
+                        className="bg-[#1A1A1A] hover:bg-[#333333] border border-[#1A1A1A] rounded-[32px] p-8 flex flex-col justify-between cursor-pointer transition-all group"
+                      >
+                         <div className="w-12 h-12 rounded-full bg-[#333] flex items-center justify-center group-hover:scale-110 transition-transform">
+                           <span className="font-bold text-white uppercase text-[10px] tracking-widest">WAV</span>
+                         </div>
+                         <h3 className="text-2xl font-extrabold text-white tracking-tight">Audio Notes</h3>
+                      </div>
                     </div>
-                    <div 
-                      onClick={() => videoInputRef.current?.click()}
-                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] bg-white hover:bg-[#FFF9EC] rounded-3xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 text-center min-h-[160px]"
-                    >
-                       <span className="font-extrabold text-lg text-[#5D2A42] uppercase tracking-wider mb-2">Videos</span>
-                       <span className="text-sm font-medium text-[#999]">Browse files</span>
+                  ) : (
+                    /* Populated Gallery State */
+                    <div className="flex flex-col gap-8">
+                      {/* Add More Toolbar */}
+                      <div className="flex items-center gap-2 p-2 bg-[#F8F8F8] border border-[#E8E8E8] rounded-full w-max mx-auto md:mx-0">
+                        <button 
+                          onClick={() => imageInputRef.current?.click()}
+                          className="px-6 py-3 bg-white rounded-full font-bold text-sm text-[#1A1A1A] shadow-sm hover:shadow-md transition-all border border-[#E8E8E8]"
+                        >
+                          + Photo
+                        </button>
+                        <button 
+                          onClick={() => videoInputRef.current?.click()}
+                          className="px-6 py-3 bg-[#FFF9EC] rounded-full font-bold text-sm text-[#5D2A42] shadow-sm hover:shadow-md transition-all border border-[#FBE0B5]"
+                        >
+                          + Video
+                        </button>
+                        <button 
+                          onClick={() => audioInputRef.current?.click()}
+                          className="px-6 py-3 bg-[#1A1A1A] rounded-full font-bold text-sm text-white shadow-sm hover:shadow-md transition-all"
+                        >
+                          + Audio
+                        </button>
+                      </div>
+
+                      {/* Masonry-style Grid */}
+                      <div className="columns-1 sm:columns-2 md:columns-3 gap-6 space-y-6">
+                        {attachments.map((attachment) => {
+                          const url = URL.createObjectURL(attachment.file);
+                          return (
+                            <div key={attachment.id} className="break-inside-avoid relative group rounded-3xl overflow-hidden border border-[#E8E8E8] bg-white shadow-sm hover:shadow-xl transition-all duration-300">
+                              {/* Hover Overlay & Delete Button */}
+                              <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none" />
+                              <button
+                                type="button"
+                                onClick={() => onRemoveAttachment(attachment.id)}
+                                className="absolute top-4 right-4 z-20 w-10 h-10 flex items-center justify-center bg-white/90 backdrop-blur-md rounded-full text-[#1A1A1A] font-bold text-lg opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 hover:bg-[#FB6376] hover:text-white transition-all shadow-sm"
+                              >
+                                ✕
+                              </button>
+
+                              {/* Media Content */}
+                              {attachment.type === 'image' && (
+                                <img src={url} alt={attachment.name} className="w-full h-auto object-cover min-h-[150px]" />
+                              )}
+                              
+                              {attachment.type === 'video' && (
+                                <div className="w-full bg-black relative">
+                                  <video src={url} controls className="w-full h-auto object-cover max-h-[400px]" />
+                                </div>
+                              )}
+                              
+                              {attachment.type === 'audio' && (
+                                <div className="w-full aspect-square bg-[#F8F8F8] flex flex-col items-center justify-center p-6 border-b border-[#E8E8E8]">
+                                  <div className="w-16 h-16 rounded-full bg-white border border-[#E8E8E8] shadow-sm flex items-center justify-center mb-6">
+                                    <span className="font-extrabold text-[#1A1A1A] tracking-widest">AUDIO</span>
+                                  </div>
+                                  <audio src={url} controls className="w-full" />
+                                </div>
+                              )}
+
+                              {/* Meta Bar */}
+                              <div className="p-4 bg-white flex flex-col gap-2 border-t border-[#E8E8E8]/50">
+                                <input
+                                  type="text"
+                                  placeholder="Add an optional caption (alt-text)"
+                                  className="w-full px-3 py-2 text-sm bg-[#F8F8F8] border border-[#E8E8E8] rounded-md focus:outline-none focus:border-[#FB6376] focus:bg-white transition-all text-[#1A1A1A]"
+                                  value={attachment.altText || ''}
+                                  onChange={(e) => {
+                                    const newAttachments = [...attachments];
+                                    const index = newAttachments.findIndex(a => a.id === attachment.id);
+                                    if (index !== -1) {
+                                      newAttachments[index] = { ...newAttachments[index], altText: e.target.value };
+                                      onAttachmentsChange(newAttachments);
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div 
-                      onClick={() => audioInputRef.current?.click()}
-                      className="border-2 border-dashed border-[#E8E8E8] hover:border-[#FB6376] bg-white hover:bg-[#FFF9EC] rounded-3xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 text-center min-h-[160px]"
-                    >
-                       <span className="font-extrabold text-lg text-[#5D2A42] uppercase tracking-wider mb-2">Voice Notes</span>
-                       <span className="text-sm font-medium text-[#999]">Browse files</span>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Hidden inputs */}
                   <input type="file" ref={imageInputRef} onChange={(e) => onFileSelect("image", e)} accept="image/*" multiple className="hidden" />
                   <input type="file" ref={videoInputRef} onChange={(e) => onFileSelect("video", e)} accept="video/*" multiple className="hidden" />
                   <input type="file" ref={audioInputRef} onChange={(e) => onFileSelect("audio", e)} accept="audio/*" multiple className="hidden" />
-
-                  {attachments.length > 0 && (
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-4">
-                        <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                          Uploaded Files
-                        </Label>
-                        <Badge variant="secondary" className="bg-[#FB6376] text-white hover:bg-[#e8556a]">{attachments.length} items</Badge>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        {attachments.map((attachment) => (
-                          <div key={attachment.id} className="border border-[#E8E8E8] rounded-2xl p-4 flex items-center bg-[#FFF9EC] shadow-sm">
-                            <span className="flex-1 truncate text-base font-bold text-[#1A1A1A]">
-                              {attachment.name}
-                            </span>
-                            {attachment.uploading ? (
-                              <span className="text-[#FB6376] font-bold text-xs ml-3 uppercase tracking-wider">Uploading</span>
-                            ) : (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0 ml-2 hover:bg-white hover:text-[#FB6376] rounded-xl text-[#999] transition-colors"
-                                onClick={() => onRemoveAttachment(attachment.id)}
-                              >
-                                X
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -772,7 +827,6 @@ export const CapsuleMultistepForm = ({
                                   {title || "Untitled Capsule"}
                                 </h1>
                                 <div className="flex items-center justify-center gap-4 text-xs text-[#5D2A42]/70">
-                                  <div className="flex items-center"><MapPin className="w-3 h-3 mr-1" /> Digital Archive</div>
                                   <div className="flex items-center"><Calendar className="w-3 h-3 mr-1" /> {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
                                 </div>
                               </div>
@@ -788,14 +842,22 @@ export const CapsuleMultistepForm = ({
                                 <div className="text-right">
                                   <span className="text-[10px] text-[#5D2A42]/50 block mb-0.5">To:</span>
                                   <span className="font-semibold text-sm">
-                                    {recipientType === "self" ? "My Future Self" : recipientType === "friends" ? `${selectedFriends.length} Connection(s)` : "The World"}
+                                    {recipientType === "self" 
+                                      ? "My Future Self" 
+                                      : recipientType === "friends" 
+                                        ? selectedFriends.map(id => friends.find(f => f.id === id)?.name || "Friend").join(", ")
+                                        : "The World"}
                                   </span>
                                 </div>
                               </div>
 
                               {/* Body */}
                               <div className="pt-6 pb-4 space-y-4 text-base md:text-lg leading-[2rem] tracking-wide relative">
-                                <p>Dear {recipientType === "self" ? "Future Me," : "Friend,"}</p>
+                                <p>Dear {recipientType === "self" 
+                                  ? "Future Me," 
+                                  : recipientType === "friends" 
+                                    ? selectedFriends.map(id => friends.find(f => f.id === id)?.name || "Friend").join(", ") + ","
+                                    : "World,"}</p>
                                 <div
                                   className="prose prose-base max-w-none text-[#5D2A42] prose-p:my-2 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-0.5 prose-img:rounded-xl prose-img:max-w-full prose-img:my-3 prose-strong:text-inherit prose-em:text-inherit"
                                   dangerouslySetInnerHTML={{ 
@@ -806,30 +868,71 @@ export const CapsuleMultistepForm = ({
                                     })() : "<p><em>Your message will appear here...</em></p>" 
                                   }}
                                 />
-                                <p className="mt-6">Sincerely,</p>
+                                <p className="mt-6 text-lg">Sincerely,</p>
                               </div>
 
                               {/* Signature area placeholder */}
-                              <div className="pt-6">
-                                <span className="text-[10px] text-[#5D2A42]/50 block mb-2">Original Signature:</span>
+                              <div className="pt-4">
                                 <div className="bg-white/40 backdrop-blur-md rounded-xl border border-white/60 border-dashed p-4 min-h-[80px] max-w-xs flex items-center justify-center shadow-sm">
-                                  <span className="font-sans text-xs text-[#5D2A42]/60 uppercase tracking-widest text-center px-4">
-                                    You will draw your signature upon sealing
+                                  <span className="font-sans text-lg text-[#5D2A42]/60 uppercase tracking-widest text-center px-4">
+                                    Signature Placeholder
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="pt-6">
-                                <h3 className="font-bold text-lg">{username}</h3>
-                                <p className="text-[#5D2A42]/50 text-xs">{new Date().getFullYear()}</p>
+                              <div className="pt-4">
+                                <p className="text-lg text-[#5D2A42]">{username}</p>
                               </div>
 
-                              <hr className="border-[#5D2A42]/10 my-6" />
+                              {/* Attached Media in Preview */}
+                              {attachments.length > 0 && (
+                                <div className="py-6 mt-4 border-t border-[#5D2A42]/10">
 
-                              <div className="flex items-center justify-center text-xs italic text-[#5D2A42]/50 pb-4 tracking-wide">
-                                <Clock className="w-3.5 h-3.5 mr-1.5" />
-                                a short time to reach you today.
-                              </div>
+                                  <div className="columns-1 sm:columns-2 gap-4 space-y-4">
+                                    {attachments.map((attachment) => {
+                                      const url = URL.createObjectURL(attachment.file);
+                                      return (
+                                        <div key={attachment.id} className="break-inside-avoid rounded-2xl overflow-hidden border border-[#5D2A42]/20 shadow-sm bg-white/50 backdrop-blur-sm">
+                                          {attachment.type === 'image' && (
+                                            <img src={url} alt={attachment.altText || attachment.name} className="w-full h-auto object-cover" />
+                                          )}
+                                          {attachment.type === 'video' && (
+                                            <div className="relative w-full bg-black group cursor-pointer" onClick={(e) => {
+                                              const video = e.currentTarget.querySelector('video');
+                                              const playIcon = e.currentTarget.querySelector('.play-icon');
+                                              if (video) {
+                                                if (video.paused) { video.play(); playIcon?.classList.add('hidden'); }
+                                                else { video.pause(); playIcon?.classList.remove('hidden'); }
+                                              }
+                                            }}>
+                                              <video src={url} className="w-full h-auto object-cover max-h-[400px]" onEnded={(e) => {
+                                                const playIcon = e.currentTarget.parentElement?.querySelector('.play-icon');
+                                                playIcon?.classList.remove('hidden');
+                                              }} />
+                                              <div className="play-icon absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-all">
+                                                <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center border border-white/40">
+                                                  <Play className="w-5 h-5 text-white ml-1 fill-white" />
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
+                                          {attachment.type === 'audio' && (
+                                            <AudioVisualizer url={url} />
+                                          )}
+                                          {attachment.altText && attachment.altText.trim() !== '' && (
+                                            <div className="p-3 bg-white/80 border-t border-[#5D2A42]/10">
+                                              <span className="font-semibold text-xs text-[#5D2A42] block">
+                                                {attachment.altText}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
                             </div>
                           </div>
                         </div>

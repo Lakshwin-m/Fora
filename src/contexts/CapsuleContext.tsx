@@ -26,6 +26,7 @@ export interface Attachment {
   size: number;
   encrypted: true;
   uploadedAt: string;
+  altText?: string;
 }
 
 export interface Capsule {

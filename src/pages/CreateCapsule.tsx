@@ -22,6 +22,7 @@ interface LocalAttachment {
   type: "image" | "video" | "audio";
   name: string;
   size?: number;
+  altText?: string;
 }
 
 interface Friend {
@@ -79,7 +80,7 @@ const CreateCapsule = () => {
         const headers = await getAuthHeaders();
         const profileRes = await fetch(`${API_BASE}/getMyProfile`, { headers });
         const profile = await profileRes.json();
-        setUsername(profile?.username || profile?.name || user.email || "Anonymous");
+        setUsername(profile?.name || user.displayName || profile?.username || user.email || "Anonymous");
         setPlan(profile?.plan || null);
 
         setFriendsLoading(true);
@@ -136,6 +137,7 @@ const CreateCapsule = () => {
     return {
       id: attachment.id, storagePath, type: attachment.type,
       name: attachment.name, size: attachment.size,
+      altText: attachment.altText || "",
       encrypted: false, uploadedAt: new Date().toISOString(),
     };
   };
@@ -256,7 +258,16 @@ const CreateCapsule = () => {
 
         // Refresh capsules in the background so the new one appears on dashboard
         await refreshCapsules();
-        toast({ title: "Capsule sealed 🔒", description: "Your capsule has been created and encrypted successfully!" });
+        
+        // Dispatch the custom global alert event
+        window.dispatchEvent(
+          new CustomEvent("capsule-created", {
+            detail: {
+              title: "Capsule Sealed 🔒",
+              description: "Your capsule has been created and encrypted successfully!",
+            },
+          })
+        );
       } catch (err) {
         console.error("Background capsule creation failed:", err);
         toast({
@@ -292,28 +303,6 @@ const CreateCapsule = () => {
           </h1>
         </div>
 
-        {plan && (
-          <div className="mb-8 flex justify-center">
-            <div className="inline-flex items-center gap-3 px-4 py-2 bg-white border border-[#E8E8E8] rounded-full text-sm">
-              <span className="flex items-center gap-2 font-semibold text-[#1A1A1A] capitalize">
-                <div className={`w-2 h-2 rounded-full ${plan.tier === 'pro' ? 'bg-[#FB6376]' : plan.tier === 'starter' ? 'bg-amber-400' : 'bg-[#999]'}`} />
-                {plan.tier} Plan
-              </span>
-              <span className="w-px h-4 bg-[#E8E8E8]" />
-              <span className="text-[#666] font-medium">
-                {plan.capsuleLimit === null
-                  ? "Unlimited capsules"
-                  : `${plan.usedCapsules} / ${plan.capsuleLimit} used`}
-              </span>
-              {hasReachedLimit && (
-                <>
-                  <span className="w-px h-4 bg-[#E8E8E8]" />
-                  <span className="font-semibold text-[#FB6376]">Limit Reached</span>
-                </>
-              )}
-            </div>
-          </div>
-        )}
 
         {/*
           ✅ KEY FIX: pass currentStep and onStepChange so the form

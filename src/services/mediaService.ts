@@ -21,6 +21,7 @@ export interface MediaAttachment {
   size: number;
   encrypted: true;
   uploadedAt: string;
+  altText?: string;
 }
 
 /* ================= INTERNAL CACHE ================= */

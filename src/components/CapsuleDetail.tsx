@@ -297,7 +297,6 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                            {title || "Untitled"}
                          </h1>
                          <div className="flex items-center justify-center space-x-6 text-sm text-[#5D2A42]/80">
-                           <div className="flex items-center"><MapPin className="w-4 h-4 mr-1.5" /> Digital Archive</div>
                            <div className="flex items-center"><Calendar className="w-4 h-4 mr-1.5" /> {formatFirebaseDate(capsule.createdAt || new Date())}</div>
                          </div>
                        </div>
@@ -312,7 +311,13 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                          <div className="text-right">
                            <span className="text-xs text-[#5D2A42]/60 block mb-1">To:</span>
                            <span className="font-semibold text-lg">
-                             {isReceived ? `${currentUser?.displayName || "Dear Friend"}` : "My Future Self"}
+                             {capsule.recipientType === "self" 
+                                ? "My Future Self" 
+                                : capsule.recipientType === "friends" 
+                                  ? (capsule.recipientNames && capsule.recipientNames.length > 0 ? capsule.recipientNames.join(', ') : "My Connections")
+                                  : capsule.recipientType === "public"
+                                    ? "The World"
+                                    : "My Future Self"}
                            </span>
                            <div className="text-xs text-[#5D2A42]/60 mt-1">Present Day</div>
                          </div>
@@ -328,12 +333,25 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                           ) : (
                             <div className="whitespace-pre-wrap">{(content || "").split(/\n\s*\n/).filter((p: string) => p.trim()).map((para: string, i: number) => <p key={i} className="mb-4">{para}</p>)}</div>
                           )}
-                          <p className="mt-8">Sincerely,</p>
+                          <p className="mt-8 text-xl">Sincerely,</p>
                         </div>
+
+                       <div className="pt-6">
+                         <div className="bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 min-h-[140px] max-w-sm flex items-center justify-center shadow-sm">
+                           {hasSignature && signatureData ? (
+                             <img src={signatureData} className="max-h-[100px] object-contain opacity-90 mix-blend-multiply" alt="Signature" />
+                           ) : (
+                             <span className="font-signature text-xl opacity-70 italic">{capsule.creatorName || capsule.username}</span>
+                           )}
+                         </div>
+                       </div>
+
+                       <div className="pt-6">
+                         <p className="font-bold text-xl text-[#5D2A42]">{capsule.creatorName || capsule.username || "Your past self"}</p>
+                       </div>
 
                        {hasMedia && (
                           <div className="mt-12 mb-8 bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 shadow-sm">
-                            <h3 className="text-lg font-semibold text-[#5D2A42] flex items-center mb-4"><BookOpen className="w-4 h-4 mr-2" /> Attached Memories</h3>
                             <div className="space-y-4">
                               {(capsule as any).attachments.map((attachment: any) => (
                                 <MediaRenderer key={attachment.id} attachment={attachment} isUnlocked={isUnlocked} className="w-full rounded-lg" />
@@ -341,29 +359,6 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                             </div>
                           </div>
                        )}
-
-                       <div className="pt-8">
-                         <span className="text-xs text-[#5D2A42]/60 block mb-3">Original Signature:</span>
-                         <div className="bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 min-h-[140px] max-w-sm flex items-center justify-center shadow-sm">
-                           {hasSignature && signatureData ? (
-                             <img src={signatureData} className="max-h-[100px] object-contain opacity-90 mix-blend-multiply" alt="Signature" />
-                           ) : (
-                             <span className="font-signature text-4xl opacity-70 italic">{capsule.creatorName || capsule.username}</span>
-                           )}
-                         </div>
-                       </div>
-
-                       <div className="pt-10">
-                         <h3 className="font-bold text-xl">{capsule.creatorName || capsule.username || "Your past self"}</h3>
-                         <p className="text-[#5D2A42]/60 text-sm">{(() => { const d = parseFirebaseDate(capsule.createdAt); return d ? d.getFullYear() : "The Past"; })()}</p>
-                       </div>
-
-                       <hr className="border-[#5D2A42]/10 my-10" />
-
-                       <div className="flex items-center justify-center text-sm italic text-[#5D2A42]/60 pb-8 tracking-wide">
-                         <Clock className="w-4 h-4 mr-2" />
-                         a short time to reach you today.
-                       </div>
                     </div>
                   </div>
                 </div>

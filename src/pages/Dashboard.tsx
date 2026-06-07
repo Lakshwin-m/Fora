@@ -568,13 +568,13 @@ const Dashboard = () => {
                       <Sparkles className="h-4 w-4" />
                     )
                   }
-                  planName={plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)}
+                  planName={`${plan.tier.toLowerCase() === 'pro' ? 'Aion' : plan.tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} (${plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)})`}
                   usage={plan.usedCapsules}
                   limit={plan.capsuleLimit}
                   tooltipContent={
                     <div className="space-y-1 text-left">
                       <p className="font-semibold text-[#5D2A42]">
-                        {plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)} Plan
+                        {plan.tier.toLowerCase() === 'pro' ? 'Aion' : plan.tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} Plan ({plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)})
                       </p>
                       <p className="text-xs text-[#5D2A42]/70">
                         {plan.capsuleLimit === null

@@ -256,7 +256,7 @@ const Navigation = () => {
                       {userProfile?.displayName || auth.currentUser?.displayName || "User"}
                     </p>
                     <p className="text-xs text-white/60 truncate leading-none">
-                      {plan?.tier ? plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1) : "Free plan"}
+                      {plan?.tier ? `${plan.tier.toLowerCase() === 'pro' ? 'Aion' : plan.tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} (${plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)})` : "Arki (Free plan)"}
                     </p>
                   </div>
                 </div>
