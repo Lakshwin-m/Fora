@@ -21,9 +21,26 @@ import {
   Sparkles,
   ChevronRight,
   Fence,
+  Globe,
+  ArrowUpCircle,
+  ExternalLink,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  DropdownMenuPortal,
+} from "@/components/ui/dropdown-menu";
 import { signOut } from "firebase/auth";
-import { auth } from "@/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "@/firebase";
+import { usePlan } from "@/hooks/usePlan";
 
 const Navigation = () => {
   const location = useLocation();
@@ -31,7 +48,56 @@ const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [activeItem, setActiveItem] = useState(location.pathname);
+  const [userProfile, setUserProfile] = useState<{ photoURL?: string; displayName?: string } | null>(null);
+  const { plan } = usePlan();
+
+  const getInitials = (name: string) => {
+    if (!name) return "U";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + (parts[parts.length - 1]?.[0] || "")).toUpperCase();
+  };
+
+  useEffect(() => {
+    let unsubscribeSnapshot: (() => void) | null = null;
+
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setUserProfile({
+          photoURL: user.photoURL || undefined,
+          displayName: user.displayName || undefined,
+        });
+
+        const userRef = doc(db, "users", user.uid);
+        unsubscribeSnapshot = onSnapshot(userRef, (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            setUserProfile({
+              photoURL: data.photoURL || user.photoURL || undefined,
+              displayName: data.name || user.displayName || undefined,
+            });
+          }
+        }, (error) => {
+          console.error("Error listening to user document in navigation:", error);
+        });
+      } else {
+        setUserProfile(null);
+        if (unsubscribeSnapshot) {
+          unsubscribeSnapshot();
+          unsubscribeSnapshot = null;
+        }
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -81,17 +147,6 @@ const Navigation = () => {
       label: "Profile",
       icon: User,
     },
-
-    {
-      path: "/settings",
-      label: "Settings",
-      icon: Settings,
-    },
-    {
-      path: "/pricing",
-      label: "Pricing",
-      icon: Box,
-    },
   ];
 
   const isActive = (path: string) => activeItem === path;
@@ -105,12 +160,14 @@ const Navigation = () => {
     }
   };
 
-  const NavItem = ({ item }) => {
+  const effectivelyHovered = isHovered || isDropdownOpen;
+
+  const renderNavItem = (item: any) => {
     const Icon = item.icon;
     const isItemActive = isActive(item.path);
 
     return (
-      <div className="relative mb-2">
+      <div className="relative mb-2" key={item.path}>
         <Link
           to={item.path}
           onClick={() => isMobile && setIsOpen(false)}
@@ -124,12 +181,12 @@ const Navigation = () => {
                   ? "bg-white text-[#FB6376]"
                   : "text-white hover:bg-white/10"
               }
-              ${isHovered || isOpen ? "" : "justify-center"}
+              ${effectivelyHovered || isOpen ? "" : "justify-center"}
               group
             `}
           >
             {/* Background circle for compact state */}
-            {!isHovered && !isOpen && (
+            {!effectivelyHovered && !isOpen && (
               <div
                 className={`
                 absolute inset-0 rounded-xl transition-all duration-300
@@ -149,13 +206,13 @@ const Navigation = () => {
               }`}
             >
               <Icon className="w-5 h-5" />
-              {item.highlight && isHovered && (
+              {item.highlight && effectivelyHovered && (
                 <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-400" />
               )}
             </div>
 
             {/* Label */}
-            {(isHovered || isOpen) && (
+            {(effectivelyHovered || isOpen) && (
               <div className="ml-4 flex-1 flex items-center justify-between">
                 <span className="font-medium text-sm tracking-wide">
                   {item.label}
@@ -171,7 +228,126 @@ const Navigation = () => {
     );
   };
 
-  const sidebarWidth = isMobile ? 280 : isHovered ? 240 : 88;
+  const renderAccountDropdown = (isHoveredView: boolean, isMobileView: boolean) => {
+    return (
+      <DropdownMenu onOpenChange={setIsDropdownOpen}>
+        <DropdownMenuTrigger asChild>
+          <button
+            className={`block w-full text-left mb-6 transition-all duration-300 rounded-xl hover:bg-white/10 ${isHoveredView ? "px-3 py-2" : "flex justify-center py-2"} focus:outline-none`}
+          >
+            <div className="flex items-center animate-in fade-in duration-300">
+              <div className={`w-8 h-8 rounded-full border border-white/20 flex items-center justify-center overflow-hidden bg-white/10 flex-shrink-0 ${isMobileView ? "w-10 h-10" : "w-8 h-8"}`}>
+                {userProfile?.photoURL ? (
+                  <img
+                    src={userProfile.photoURL}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className={`${isMobileView ? "text-xs" : "text-[10px]"} font-bold text-white uppercase tracking-wider`}>
+                    {getInitials(userProfile?.displayName || auth.currentUser?.displayName || "User")}
+                  </span>
+                )}
+              </div>
+              {isHoveredView && (
+                <div className="ml-3 flex-1 min-w-0 animate-in fade-in duration-300 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-white leading-snug mb-1 break-words">
+                      {userProfile?.displayName || auth.currentUser?.displayName || "User"}
+                    </p>
+                    <p className="text-xs text-white/60 truncate leading-none">
+                      {plan?.tier ? `${plan.tier.toLowerCase() === 'pro' ? 'Aion' : plan.tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} (${plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)})` : "Arki (Free plan)"}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent 
+          className="w-64 bg-[#FB6376] border border-white/20 text-white shadow-2xl rounded-xl p-2 z-[100]" 
+          align={isMobileView ? "center" : "start"} 
+          sideOffset={12}
+        >
+          <div className="px-2 py-2">
+            <p className="text-sm text-white/80 font-medium truncate">
+              {auth.currentUser?.email || "user@example.com"}
+            </p>
+          </div>
+          <DropdownMenuSeparator className="bg-white/10 my-1" />
+          
+          <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors" onClick={() => { if(isMobileView) setIsOpen(false); navigate('/profile'); }}>
+            <Settings className="mr-3 h-4 w-4" />
+            <span>Settings</span>
+            <DropdownMenuShortcut className="text-white/40">↑Ctrl,</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors">
+            <Globe className="mr-3 h-4 w-4" />
+            <span>Language</span>
+            <ChevronRight className="ml-auto h-4 w-4 opacity-50" />
+          </DropdownMenuItem>
+          
+          <DropdownMenuSeparator className="bg-white/10 my-1" />
+          
+          <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors" onClick={() => { if(isMobileView) setIsOpen(false); navigate('/pricing'); }}>
+            <ArrowUpCircle className="mr-3 h-4 w-4" />
+            <span>Upgrade plan</span>
+          </DropdownMenuItem>
+          
+          <DropdownMenuSeparator className="bg-white/10 my-1" />
+          
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="focus:bg-white/10 data-[state=open]:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-4 w-4"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              <span>Learn more</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent className="w-56 bg-[#FB6376] border border-white/20 text-white shadow-2xl rounded-xl p-2 ml-1 z-[110]">
+                <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer flex justify-between">
+                  <span>About Forá</span>
+                  <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+                </DropdownMenuItem>
+                <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer flex justify-between">
+                  <span>Tutorials</span>
+                  <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+                </DropdownMenuItem>
+                <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer flex justify-between">
+                  <span>Courses</span>
+                  <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/10 my-1" />
+                <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer flex justify-between">
+                  <span>Usage policy</span>
+                  <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+                </DropdownMenuItem>
+                <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer flex justify-between">
+                  <span>Privacy policy</span>
+                  <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+                </DropdownMenuItem>
+                <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer">
+                  <span>Your privacy choices</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/10 my-1" />
+                <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer">
+                  <span>Keyboard shortcuts</span>
+                  <DropdownMenuShortcut className="text-white/40">Ctrl/</DropdownMenuShortcut>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+          
+          <DropdownMenuSeparator className="bg-white/10 my-1" />
+          
+          <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors" onClick={() => { if(isMobileView) setIsOpen(false); handleLogout(); }}>
+            <LogOut className="mr-3 h-4 w-4" />
+            <span>Log out</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
+
+  const sidebarWidth = isMobile ? 280 : effectivelyHovered ? 260 : 88;
 
   return (
     <>
@@ -190,8 +366,8 @@ const Navigation = () => {
       {/* Desktop Sidebar */}
       <div
         className={`hidden md:flex flex-col fixed left-0 top-0 h-screen z-30 transition-all duration-500 ease-in-out
-          bg-[#FB6376] shadow-xl
-          ${isHovered ? "border-r border-white/10" : ""}`}
+          bg-[#FB6376] shadow-xl overflow-hidden
+          ${effectivelyHovered ? "border-r border-white/10" : ""}`}
         style={{ width: `${sidebarWidth}px` }}
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
@@ -203,14 +379,14 @@ const Navigation = () => {
               to="/dashboard"
               className={`
                 flex items-center transition-all duration-300
-                ${isHovered ? "justify-start w-full" : "justify-center"}
+                ${effectivelyHovered ? "justify-start w-full" : "justify-center"}
               `}
             >
               <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
                 <span className="font-bold">Forá</span>
               </div>
 
-              {isHovered && (
+              {effectivelyHovered && (
                 <div className="ml-4">
                   <h1 className="text-xl font-bold text-white tracking-tight">
                     Forá
@@ -222,53 +398,20 @@ const Navigation = () => {
           </div>
 
           {/* Navigation Items */}
-          <div className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
-            {navItems.map((item) => (
-              <NavItem key={item.path} item={item} />
-            ))}
+          <div className="flex-1 px-4 py-2 space-y-1 overflow-y-auto hide-scrollbar">
+            {navItems.map((item) => renderNavItem(item))}
           </div>
 
           {/* Bottom Section */}
           <div className="px-4 py-6 border-t border-white/10">
-            {/* User Info */}
-            {isHovered && auth.currentUser && (
-              <div className="mb-6 px-3 py-2">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-                    <User className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="ml-3 flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">
-                      {auth.currentUser.displayName?.split(" ")[0] || "User"}
-                    </p>
-                    <p className="text-xs text-white/50 truncate">
-                      {auth.currentUser.email?.split("@")[0]}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* User Info & Dropdown */}
+            {auth.currentUser && renderAccountDropdown(effectivelyHovered, false)}
 
-            {/* Logout Button */}
-            <Button
-              variant="ghost"
-              className={`
-                w-full justify-start text-white hover:bg-white/10 rounded-xl transition-all duration-300
-                ${isHovered ? "px-4 py-3" : "px-3 py-3 justify-center"}
-              `}
-              onClick={handleLogout}
-            >
-              <LogOut className="w-5 h-5" />
-              {isHovered && (
-                <span className="ml-4 font-medium text-sm">Sign Out</span>
-              )}
-            </Button>
-
-            {/* Capsule Count */}
-            {isHovered && (
+            {/* Product By */}
+            {effectivelyHovered && (
               <div className="mt-4 pt-4 border-t border-white/10">
-                <p className="text-xs text-white/40 text-center">
-                  Preserving memories
+                <p className="text-xs text-white/80 text-center font-medium">
+                  A Product by <span style={{ fontFamily: '"JetBrains Mono", monospace' }} className="text-white font-semibold tracking-tight">./localhost</span>
                 </p>
               </div>
             )}
@@ -280,7 +423,7 @@ const Navigation = () => {
       <div
         className={`
           fixed left-0 top-0 h-screen z-40 transition-transform duration-500 ease-in-out
-          bg-[#FB6376] shadow-2xl w-72
+          bg-[#FB6376] shadow-2xl w-72 overflow-hidden
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
@@ -301,43 +444,21 @@ const Navigation = () => {
           </div>
 
           {/* Mobile Navigation */}
-          <div className="flex-1 px-4 py-6 space-y-1">
-            {navItems.map((item) => (
-              <NavItem key={item.path} item={item} />
-            ))}
+          <div className="flex-1 px-4 py-2 space-y-1 overflow-y-auto hide-scrollbar">
+            {navItems.map((item) => renderNavItem(item))}
           </div>
 
           {/* Mobile Bottom */}
           <div className="px-4 py-6 border-t border-white/10">
-            {auth.currentUser && (
-              <div className="mb-6 px-3 py-2">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
-                    <User className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="ml-3 flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">
-                      {auth.currentUser.displayName || "User"}
-                    </p>
-                    <p className="text-xs text-white/50">
-                      {auth.currentUser.email}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* User Info & Dropdown */}
+            {auth.currentUser && renderAccountDropdown(true, true)}
 
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-white hover:bg-white/10 px-4 py-3 rounded-xl"
-              onClick={() => {
-                setIsOpen(false);
-                setTimeout(handleLogout, 300);
-              }}
-            >
-              <LogOut className="w-5 h-5 mr-4" />
-              <span className="font-medium text-sm">Sign Out</span>
-            </Button>
+            {/* Product By */}
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <p className="text-xs text-white/80 text-center font-medium">
+                A Product by <span style={{ fontFamily: '"JetBrains Mono", monospace' }} className="text-white font-semibold tracking-tight">./localhost</span>
+              </p>
+            </div>
           </div>
         </div>
       </div>

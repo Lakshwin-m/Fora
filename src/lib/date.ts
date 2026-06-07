@@ -13,7 +13,7 @@ export function parseFirebaseDate(value: any): Date | null {
 
   // ISO string or millis
   const date = new Date(value);
-  return isValid(date) ? date : null;
+  return isValid(date) && date.getTime() > 0 ? date : null;
 }
 
 /**

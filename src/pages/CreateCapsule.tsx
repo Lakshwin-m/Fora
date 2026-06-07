@@ -7,12 +7,18 @@ import Navigation from "@/components/Navigation";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { getAuth } from "firebase/auth";
-import { getStorage, ref, uploadBytes } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { format } from "date-fns";
 import { CapsuleMultistepForm } from "@/components/capsule-multistep-form";
 import SealCapsuleModal from "@/components/SealCapsuleModal";
 import { Toaster } from "sonner";
-import { getOrCreateKey, encryptText } from "@/utils/cryptoUtils";
+import {
+  generateContentKey,
+  encryptText,
+  wrapContentKeyForRecipients,
+} from "@/utils/cryptoUtils";
+import { getRecipientPublicKeys } from "@/encryption/keyManager";
+import { useAuth } from "@/contexts/AuthContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -21,7 +27,8 @@ interface LocalAttachment {
   file: File;
   type: "image" | "video" | "audio";
   name: string;
-  size: number;
+  size?: number;
+  altText?: string;
 }
 
 interface Friend {
@@ -35,6 +42,7 @@ const CreateCapsule = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { refreshCapsules } = useCapsules();
+  const { privateKey } = useAuth();
   const auth = getAuth();
   const storage = getStorage();
 
@@ -79,7 +87,7 @@ const CreateCapsule = () => {
         const headers = await getAuthHeaders();
         const profileRes = await fetch(`${API_BASE}/getMyProfile`, { headers });
         const profile = await profileRes.json();
-        setUsername(profile?.username || profile?.name || user.email || "Anonymous");
+        setUsername(profile?.name || user.displayName || profile?.username || user.email || "Anonymous");
         setPlan(profile?.plan || null);
 
         setFriendsLoading(true);
@@ -91,6 +99,7 @@ const CreateCapsule = () => {
             name: f.profile?.name || f.profile?.email?.split("@")[0] || "Unknown",
             email: f.profile?.email || "",
             photoURL: f.profile?.photoURL,
+            hasPublicKey: !!f.profile?.publicKey,
           }))
         );
       } catch (err) {
@@ -136,6 +145,7 @@ const CreateCapsule = () => {
     return {
       id: attachment.id, storagePath, type: attachment.type,
       name: attachment.name, size: attachment.size,
+      altText: attachment.altText || "",
       encrypted: false, uploadedAt: new Date().toISOString(),
     };
   };
@@ -172,65 +182,126 @@ const CreateCapsule = () => {
 
   const handleFinalSubmission = async (signature?: string) => {
     if (!currentUser || !validateForm()) return;
-    setIsSubmitting(true);
-    try {
-      const capsuleId = crypto.randomUUID();
-      const headers = await getAuthHeaders();
-      const key = await getOrCreateKey();
-      const encryptedTitle = await encryptText(key, title);
-      const encryptedContent = await encryptText(key, content);
 
-      const uploadedAttachments =
-        attachments.length > 0 ? await uploadAllAttachments(capsuleId) : [];
+    // Close the modal and navigate to dashboard IMMEDIATELY
+    setShowSealModal(false);
+    navigate("/dashboard");
 
-      const unlockDate =
-        recipientType === "public"
-          ? new Date().toISOString()
-          : new Date(`${format(deliveryDate!, "yyyy-MM-dd")}T${deliveryTime}:00`).toISOString();
+    // Capture all form values needed for background work
+    const capturedTitle = title;
+    const capturedContent = content;
+    const capturedTriggerType = triggerType;
+    const capturedRecipientType = recipientType;
+    const capturedDeliveryDate = deliveryDate;
+    const capturedDeliveryTime = deliveryTime;
+    const capturedSelectedFriends = [...selectedFriends];
+    const capturedAttachments = [...attachments];
+    const capturedCategory = capsuleCategory;
+    const capturedSignature = signature;
+    const capturedUserId = currentUser.uid;
+    const capturedReshare = !!location.state?.reshareFrom;
+    const capturedOriginalId = location.state?.reshareFrom?.capsuleId || null;
 
-      const res = await fetch(`${API_BASE}/createCapsule`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          id: capsuleId,
-          title: encryptedTitle.ciphertext,
-          titleIv: encryptedTitle.iv,
-          content: encryptedContent.ciphertext,
-          contentIv: encryptedContent.iv,
-          attachments: uploadedAttachments,
-          category: capsuleCategory,
-          triggerType,
-          recipientType,
-          recipients:
-            recipientType === "self" ? [currentUser.uid]
-            : recipientType === "friends" ? selectedFriends
-            : [],
-          unlockDate,
-          createdAt: null,
-          isUnlocked: recipientType === "public",
-          status: "scheduled",
-          signature: signature || null,
-          userId: currentUser.uid,
-          isReshare: !!location.state?.reshareFrom,
-          originalCapsuleId: location.state?.reshareFrom?.capsuleId || null,
-        }),
-      });
+    // Fire-and-forget: do all backend work in the background
+    (async () => {
+      try {
+        const capsuleId = crypto.randomUUID();
+        const headers = await getAuthHeaders();
+        // ── 1. All recipients including creator ──
+        const allRecipientIds = [
+          capturedUserId,
+          ...(capturedRecipientType === "friends" ? capturedSelectedFriends : []),
+        ];
 
-      if (!res.ok) throw new Error((await res.text()) || "Failed to create capsule");
+        // ── 2. Fetch each recipient's public key from Firestore ──
+        const publicKeys = await getRecipientPublicKeys(allRecipientIds);
 
-      await refreshCapsules();
-      toast({ title: "Capsule sealed 🔒", description: "Your capsule has been created and encrypted" });
-      navigate("/dashboard");
-    } catch (err) {
-      toast({
-        title: "Error",
-        description: err instanceof Error ? err.message : "Failed to create capsule",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-      setShowSealModal(false);
-    }
+        // ── 3. Generate one fresh AES-256-GCM content key for this capsule ──
+        const contentKey = await generateContentKey();
+
+        // ── 4. Encrypt title and content ──
+        const encryptedTitle   = await encryptText(capturedTitle,   contentKey);
+        const encryptedContent = await encryptText(capturedContent, contentKey);
+
+        // ── 5. RSA-wrap content key for every recipient ──
+        const encryptedKeys = await wrapContentKeyForRecipients(contentKey, publicKeys);
+
+        // ── 6. Upload attachments (plain — file encryption is a follow-up) ──
+        const uploadedAttachments =
+          capturedAttachments.length > 0 ? await uploadAllAttachments(capsuleId) : [];
+
+        let signatureUrl: string | null = null;
+        if (capturedSignature) {
+          try {
+            const response = await fetch(capturedSignature);
+            const blob = await response.blob();
+            const signaturePath = `capsules/${capsuleId}/signature.png`;
+            const signatureRef = ref(storage, signaturePath);
+            await uploadBytes(signatureRef, blob, { contentType: "image/png" });
+            signatureUrl = await getDownloadURL(signatureRef);
+          } catch (error) {
+            console.error("Failed to upload signature:", error);
+            signatureUrl = capturedSignature;
+          }
+        }
+
+        const unlockDate =
+          capturedRecipientType === "public"
+            ? new Date().toISOString()
+            : new Date(`${format(capturedDeliveryDate!, "yyyy-MM-dd")}T${capturedDeliveryTime}:00`).toISOString();
+
+        const res = await fetch(`${API_BASE}/createCapsule`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            id: capsuleId,
+            // v2 encrypted fields
+            encryptedTitle:   encryptedTitle.ciphertext,
+            titleIV:          encryptedTitle.iv,
+            encryptedContent: encryptedContent.ciphertext,
+            contentIV:        encryptedContent.iv,
+            encryptedKeys,
+            version:          "v2",
+            // unencrypted metadata
+            attachments:      uploadedAttachments,
+            category:         capturedCategory,
+            triggerType:      capturedTriggerType,
+            recipientType:    capturedRecipientType,
+            recipients:       allRecipientIds,
+            unlockDate,
+            createdAt:        null,
+            isUnlocked:       capturedRecipientType === "public",
+            status:           "scheduled",
+            signature:        signatureUrl,
+            userId:           capturedUserId,
+            isReshare:        capturedReshare,
+            originalCapsuleId: capturedOriginalId,
+          }),
+        });
+
+        if (!res.ok) throw new Error((await res.text()) || "Failed to create capsule");
+
+        // Refresh capsules in the background so the new one appears on dashboard
+        await refreshCapsules();
+        
+        // Dispatch the custom global alert event
+        window.dispatchEvent(
+          new CustomEvent("capsule-created", {
+            detail: {
+              title: "Capsule Sealed 🔒",
+              description: "Your capsule has been created and encrypted successfully!",
+            },
+          })
+        );
+      } catch (err) {
+        console.error("Background capsule creation failed:", err);
+        toast({
+          title: "Failed to create capsule",
+          description: err instanceof Error ? err.message : "Something went wrong. Please try again.",
+          variant: "destructive",
+        });
+      }
+    })();
   };
 
   if (!currentUser) {
@@ -248,30 +319,15 @@ const CreateCapsule = () => {
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
-          <Button variant="ghost" onClick={() => navigate("/dashboard")}>
+          <Button variant="ghost" onClick={() => navigate("/dashboard")} className="text-[#1A1A1A] hover:bg-[#1A1A1A]/5 hover:text-[#1A1A1A]">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-3xl font-bold text-[#1A1A1A]">
             Create a <span className="text-[#FB6376]">Forá</span> Capsule
           </h1>
         </div>
 
-        {plan && (
-          <div className="mb-6 rounded-xl border bg-white p-4 flex items-center justify-between">
-            <div>
-              <p className="font-semibold capitalize">{plan.tier} plan</p>
-              <p className="text-sm text-muted-foreground">
-                {plan.capsuleLimit === null
-                  ? "Unlimited capsules"
-                  : `${plan.usedCapsules} / ${plan.capsuleLimit} capsules used`}
-              </p>
-            </div>
-            {hasReachedLimit && (
-              <span className="text-sm font-medium text-red-600">Limit reached</span>
-            )}
-          </div>
-        )}
 
         {/*
           ✅ KEY FIX: pass currentStep and onStepChange so the form
@@ -280,7 +336,6 @@ const CreateCapsule = () => {
         */}
         <CapsuleMultistepForm
           currentStep={currentStep}
-          onStepChange={setCurrentStep}
           title={title}
           content={content}
           triggerType={triggerType}
@@ -304,11 +359,11 @@ const CreateCapsule = () => {
           onAttachmentsChange={setAttachments}
           onFileSelect={handleFileSelect}
           onRemoveAttachment={removeAttachment}
-          onNextStep={() => setCurrentStep((s) => s + 1)}
+          onNextStep={() => setCurrentStep((s) => Math.min(5, s + 1))}
           onPrevStep={() => setCurrentStep((s) => Math.max(0, s - 1))}
+          onCancel={() => navigate("/")}
           onSubmit={handleFormSubmit}
           isSubmitting={isSubmitting}
-          isBlocked={!!hasReachedLimit}
         />
       </div>
 

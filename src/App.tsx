@@ -7,8 +7,10 @@ import {
 import { SignUpLoginForm } from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
+import UserProfile from "./pages/UserProfile";
 import ProtectedRoute from "./pages/ProtectedRoutes";
 import { CapsuleProvider } from "./contexts/CapsuleContext";
+import { AuthProvider } from "./contexts/AuthContext";
 import CreateCapsule from "./pages/CreateCapsule";
 import Connections from "./pages/Connections";
 import Settings from "./pages/Settings";
@@ -20,6 +22,10 @@ import { useEffect } from "react";
 import { getFCMToken, onForegroundMessage } from "./notifications.js";
 import { PricingDemo } from "./pages/PricingPage";
 import Garden from "./pages/Garden.tsx";
+import Index from "./pages/Index";
+import Onboarding from "./pages/Onboarding";
+import { GlobalAlertManager } from "./components/GlobalAlertManager";
+
 function App() {
   useEffect(() => {
     getFCMToken().then((token) => {
@@ -29,11 +35,14 @@ function App() {
   }, []);
 
   return (
-    <CapsuleProvider>
+    <AuthProvider>
+      <CapsuleProvider>
+      <GlobalAlertManager />
       <Router>
         <Routes>
           <Route path="/signup" element={<SignUpLoginForm />} />
           <Route path="/login" element={<SignUpLoginForm />} />
+          <Route path="/onboarding" element={<Onboarding />} />
 
           {/* Protected Routes */}
           <Route
@@ -58,6 +67,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/:uid"
+            element={
+              <ProtectedRoute>
+                <UserProfile />
               </ProtectedRoute>
             }
           />
@@ -114,10 +131,11 @@ function App() {
             }
           />
 
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Index />} />
         </Routes>
       </Router>
     </CapsuleProvider>
+    </AuthProvider>
   );
 }
 

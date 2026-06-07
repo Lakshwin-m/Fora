@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
-import { X, RotateCcw, CheckCircle2, Lock } from "lucide-react";
+import { X, RotateCcw, Lock } from "lucide-react";
 
 // Animation and sound assets
 import timeTravelAnimation from "@/assets/time animation.json";
@@ -42,9 +42,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
 
   // Sealing process state
   const [isSealing, setIsSealing] = useState(false);
-  const [isSealed, setIsSealed] = useState(false);
   const [showAnimation, setShowAnimation] = useState(false);
-  const [animationComplete, setAnimationComplete] = useState(false);
 
   // Animation ref
   const animationRef = useRef<any>(null);
@@ -116,25 +114,9 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
     }
   };
 
-  // Mock backend API call to seal capsule
-  const mockSealCapsule = async (
-    capsuleId: string,
-    signatureData: string
-  ): Promise<boolean> => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    console.log(
-      "Capsule sealed with signature:",
-      signatureData.slice(0, 50) + "..."
-    );
-    return true;
-  };
-
   // Play tick sound
   const playTickSound = async () => {
     if (!audioRef.current) {
-      // Fallback: Create a simple beep using Web Audio API
       try {
         const audioContext = new (window.AudioContext ||
           (window as any).webkitAudioContext)();
@@ -164,32 +146,6 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
     }
   };
 
-  // Handle animation completion
-  const handleAnimationComplete = async () => {
-    setAnimationComplete(true);
-
-    // Play tick sound at the end of animation
-    await playTickSound();
-
-    // Wait a brief moment for sound to play
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    // Mark as sealed and hide animation
-    setIsSealed(true);
-    setShowAnimation(false);
-
-    // Notify parent component after a brief delay
-    setTimeout(() => {
-      if (signature) {
-        onSealComplete(signature);
-      }
-      toast({
-        title: "Capsule Sealed! 🎉",
-        description: `"${capsuleTitle}" is now locked until its unlock date`,
-      });
-    }, 500);
-  };
-
   // Handle sealing process
   const handleSealCapsule = async () => {
     if (!signature || isSignatureEmpty) {
@@ -201,39 +157,26 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
       return;
     }
 
-    // Step 1: Start sealing process
+    // Start sealing: show brief animation then fire onSealComplete
     setIsSealing(true);
+    setShowAnimation(true);
 
-    try {
-      // Step 2: Call backend to seal capsule (instant)
-      const success = await mockSealCapsule(capsuleId, signature);
+    // Play tick sound
+    await playTickSound();
 
-      if (!success) {
-        throw new Error("Failed to seal capsule");
-      }
-
-      // Step 3: Show animation after backend success
-      setShowAnimation(true);
-      setAnimationComplete(false);
-    } catch (error) {
-      console.error("Error sealing capsule:", error);
-      toast({
-        title: "Sealing failed",
-        description: "Please try again",
-        variant: "destructive",
-      });
-      setIsSealing(false);
+    // Brief 1.5s animation, then immediately hand off to parent
+    setTimeout(() => {
       setShowAnimation(false);
-    }
+      setIsSealing(false);
+      onSealComplete(signature);
+    }, 1500);
   };
 
   // Reset modal state
   const resetModal = () => {
     clearSignature();
     setIsSealing(false);
-    setIsSealed(false);
     setShowAnimation(false);
-    setAnimationComplete(false);
   };
 
   // Handle modal close
@@ -255,17 +198,13 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
             <Lottie
               lottieRef={animationRef}
               animationData={timeTravelAnimation}
-              loop={false}
+              loop={true}
               autoplay={true}
               className="w-full h-full"
-              onComplete={handleAnimationComplete}
-              onLoopComplete={handleAnimationComplete}
             />
             <div className="absolute bottom-8 left-0 right-0 text-center">
               <p className="text-white/80 text-lg font-medium animate-pulse">
-                {animationComplete
-                  ? "Sealing complete!"
-                  : "Sealing your memories for the future..."}
+                Sealing your memories for the future...
               </p>
             </div>
           </div>
@@ -283,17 +222,15 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                 </div>
                 <div>
                   <CardTitle className="text-2xl text-[#5D2A42]">
-                    {isSealed ? "Capsule Sealed!" : "Seal Your Capsule"}
+                    Seal Your Capsule
                   </CardTitle>
                   <CardDescription className="text-[#5D2A42]/70">
-                    {isSealed
-                      ? "Your memories are now locked for the future"
-                      : `Sign to seal "${capsuleTitle}" until its unlock date`}
+                    {`Sign to seal "${capsuleTitle}" until its unlock date`}
                   </CardDescription>
                 </div>
               </div>
 
-              {!isSealing && !isSealed && !showAnimation && (
+              {!isSealing && !showAnimation && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -307,54 +244,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
           </CardHeader>
 
           <CardContent className="pt-6">
-            {isSealed ? (
-              // Sealed state
-              <div className="text-center py-12 space-y-6">
-                <div className="relative inline-block">
-                  <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-xl animate-scale-up">
-                    <CheckCircle2 className="w-12 h-12 text-white" />
-                  </div>
-                  <div className="absolute -top-2 -right-2 w-10 h-10 bg-[#5D2A42] rounded-full flex items-center justify-center animate-bounce">
-                    <Lock className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h3 className="text-2xl font-bold text-[#5D2A42]">
-                    Successfully Sealed! 🔒
-                  </h3>
-                  <p className="text-[#5D2A42]/70 max-w-md mx-auto">
-                    Your time capsule is now locked and cannot be modified. It
-                    will automatically unlock on its scheduled date.
-                  </p>
-                </div>
-
-                {/* Signature preview */}
-                {signature && (
-                  <div className="mt-6 p-4 bg-white/50 rounded-lg border border-[#5D2A42]/20">
-                    <p className="text-sm text-[#5D2A42]/60 mb-2">
-                      Your Signature:
-                    </p>
-                    <div className="flex justify-center">
-                      <img
-                        src={signature}
-                        alt="Signature"
-                        className="h-16 object-contain bg-white p-2 rounded border"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="pt-6">
-                  <Button
-                    onClick={handleClose}
-                    className="bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] text-white px-8 py-6 text-lg hover:shadow-xl transition-all"
-                  >
-                    View Sealed Capsule
-                  </Button>
-                </div>
-              </div>
-            ) : (
+            {(
               // Signing state
               <div className="space-y-6">
                 <div className="p-4 bg-gradient-to-r from-[#FFDCCC]/30 to-[#FCB1A6]/30 rounded-lg border border-[#FB6376]/30">

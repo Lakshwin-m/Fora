@@ -24,6 +24,7 @@ export interface Flower {
   x: number;
   y: number;
   created_at: string;
+  growthLevel?: number; // 0=seed, 1=sprout, 2=growing, 3=full bloom
 }
 
 export interface FlowerMetadata {

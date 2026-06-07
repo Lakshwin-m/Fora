@@ -12,10 +12,12 @@ import {
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { toast } from "@/hooks/use-toast";
+import { useCapsules } from "@/contexts/CapsuleContext";
 
 export const useCapsuleUnlocker = () => {
   const auth = getAuth();
   const db = getFirestore();
+  const { serverNow } = useCapsules();
 
   useEffect(() => {
     const checkAndUnlockCapsules = async () => {
@@ -32,7 +34,7 @@ export const useCapsuleUnlocker = () => {
         );
 
         const snapshot = await getDocs(q);
-        const now = new Date();
+        const now = serverNow();
         let unlockedCount = 0;
 
         for (const docSnapshot of snapshot.docs) {

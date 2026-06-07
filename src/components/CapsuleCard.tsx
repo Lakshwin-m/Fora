@@ -15,6 +15,7 @@ import {
 
 // 🔐 Import decryption hook
 import { useCapsuleDecryption } from '@/hooks/useCapsuleDecryption';
+import { formatFirebaseDate } from '@/lib/date';
 
 interface CapsuleCardProps {
   capsule: {
@@ -47,7 +48,23 @@ const CapsuleCard = ({
   onDelete
 }: CapsuleCardProps) => {
   // 🔐 Decrypt the capsule content
-  const { title, content, isDecrypting } = useCapsuleDecryption(capsule);
+  const { decryptCapsule } = useCapsuleDecryption();
+  const [title, setTitle] = React.useState("");
+  const [content, setContent] = React.useState("");
+  const [isDecrypting, setIsDecrypting] = React.useState(true);
+
+  React.useEffect(() => {
+    let mounted = true;
+    setIsDecrypting(true);
+    decryptCapsule(capsule).then((res) => {
+      if (mounted) {
+        setTitle(res.title);
+        setContent(res.content);
+        setIsDecrypting(false);
+      }
+    });
+    return () => { mounted = false; };
+  }, [capsule, decryptCapsule]);
 
   const getStatusColor = () => {
     if (capsule.isUnlocked) {
@@ -151,8 +168,8 @@ const CapsuleCard = ({
             <Calendar className="w-4 h-4 text-muted-foreground" />
             <span className="text-muted-foreground">
               {capsule.isUnlocked 
-                ? `Opened ${new Date(capsule.unlockDate).toLocaleDateString()}`
-                : `Opens ${new Date(capsule.unlockDate).toLocaleDateString()}`
+                ? `Opened ${formatFirebaseDate(capsule.unlockDate, "PP")}`
+                : `Opens ${formatFirebaseDate(capsule.unlockDate, "PP")}`
               }
             </span>
           </div>

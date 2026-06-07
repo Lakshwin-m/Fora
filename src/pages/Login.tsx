@@ -79,7 +79,7 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative pb-20">
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -173,6 +173,13 @@ export default function SignupPage() {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* Product By */}
+      <div className="absolute bottom-6 left-0 right-0 text-center">
+        <p className="text-xs text-gray-400 font-medium">
+          A Product by <span style={{ fontFamily: '"JetBrains Mono", monospace' }} className="text-gray-500 font-semibold tracking-tight">./localhost</span>
+        </p>
       </div>
     </div>
   );

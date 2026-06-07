@@ -23,8 +23,13 @@ dist-ssr
 *.sln
 *.sw?
 
-
+s
 .env.env.*.local
 .env.local
+.env
 
 functions/.env
+
+# Firebase service account keys
+serviceAccountKey.json
+scripts/serviceAccountKey.json

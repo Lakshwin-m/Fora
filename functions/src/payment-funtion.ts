@@ -80,9 +80,9 @@ export const createRazorpayOrder = onRequest(
           return;
         }
 
-        // Get the actual key values from Secret Manager
-        const RAZORPAY_KEY_ID = razorpayKeyId.value();
-        const RAZORPAY_KEY_SECRET = razorpayKeySecret.value();
+        // Get the actual key values from Secret Manager and trim accidental spaces
+        const RAZORPAY_KEY_ID = razorpayKeyId.value()?.trim();
+        const RAZORPAY_KEY_SECRET = razorpayKeySecret.value()?.trim();
 
         console.log("Has KEY_ID:", !!RAZORPAY_KEY_ID);
         console.log("Has KEY_SECRET:", !!RAZORPAY_KEY_SECRET);
@@ -224,8 +224,8 @@ export const verifyRazorpayPayment = onRequest(
           return;
         }
 
-        const RAZORPAY_KEY_ID = razorpayKeyId.value();
-        const RAZORPAY_KEY_SECRET = razorpayKeySecret.value();
+        const RAZORPAY_KEY_ID = razorpayKeyId.value()?.trim();
+        const RAZORPAY_KEY_SECRET = razorpayKeySecret.value()?.trim();
 
         const user = await verifyAuth(req);
         const {
@@ -301,12 +301,7 @@ export const verifyRazorpayPayment = onRequest(
         }
 
         await db.runTransaction(async (transaction) => {
-          const userRef = db.collection("users").doc(user.uid);
-          const userSnap = await transaction.get(userRef);
-
-          if (!userSnap.exists) {
-            throw new Error("User not found");
-          }
+          const subscriptionRef = db.collection("subscriptions").doc(user.uid);
 
           const planUpdate: any = {
             tier: planTier,
@@ -321,11 +316,16 @@ export const verifyRazorpayPayment = onRequest(
             status: "active",
           };
 
-          transaction.update(userRef, {
-            plan: planUpdate,
-          });
+          // Save the subscription strictly in subscriptions collection
+          transaction.set(subscriptionRef, planUpdate, { merge: true });
 
-          console.log("User plan updated");
+          // Also remove it from user document if it existed safely
+          const userRef = db.collection("users").doc(user.uid);
+          transaction.set(userRef, {
+            plan: admin.firestore.FieldValue.delete()
+          }, { merge: true });
+
+          console.log("Subscription record created/updated securely");
 
           const paymentsSnap = await db
             .collection("payments")
@@ -436,26 +436,25 @@ export const cancelSubscription = onRequest(
 
         const user = await verifyAuth(req);
 
-        const userRef = db.collection("users").doc(user.uid);
-        const userSnap = await userRef.get();
+        const subRef = db.collection("subscriptions").doc(user.uid);
+        const subSnap = await subRef.get();
 
-        if (!userSnap.exists) {
-          res.status(404).json({ error: "User not found" });
+        if (!subSnap.exists) {
+          res.status(404).json({ error: "No active subscription found" });
           return;
         }
 
-        const userData = userSnap.data();
-        const currentPlan = userData?.plan;
+        const currentPlan = subSnap.data();
 
         if (!currentPlan || currentPlan.tier === "free") {
           res.status(400).json({ error: "No active subscription to cancel" });
           return;
         }
 
-        await userRef.update({
-          "plan.status": "cancelled",
-          "plan.cancelledAt": admin.firestore.FieldValue.serverTimestamp(),
-          "plan.willDowngradeAt": currentPlan.subscriptionEndDate,
+        await subRef.update({
+          status: "cancelled",
+          cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+          willDowngradeAt: currentPlan.subscriptionEndDate,
         });
 
         await db.collection("payments").add({
@@ -486,39 +485,36 @@ export const checkExpiredSubscriptions = onSchedule(
     try {
       const now = admin.firestore.Timestamp.now();
 
-      const usersSnap = await db
-        .collection("users")
-        .where("plan.subscriptionEndDate", "<=", now)
-        .where("plan.status", "in", ["active", "cancelled"])
+      const subsSnap = await db
+        .collection("subscriptions")
+        .where("subscriptionEndDate", "<=", now)
+        .where("status", "in", ["active", "cancelled"])
         .get();
 
-      if (usersSnap.empty) {
+      if (subsSnap.empty) {
         console.log("No expired subscriptions found");
         return;
       }
 
       const batch = db.batch();
 
-      usersSnap.forEach((doc) => {
-        const data = doc.data();
-        const plan = data.plan;
+      subsSnap.forEach((doc) => {
+        const plan = doc.data();
 
         batch.update(doc.ref, {
-          plan: {
-            tier: "free",
-            capsuleLimit: 5,
-            usedCapsules: plan.usedCapsules || 0,
-            status: "expired",
-            previousTier: plan.tier,
-            expiredAt: admin.firestore.FieldValue.serverTimestamp(),
-            resetInterval: null,
-            lastResetAt: null,
-          },
+          tier: "free",
+          capsuleLimit: 5,
+          usedCapsules: plan.usedCapsules || 0,
+          status: "expired",
+          previousTier: plan.tier,
+          expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+          resetInterval: null,
+          lastResetAt: null,
         });
       });
 
       await batch.commit();
-      console.log(`Downgraded ${usersSnap.size} expired subscriptions`);
+      console.log(`Downgraded ${subsSnap.size} expired subscriptions`);
     } catch (error) {
       console.error("checkExpiredSubscriptions error:", error);
     }

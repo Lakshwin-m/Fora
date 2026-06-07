@@ -4,9 +4,9 @@
     "lint": "echo \"Lint disabled\"",
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "serve": "npm run build && firebase emulators:start --only functions",
-    "shell": "npm run build && firebase functions:shell",
-    "start": "npm run shell",
+    "serve": "bun run build && firebase emulators:start --only functions",
+    "shell": "bun run build && firebase functions:shell",
+    "start": "bun run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
@@ -15,30 +15,28 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@google-cloud/functions-framework": "^5.0.2",
+    "@react-email/components": "^1.0.10",
     "cors": "^2.8.5",
-<<<<<<< Updated upstream
     "firebase-admin": "^13.6.0",
     "firebase-functions": "^7.0.3",
-    "graphql": "^16.12.0"
-=======
-<<<<<<< HEAD
-    "firebase": "^12.7.0",
-    "firebase-admin": "^12.7.0",
-    "firebase-functions": "^6.4.0"
-=======
-    "firebase-admin": "^13.6.0",
-    "firebase-functions": "^7.0.3",
-    "graphql": "^16.12.0"
->>>>>>> 041001fba270684a99a92f357c8309ad60409099
->>>>>>> Stashed changes
+    "graphql": "^16.12.0",
+    "react": "^19.2.4",
+    "resend": "^6.9.4"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^5.12.0",
     "@typescript-eslint/parser": "^5.12.0",
     "eslint": "^8.9.0",
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-import": "^2.25.4",
     "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.19.1",
+    "react-dom": "^19.2.4",
     "typescript": "^5.7.3"
   },
   "private": true

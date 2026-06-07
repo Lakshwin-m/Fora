@@ -17,6 +17,9 @@ interface FlowerDetailModalProps {
   flower: Flower | null;
   isOpen: boolean;
   onClose: () => void;
+  growthLevel?: number;
+  canWater?: boolean;
+  onWater?: () => void;
 }
 
 // Pastel color palette
@@ -87,10 +90,15 @@ const getFlowerBgColor = (flowerType: string) => {
   }
 };
 
+const GROWTH_LABELS = ["Seed", "Sprout", "Growing", "Full Bloom"];
+
 export function FlowerDetailModal({
   flower,
   isOpen,
   onClose,
+  growthLevel = 3,
+  canWater = false,
+  onWater,
 }: FlowerDetailModalProps) {
   if (!flower) return null;
 
@@ -243,6 +251,47 @@ export function FlowerDetailModal({
               <p className="text-lg leading-relaxed mb-3">{flower.message}</p>
               {flower.author && (
                 <p className="text-sm text-gray-600">— {flower.author}</p>
+              )}
+            </div>
+
+            {/* Growth Progress */}
+            <div className="w-full border-t border-gray-300 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-gray-700">Growth Stage</span>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                  growthLevel >= 3
+                    ? "bg-green-100 text-green-700"
+                    : "bg-amber-100 text-amber-700"
+                }`}>
+                  {growthLevel >= 3 ? "✨ " : ""}{GROWTH_LABELS[growthLevel] || "Full Bloom"}
+                </span>
+              </div>
+
+              {/* Progress dots */}
+              <div className="flex gap-2 mb-4">
+                {[0, 1, 2, 3].map((lvl) => (
+                  <div
+                    key={lvl}
+                    className={`flex-1 h-1.5 rounded-full transition-colors ${
+                      lvl <= growthLevel ? "bg-green-400" : "bg-gray-200"
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Water button */}
+              {growthLevel < 3 && (
+                <Button
+                  onClick={onWater}
+                  disabled={!canWater}
+                  className={`w-full font-semibold transition-colors ${
+                    canWater
+                      ? "bg-blue-400 hover:bg-blue-500 text-white"
+                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  }`}
+                >
+                  {canWater ? "💧 Water This Flower" : "⏳ Watered Recently"}
+                </Button>
               )}
             </div>
           </div>

@@ -1,0 +1,124 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isRecipient(recipients) {
+      return isSignedIn() && request.auth.uid in recipients;
+    }
+
+    function hasRequiredKeys(keys) {
+      return request.resource.data.keys().hasAll(keys);
+    }
+
+    /* PAYMENTS — unchanged */
+    match /payments/{paymentId} {
+      allow read: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    /* USERS */
+    match /users/{userId} {
+      // Anyone signed in can read — public keys are needed for sharing
+      allow read: if isSignedIn();
+
+      allow create: if isOwner(userId)
+        && hasRequiredKeys(["username", "email", "uid"]);
+
+      // Owner can update profile fields AND encryption key fields
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          // profile fields (existing)
+          "name",
+          "username",
+          "email",
+          "uid",
+          "photoURL",
+          "bio",
+          "location",
+          "updatedAt",
+          "connections",
+          "stats",
+          "settings",
+          "dateOfBirth",
+          "privacyLevel",
+          "onboardingCompleted",
+          // encryption key fields (v2 — new)
+          "publicKey",
+          "encryptedPrivateKey",
+          "privateKeyIV",
+          "salt",
+          "keysGeneratedAt"
+        ]);
+
+      allow delete: if false;
+    }
+
+    /* FRIENDS — unchanged */
+    match /friends/{friendshipId} {
+      allow read: if request.auth != null
+        && (
+          request.query.requesterId == request.auth.uid ||
+          request.query.receiverId == request.auth.uid
+        );
+      allow create: if request.auth != null
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.requesterId != request.resource.data.receiverId
+        && request.resource.data.status == "pending";
+      allow update: if request.auth != null
+        && (
+          resource.data.receiverId == request.auth.uid ||
+          resource.data.requesterId == request.auth.uid
+        )
+        && request.resource.data.status in ["accepted", "rejected"];
+      allow delete: if request.auth != null
+        && (
+          resource.data.requesterId == request.auth.uid ||
+          resource.data.receiverId == request.auth.uid
+        );
+    }
+
+    /* CAPSULES */
+    match /capsules/{capsuleId} {
+
+      // Read: owner, recipients, or public capsules
+      allow read: if isSignedIn() && (
+        resource.data.visibility == "public"
+        || resource.data.userId == request.auth.uid
+        || isRecipient(resource.data.recipients)
+        || request.auth.uid in resource.data.likedBy
+      );
+
+      // Create: must be signed in, userId must match, must include v2 fields
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'encryptedTitle', 'titleIV',
+          'encryptedContent', 'contentIV',
+          'encryptedKeys', 'version'
+        ]);
+
+      // Update: owner can update anything
+      //         recipients can only update likedBy / isUnlocked (likes, opening)
+      allow update: if isSignedIn() && (
+        resource.data.userId == request.auth.uid
+        || (
+          isRecipient(resource.data.recipients)
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['likedBy', 'isUnlocked'])
+        )
+      );
+
+      allow delete: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
+    }
+  }
+}

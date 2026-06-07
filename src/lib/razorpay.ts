@@ -46,7 +46,7 @@ export async function startPayment({
 
     // 2️⃣ Prepare Razorpay checkout options
     const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID, // PUBLIC KEY ONLY
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID?.trim(), // PUBLIC KEY ONLY
       amount: orderData.amount,
       currency: orderData.currency || "INR",
       name: "Forá",
@@ -122,8 +122,9 @@ export async function startPayment({
 
       // Prefill user information (optional but recommended)
       prefill: {
-        email: user.email || "",
-        contact: user.phoneNumber || "",
+        name: user.displayName || "Forá User",
+        email: user.email || "test@example.com",
+        contact: user.phoneNumber || "9999999999",
       },
 
       // Theme customization
@@ -147,10 +148,13 @@ export async function startPayment({
     razorpay.on("payment.failed", function (response: any) {
       console.error("Payment failed:", response.error);
 
+      const isTestMode = options.key.startsWith("rzp_test_");
+      const testModeTip = isTestMode ? "\n\n💡 Note: Since Razorpay is in Test Mode, real cards will fail. Please use Razorpay test cards." : "";
+
       alert(
         `❌ Payment Failed\n\n` +
           `Reason: ${response.error.description}\n` +
-          `Code: ${response.error.code}\n\n` +
+          `Code: ${response.error.code}${testModeTip}\n\n` +
           `Please try again or contact support if the issue persists.`
       );
     });

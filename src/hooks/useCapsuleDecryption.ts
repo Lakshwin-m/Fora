@@ -1,111 +1,85 @@
 // src/hooks/useCapsuleDecryption.ts
-import { useState, useEffect } from "react";
-import { getOrCreateKey, decryptText } from "@/utils/cryptoUtils";
+// Returns async helpers for decrypting v2 capsule text.
+// Designed to be called on-demand (not as an effect) so the caller
+// controls when decryption fires (e.g. only after unlock gate).
 
-interface EncryptedCapsule {
-  title?: string;
-  titleIv?: string | null;
-  content?: string;
-  contentIv?: string | null;
-  [key: string]: any;
-}
+import { useAuth } from "@/contexts/AuthContext";
+import { unwrapContentKey, decryptText } from "@/utils/cryptoUtils";
 
-interface DecryptedContent {
+// ─────────────────────────────────────────────────────────
+// TYPES
+// ─────────────────────────────────────────────────────────
+
+export interface DecryptedCapsuleContent {
   title: string;
   content: string;
-  isDecrypting: boolean;
-  error: string | null;
 }
 
-/**
- * Checks whether a string looks like a valid base64-encoded IV.
- * Old capsules stored plain text titles with titleIv: null or undefined.
- * New capsules store ciphertext with a real base64 IV string.
- */
-function isEncrypted(value?: string | null, iv?: string | null): boolean {
-  if (!iv || iv === "null" || iv === "undefined") return false;
-  if (!value || value.length === 0) return false;
-  // A valid AES-GCM 12-byte IV base64-encoded is always 16 chars
-  // Ciphertext is always longer than the original text when base64-encoded
-  // Simple heuristic: if IV looks like valid base64 and is ~16 chars, it's encrypted
-  try {
-    const decoded = atob(iv);
-    return decoded.length === 12; // AES-GCM IV is always 12 bytes
-  } catch {
-    return false;
-  }
-}
+// ─────────────────────────────────────────────────────────
+// HOOK
+// ─────────────────────────────────────────────────────────
 
-export function useCapsuleDecryption(capsule: EncryptedCapsule | null): DecryptedContent {
-  const [title, setTitle] = useState<string>("");
-  const [content, setContent] = useState<string>("");
-  const [isDecrypting, setIsDecrypting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useCapsuleDecryption() {
+  const { user, privateKey } = useAuth();
 
-  useEffect(() => {
-    if (!capsule) {
-      setTitle("");
-      setContent("");
-      setIsDecrypting(false);
-      return;
+  /**
+   * Decrypts a v2 capsule's title and content.
+   *
+   * - If the capsule is v1 (no `version` field): returns plain text fields directly.
+   * - If `privateKey` is not loaded yet: returns locked fallback text.
+   * - If the user has no key entry in `encryptedKeys`: returns locked fallback.
+   * - If decryption throws (wrong key, corrupt data): returns locked fallback.
+   */
+  async function decryptCapsule(capsule: any): Promise<DecryptedCapsuleContent> {
+    // ── v1 fallback: old plain-text capsules ──
+    if (!capsule.version || capsule.version !== "v2") {
+      return {
+        title:   capsule.title   || "Untitled Capsule",
+        content: capsule.content || "",
+      };
     }
 
-    const decrypt = async () => {
-      const titleEncrypted = isEncrypted(capsule.title, capsule.titleIv);
-      const contentEncrypted = isEncrypted(capsule.content, capsule.contentIv);
+    // ── v2 path ──
+    if (!privateKey || !user) {
+      return {
+        title:   "Encrypted Capsule 🔐",
+        content: "Your encryption key is not loaded yet. Try refreshing.",
+      };
+    }
 
-      // ── OLD CAPSULE: no encryption IVs → use plain text directly ──
-      if (!titleEncrypted && !contentEncrypted) {
-        console.log("📝 Old capsule (no encryption) — using plain text");
-        setTitle(capsule.title || "Untitled Capsule");
-        setContent(capsule.content || "");
-        setIsDecrypting(false);
-        return;
+    try {
+      // 1. Find this user's wrapped content key entry
+      const myWrappedKey = capsule.encryptedKeys?.[user.uid];
+      if (!myWrappedKey) {
+        return {
+          title:   "Encrypted Capsule 🔐",
+          content: "You don't have access to this capsule's encryption key.",
+        };
       }
 
-      // ── NEW CAPSULE: has real IVs → decrypt ──
-      setIsDecrypting(true);
-      try {
-        const key = await getOrCreateKey();
+      // 2. RSA-unwrap content key using this user's private key
+      const contentKey = await unwrapContentKey(myWrappedKey, privateKey);
 
-        // Decrypt title
-        if (titleEncrypted) {
-          try {
-            const decrypted = await decryptText(key, capsule.title!, capsule.titleIv!);
-            setTitle(decrypted);
-          } catch (err) {
-            console.warn("⚠️ Title decryption failed, falling back to raw:", err);
-            setTitle(capsule.title || "Untitled Capsule");
-          }
-        } else {
-          setTitle(capsule.title || "Untitled Capsule");
-        }
+      // 3. Decrypt title and content
+      const title   = await decryptText(
+        capsule.encryptedTitle,
+        capsule.titleIV,
+        contentKey
+      );
+      const content = await decryptText(
+        capsule.encryptedContent,
+        capsule.contentIV,
+        contentKey
+      );
 
-        // Decrypt content
-        if (contentEncrypted) {
-          try {
-            const decrypted = await decryptText(key, capsule.content!, capsule.contentIv!);
-            setContent(decrypted);
-          } catch (err) {
-            console.warn("⚠️ Content decryption failed, falling back to raw:", err);
-            setContent(capsule.content || "");
-          }
-        } else {
-          setContent(capsule.content || "");
-        }
-      } catch (err) {
-        console.error("❌ Decryption error:", err);
-        setError("Failed to decrypt capsule content");
-        // Fallback to raw values so UI doesn't break
-        setTitle(capsule.title || "Untitled Capsule");
-        setContent(capsule.content || "");
-      } finally {
-        setIsDecrypting(false);
-      }
-    };
+      return { title, content };
+    } catch {
+      return {
+        title:   "Encrypted Capsule 🔐",
+        content: "This capsule could not be decrypted. The key may be invalid.",
+      };
+    }
+  }
 
-    decrypt();
-  }, [capsule?.id, capsule?.title, capsule?.titleIv, capsule?.content, capsule?.contentIv]);
-
-  return { title, content, isDecrypting, error };
+  return { decryptCapsule };
 }
