@@ -48,7 +48,23 @@ const CapsuleCard = ({
   onDelete
 }: CapsuleCardProps) => {
   // 🔐 Decrypt the capsule content
-  const { title, content, isDecrypting } = useCapsuleDecryption(capsule);
+  const { decryptCapsule } = useCapsuleDecryption();
+  const [title, setTitle] = React.useState("");
+  const [content, setContent] = React.useState("");
+  const [isDecrypting, setIsDecrypting] = React.useState(true);
+
+  React.useEffect(() => {
+    let mounted = true;
+    setIsDecrypting(true);
+    decryptCapsule(capsule).then((res) => {
+      if (mounted) {
+        setTitle(res.title);
+        setContent(res.content);
+        setIsDecrypting(false);
+      }
+    });
+    return () => { mounted = false; };
+  }, [capsule, decryptCapsule]);
 
   const getStatusColor = () => {
     if (capsule.isUnlocked) {

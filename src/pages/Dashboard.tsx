@@ -202,7 +202,23 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
 
   // 🔐 DECRYPT CAPSULE CONTENT
-  const { title, content, isDecrypting } = useCapsuleDecryption(capsule);
+  const { decryptCapsule } = useCapsuleDecryption();
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [isDecrypting, setIsDecrypting] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    setIsDecrypting(true);
+    decryptCapsule(capsule).then((res) => {
+      if (mounted) {
+        setTitle(res.title);
+        setContent(res.content);
+        setIsDecrypting(false);
+      }
+    });
+    return () => { mounted = false; };
+  }, [capsule, decryptCapsule]);
 
   const unlockDate =
     parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ?? new Date(0);

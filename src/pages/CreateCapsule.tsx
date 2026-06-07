@@ -12,7 +12,13 @@ import { format } from "date-fns";
 import { CapsuleMultistepForm } from "@/components/capsule-multistep-form";
 import SealCapsuleModal from "@/components/SealCapsuleModal";
 import { Toaster } from "sonner";
-import { getOrCreateKey, encryptText } from "@/utils/cryptoUtils";
+import {
+  generateContentKey,
+  encryptText,
+  wrapContentKeyForRecipients,
+} from "@/utils/cryptoUtils";
+import { getRecipientPublicKeys } from "@/encryption/keyManager";
+import { useAuth } from "@/contexts/AuthContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -36,6 +42,7 @@ const CreateCapsule = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { refreshCapsules } = useCapsules();
+  const { privateKey } = useAuth();
   const auth = getAuth();
   const storage = getStorage();
 
@@ -92,6 +99,7 @@ const CreateCapsule = () => {
             name: f.profile?.name || f.profile?.email?.split("@")[0] || "Unknown",
             email: f.profile?.email || "",
             photoURL: f.profile?.photoURL,
+            hasPublicKey: !!f.profile?.publicKey,
           }))
         );
       } catch (err) {
@@ -199,10 +207,26 @@ const CreateCapsule = () => {
       try {
         const capsuleId = crypto.randomUUID();
         const headers = await getAuthHeaders();
-        const key = await getOrCreateKey();
-        const encryptedTitle = await encryptText(key, capturedTitle);
-        const encryptedContent = await encryptText(key, capturedContent);
+        // ── 1. All recipients including creator ──
+        const allRecipientIds = [
+          capturedUserId,
+          ...(capturedRecipientType === "friends" ? capturedSelectedFriends : []),
+        ];
 
+        // ── 2. Fetch each recipient's public key from Firestore ──
+        const publicKeys = await getRecipientPublicKeys(allRecipientIds);
+
+        // ── 3. Generate one fresh AES-256-GCM content key for this capsule ──
+        const contentKey = await generateContentKey();
+
+        // ── 4. Encrypt title and content ──
+        const encryptedTitle   = await encryptText(capturedTitle,   contentKey);
+        const encryptedContent = await encryptText(capturedContent, contentKey);
+
+        // ── 5. RSA-wrap content key for every recipient ──
+        const encryptedKeys = await wrapContentKeyForRecipients(contentKey, publicKeys);
+
+        // ── 6. Upload attachments (plain — file encryption is a follow-up) ──
         const uploadedAttachments =
           capturedAttachments.length > 0 ? await uploadAllAttachments(capsuleId) : [];
 
@@ -231,25 +255,26 @@ const CreateCapsule = () => {
           headers,
           body: JSON.stringify({
             id: capsuleId,
-            title: encryptedTitle.ciphertext,
-            titleIv: encryptedTitle.iv,
-            content: encryptedContent.ciphertext,
-            contentIv: encryptedContent.iv,
-            attachments: uploadedAttachments,
-            category: capturedCategory,
-            triggerType: capturedTriggerType,
-            recipientType: capturedRecipientType,
-            recipients:
-              capturedRecipientType === "self" ? [capturedUserId]
-              : capturedRecipientType === "friends" ? capturedSelectedFriends
-              : [],
+            // v2 encrypted fields
+            encryptedTitle:   encryptedTitle.ciphertext,
+            titleIV:          encryptedTitle.iv,
+            encryptedContent: encryptedContent.ciphertext,
+            contentIV:        encryptedContent.iv,
+            encryptedKeys,
+            version:          "v2",
+            // unencrypted metadata
+            attachments:      uploadedAttachments,
+            category:         capturedCategory,
+            triggerType:      capturedTriggerType,
+            recipientType:    capturedRecipientType,
+            recipients:       allRecipientIds,
             unlockDate,
-            createdAt: null,
-            isUnlocked: capturedRecipientType === "public",
-            status: "scheduled",
-            signature: signatureUrl,
-            userId: capturedUserId,
-            isReshare: capturedReshare,
+            createdAt:        null,
+            isUnlocked:       capturedRecipientType === "public",
+            status:           "scheduled",
+            signature:        signatureUrl,
+            userId:           capturedUserId,
+            isReshare:        capturedReshare,
             originalCapsuleId: capturedOriginalId,
           }),
         });

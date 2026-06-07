@@ -3,6 +3,9 @@ import { setGlobalOptions } from "firebase-functions/v2";
 import { onRequest, HttpsError, onCall } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { defineSecret } from "firebase-functions/params";
+
+const FORA_PEPPER = defineSecret("FORA_PEPPER");
 import cors from "cors";
 import { Resend } from "resend";
 import { ReceiptEmail } from "./emails/ReceiptTemplate";
@@ -157,58 +160,6 @@ export const scheduleCapsuleUnlock = onDocumentCreated(
 );
 
 /**
- * 📧 SEND RECEIPT ON CAPSULE CREATION
- */
-export const onCapsuleCreatedSendEmail = onDocumentCreated(
-  "capsules/{capsuleId}",
-  async (event) => {
-    const data = event.data?.data();
-    if (!data) return;
-
-    try {
-      // Get user email
-      const userSnap = await db.collection("users").doc(data.userId).get();
-      const userData = userSnap.data();
-      const userEmail = userData?.email || (await admin.auth().getUser(data.userId)).email;
-
-      if (!userEmail) {
-        console.warn(`No email found for user ${data.userId}`);
-        return;
-      }
-
-      const unlockDateStr = data.unlockDate 
-        ? (typeof data.unlockDate.toDate === "function" 
-            ? data.unlockDate.toDate().toLocaleDateString() 
-            : new Date(data.unlockDate).toLocaleDateString())
-        : "N/A";
-
-      const html = await render(
-        ReceiptEmail({
-          userName: userData?.username || userData?.name || "Member",
-          capsuleTitle: data.title || "Untitled Capsule",
-          unlockDate: unlockDateStr,
-        })
-      );
-
-      const { data: resendData, error } = await resend.emails.send({
-        from: "Forá <notifications@resend.dev>", // TODO: Replace with verified domain
-        to: [userEmail],
-        subject: "Your Time Capsule is Sealed 🏺",
-        html,
-      });
-
-      if (error) {
-        console.error("Resend error:", error);
-      } else {
-        console.log("Email sent successfully:", resendData?.id);
-      }
-    } catch (err) {
-      console.error("Failed to send receipt email:", err);
-    }
-  }
-);
-
-/**
  * 📣 SEND MARKETING BLAST (Admin Only)
  */
 export const sendMarketingBlast = onRequest((req, res) => {
@@ -276,7 +227,7 @@ export const createCapsule = onRequest((req, res) => {
         const plan = subSnap.exists ? subSnap.data() : { tier: "free", usedCapsules: 0 };
         if (!plan) throw new Error("No plan assigned");
 
-        const capsuleLimit = plan.capsuleLimit ?? 5; // Default to free limit of 5
+        const capsuleLimit = plan.capsuleLimit === undefined ? 5 : plan.capsuleLimit; // Default to free limit of 5, null means unlimited
         let usedCapsules = plan.usedCapsules ?? 0;
 
         // 🔁 Monthly reset (starter)
@@ -306,25 +257,29 @@ export const createCapsule = onRequest((req, res) => {
           throw new Error("CAPSULE_LIMIT_REACHED");
         }
 
-        // ✅ CREATE CAPSULE
+        // ✅ CREATE CAPSULE (v2 — encrypted fields)
         const ref = db.collection("capsules").doc();
         tx.set(ref, {
           id: ref.id,
-          title: req.body.title,
-          titleIv: req.body.titleIv || null,
-          content: req.body.content,
-          contentIv: req.body.contentIv || null,
-          triggerType: req.body.triggerType,
-          unlockDate: req.body.unlockDate,
-          recipientType: req.body.recipientType,
-          recipients: req.body.recipients,
-          attachments: req.body.attachments || [],
-          category: req.body.category || "",
-          signature: req.body.signature || null,
-          userId: user.uid,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          status: "scheduled",
-          isUnlocked: false,
+          // v2 encrypted fields
+          encryptedTitle:   req.body.encryptedTitle,
+          titleIV:          req.body.titleIV,
+          encryptedContent: req.body.encryptedContent,
+          contentIV:        req.body.contentIV,
+          encryptedKeys:    req.body.encryptedKeys || {},
+          version:          "v2",
+          // unencrypted metadata
+          triggerType:      req.body.triggerType,
+          unlockDate:       req.body.unlockDate,
+          recipientType:    req.body.recipientType,
+          recipients:       req.body.recipients,
+          attachments:      req.body.attachments || [],
+          category:         req.body.category || "",
+          signature:        req.body.signature || null,
+          userId:           user.uid,
+          createdAt:        admin.firestore.FieldValue.serverTimestamp(),
+          status:           "scheduled",
+          isUnlocked:       false,
         });
 
         // 🔢 Increment usage (single source of truth)
@@ -955,3 +910,32 @@ export const plantFlower = onRequest((req, res) => {
     }
   });
 });
+
+/* ============================================================
+   ENCRYPTION — KEY MATERIAL
+   ============================================================ */
+
+/**
+ * Returns uid + server pepper to the authenticated client.
+ * Used by the browser to derive the master key via PBKDF2.
+ * NEVER log the pepper or the returned keyMaterial.
+ */
+export const getKeyMaterial = onCall(
+  {
+    secrets: [FORA_PEPPER],
+    enforceAppCheck: false, // set true once App Check is configured
+  },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Must be signed in");
+    }
+
+    const uid = request.auth.uid;
+    // DO NOT log uid + pepper together — log uid only
+    console.log(`[getKeyMaterial] uid=${uid}`);
+
+    return {
+      keyMaterial: uid + FORA_PEPPER.value(),
+    };
+  }
+);

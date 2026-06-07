@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
 import ProtectedRoute from "./pages/ProtectedRoutes";
 import { CapsuleProvider } from "./contexts/CapsuleContext";
+import { AuthProvider } from "./contexts/AuthContext";
 import CreateCapsule from "./pages/CreateCapsule";
 import Connections from "./pages/Connections";
 import Settings from "./pages/Settings";
@@ -34,7 +35,8 @@ function App() {
   }, []);
 
   return (
-    <CapsuleProvider>
+    <AuthProvider>
+      <CapsuleProvider>
       <GlobalAlertManager />
       <Router>
         <Routes>
@@ -133,6 +135,7 @@ function App() {
         </Routes>
       </Router>
     </CapsuleProvider>
+    </AuthProvider>
   );
 }
 

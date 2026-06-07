@@ -29,3 +29,7 @@ s
 .env
 
 functions/.env
+
+# Firebase service account keys
+serviceAccountKey.json
+scripts/serviceAccountKey.json

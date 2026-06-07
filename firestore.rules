@@ -14,35 +14,29 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid in recipients;
     }
 
-    function hasOnlyKeys(keys) {
-      return request.resource.data.keys().hasOnly(keys);
-    }
-
     function hasRequiredKeys(keys) {
       return request.resource.data.keys().hasAll(keys);
     }
-        /* PAYMENTS */
-    match /payments/{paymentId} {
 
-      // 🔍 User can read ONLY their own payments
+    /* PAYMENTS — unchanged */
+    match /payments/{paymentId} {
       allow read: if isSignedIn()
         && resource.data.userId == request.auth.uid;
-
-      // 🚫 No client-side writes EVER
       allow create, update, delete: if false;
     }
 
-
-      /* USERS */
+    /* USERS */
     match /users/{userId} {
+      // Anyone signed in can read — public keys are needed for sharing
       allow read: if isSignedIn();
 
       allow create: if isOwner(userId)
         && hasRequiredKeys(["username", "email", "uid"]);
 
-      // We allow updating specific fields while preserving existing ones
+      // Owner can update profile fields AND encryption key fields
       allow update: if isOwner(userId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          // profile fields (existing)
           "name",
           "username",
           "email",
@@ -56,48 +50,46 @@ service cloud.firestore {
           "settings",
           "dateOfBirth",
           "privacyLevel",
-          "onboardingCompleted"
+          "onboardingCompleted",
+          // encryption key fields (v2 — new)
+          "publicKey",
+          "encryptedPrivateKey",
+          "privateKeyIV",
+          "salt",
+          "keysGeneratedAt"
         ]);
 
       allow delete: if false;
     }
 
-
-    /* FRIENDS */
-   match /friends/{friendshipId} {
-
-  // QUERY-SAFE READ
-  allow read: if request.auth != null
-    && (
-      request.query.requesterId == request.auth.uid ||
-      request.query.receiverId == request.auth.uid
-    );
-
-  // CREATE friend request
-  allow create: if request.auth != null
-    && request.resource.data.requesterId == request.auth.uid
-    && request.resource.data.requesterId != request.resource.data.receiverId
-    && request.resource.data.status == "pending";
-
-  // ACCEPT / REJECT
-  allow update: if request.auth != null
-    && (
-      resource.data.receiverId == request.auth.uid ||
-      resource.data.requesterId == request.auth.uid
-    )
-    && request.resource.data.status in ["accepted", "rejected"];
-
-  // UNFRIEND / CANCEL
-  allow delete: if request.auth != null
-    && (
-      resource.data.requesterId == request.auth.uid ||
-      resource.data.receiverId == request.auth.uid
-    );
-}
+    /* FRIENDS — unchanged */
+    match /friends/{friendshipId} {
+      allow read: if request.auth != null
+        && (
+          request.query.requesterId == request.auth.uid ||
+          request.query.receiverId == request.auth.uid
+        );
+      allow create: if request.auth != null
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.requesterId != request.resource.data.receiverId
+        && request.resource.data.status == "pending";
+      allow update: if request.auth != null
+        && (
+          resource.data.receiverId == request.auth.uid ||
+          resource.data.requesterId == request.auth.uid
+        )
+        && request.resource.data.status in ["accepted", "rejected"];
+      allow delete: if request.auth != null
+        && (
+          resource.data.requesterId == request.auth.uid ||
+          resource.data.receiverId == request.auth.uid
+        );
+    }
 
     /* CAPSULES */
     match /capsules/{capsuleId} {
 
+      // Read: owner, recipients, or public capsules
       allow read: if isSignedIn() && (
         resource.data.visibility == "public"
         || resource.data.userId == request.auth.uid
@@ -105,14 +97,25 @@ service cloud.firestore {
         || request.auth.uid in resource.data.likedBy
       );
 
+      // Create: must be signed in, userId must match, must include v2 fields
       allow create: if isSignedIn()
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'encryptedTitle', 'titleIV',
+          'encryptedContent', 'contentIV',
+          'encryptedKeys', 'version'
+        ]);
 
-      allow update: if isSignedIn()
-        && (
-          resource.data.userId == request.auth.uid ||
+      // Update: owner can update anything
+      //         recipients can only update likedBy / isUnlocked (likes, opening)
+      allow update: if isSignedIn() && (
+        resource.data.userId == request.auth.uid
+        || (
           isRecipient(resource.data.recipients)
-        );
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['likedBy', 'isUnlocked'])
+        )
+      );
 
       allow delete: if isSignedIn()
         && resource.data.userId == request.auth.uid;

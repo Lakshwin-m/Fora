@@ -57,7 +57,38 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   const capsule = [...capsules, ...receivedCapsules].find((c) => c.id === id);
 
   // 🔐 DECRYPT CAPSULE CONTENT
-  const { title: decryptedTitle, content: rawContent, isDecrypting } = useCapsuleDecryption(capsule);
+  const { decryptCapsule } = useCapsuleDecryption();
+  const [decryptedTitle,   setDecryptedTitle]   = useState<string>("");
+  const [decryptedContent, setDecryptedContent] = useState<string>("");
+  const [isDecrypting,     setIsDecrypting]     = useState(false);
+
+  // Run decryption whenever the capsule changes
+  useEffect(() => {
+    if (!capsule) {
+      setDecryptedTitle("");
+      setDecryptedContent("");
+      return;
+    }
+
+    let cancelled = false;
+    setIsDecrypting(true);
+
+    decryptCapsule(capsule).then(({ title, content }) => {
+      if (!cancelled) {
+        setDecryptedTitle(title);
+        setDecryptedContent(content);
+        setIsDecrypting(false);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [
+    capsule?.id,
+    capsule?.version,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    (capsule as any)?.encryptedTitle,
+    (capsule as any)?.encryptedContent,
+  ]);
 
   const decodeHTML = (html: string) => {
     const txt = document.createElement("textarea");
@@ -65,8 +96,8 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
     return txt.value;
   };
 
-  const content = rawContent ? decodeHTML(rawContent) : "";
-  const title = decryptedTitle ? decodeHTML(decryptedTitle) : "";
+  const content = decryptedContent ? decodeHTML(decryptedContent) : "";
+  const title   = decryptedTitle   ? decodeHTML(decryptedTitle)   : "";
 
   const auth = getAuth();
 

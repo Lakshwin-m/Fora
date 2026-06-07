@@ -52,11 +52,27 @@ const CapsuleDetailPage = () => {
   const [interactionStep, setInteractionStep] = useState(0);
 
   // 🔐 USE DECRYPTION HOOK
-  const { 
-    title: decryptedTitle, 
-    content: rawDecryptedContent, 
-    isDecrypting 
-  } = useCapsuleDecryption(capsule);
+  const { decryptCapsule } = useCapsuleDecryption();
+  const [decryptedTitle, setDecryptedTitle] = useState("");
+  const [rawDecryptedContent, setRawDecryptedContent] = useState("");
+  const [isDecrypting, setIsDecrypting] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    if (capsule) {
+      setIsDecrypting(true);
+      decryptCapsule(capsule).then((res) => {
+        if (mounted) {
+          setDecryptedTitle(res.title);
+          setRawDecryptedContent(res.content);
+          setIsDecrypting(false);
+        }
+      });
+    } else {
+      setIsDecrypting(true);
+    }
+    return () => { mounted = false; };
+  }, [capsule, decryptCapsule]);
 
   const decodeHTML = (html: string) => {
     const txt = document.createElement("textarea");
@@ -67,11 +83,26 @@ const CapsuleDetailPage = () => {
   const decryptedContent = rawDecryptedContent ? decodeHTML(rawDecryptedContent) : "";
 
   // 🔐 DECRYPT ORIGINAL CAPSULE (for reshares)
-  const {
-    title: originalDecryptedTitle,
-    content: rawOriginalContent,
-    isDecrypting: isDecryptingOriginal,
-  } = useCapsuleDecryption(capsule?.originalCapsule || null);
+  const [originalDecryptedTitle, setOriginalDecryptedTitle] = useState("");
+  const [rawOriginalContent, setRawOriginalContent] = useState("");
+  const [isDecryptingOriginal, setIsDecryptingOriginal] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    if (capsule?.originalCapsule) {
+      setIsDecryptingOriginal(true);
+      decryptCapsule(capsule.originalCapsule).then((res) => {
+        if (mounted) {
+          setOriginalDecryptedTitle(res.title);
+          setRawOriginalContent(res.content);
+          setIsDecryptingOriginal(false);
+        }
+      });
+    } else {
+      setIsDecryptingOriginal(false);
+    }
+    return () => { mounted = false; };
+  }, [capsule?.originalCapsule, decryptCapsule]);
 
   const originalDecryptedContent = rawOriginalContent ? decodeHTML(rawOriginalContent) : "";
 

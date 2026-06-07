@@ -217,10 +217,10 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
 
       // Filter out broken/phantom capsules that have no title at all
       const validMine = Array.isArray(mineRaw)
-        ? mineRaw.filter((c: any) => c.title || c.content)
+        ? mineRaw.filter((c: any) => c.title || c.content || c.encryptedTitle || c.encryptedContent)
         : [];
       const validReceived = Array.isArray(receivedRaw)
-        ? receivedRaw.filter((c: any) => c.title || c.content)
+        ? receivedRaw.filter((c: any) => c.title || c.content || c.encryptedTitle || c.encryptedContent)
         : [];
 
       const mine = validMine.map(normalizeCapsule);

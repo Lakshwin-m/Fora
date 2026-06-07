@@ -73,6 +73,7 @@ interface Friend {
   name: string;
   email: string;
   photoURL?: string;
+  hasPublicKey?: boolean;
 }
 
 interface Attachment {
@@ -214,10 +215,11 @@ export const CapsuleMultistepForm = ({
   };
 
   const selectAllFriends = () => {
-    if (selectedFriends.length === friends.length) {
+    const validFriends = friends.filter((f) => f.hasPublicKey !== false).map((f) => f.id);
+    if (selectedFriends.length === validFriends.length && validFriends.length > 0) {
       onSelectedFriendsChange([]);
     } else {
-      onSelectedFriendsChange(friends.map((f) => f.id));
+      onSelectedFriendsChange(validFriends);
     }
   };
 
@@ -519,20 +521,24 @@ export const CapsuleMultistepForm = ({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                   {friends.map((friend) => {
                                     const isSelected = selectedFriends.includes(friend.id);
+                                    const hasKey = friend.hasPublicKey !== false;
                                     return (
                                       <div
                                         key={friend.id}
                                         className={cn(
-                                          "flex items-center p-4 rounded-2xl cursor-pointer transition-all duration-200 border",
-                                          isSelected 
-                                            ? "border-[#FB6376] bg-[#FFF9EC]" 
-                                            : "border-[#E8E8E8] bg-white hover:border-[#FB6376] hover:bg-[#FFF9EC]"
+                                          "flex items-center p-4 rounded-2xl transition-all duration-200 border",
+                                          !hasKey 
+                                            ? "opacity-60 cursor-not-allowed bg-gray-50 border-[#E8E8E8]" 
+                                            : isSelected 
+                                              ? "border-[#FB6376] bg-[#FFF9EC] cursor-pointer" 
+                                              : "border-[#E8E8E8] bg-white hover:border-[#FB6376] hover:bg-[#FFF9EC] cursor-pointer"
                                         )}
-                                        onClick={() => toggleFriendSelection(friend.id)}
+                                        onClick={() => hasKey && toggleFriendSelection(friend.id)}
                                       >
                                         <Checkbox
                                           checked={isSelected}
-                                          onCheckedChange={() => toggleFriendSelection(friend.id)}
+                                          disabled={!hasKey}
+                                          onCheckedChange={() => hasKey && toggleFriendSelection(friend.id)}
                                           className="mr-4 w-5 h-5 data-[state=checked]:bg-[#FB6376] data-[state=checked]:border-[#FB6376]"
                                         />
                                         <Avatar className="w-12 h-12 border border-[#E8E8E8]">
@@ -543,7 +549,9 @@ export const CapsuleMultistepForm = ({
                                         </Avatar>
                                         <div className="ml-4 flex-1 min-w-0">
                                           <p className="text-base font-bold text-[#1A1A1A] truncate">{friend.name}</p>
-                                          <p className="text-sm font-medium text-[#999] truncate">{friend.email}</p>
+                                          <p className={cn("text-sm font-medium truncate", !hasKey ? "text-[#FB6376]" : "text-[#999]")}>
+                                            {!hasKey ? "Needs to log in to V2 encryption" : friend.email}
+                                          </p>
                                         </div>
                                       </div>
                                     );

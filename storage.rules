@@ -2,30 +2,36 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    
-    // Avatar uploads
-    // Secure: Only the logged-in user can write to their own namespace.
-    // Must be an image document under 10MB (aligns with Profile.tsx limit).
+
+    // Avatar uploads — unchanged
     match /avatars/{userId}/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null 
+      allow write: if request.auth != null
                    && request.auth.uid == userId
                    && request.resource.size <= 10 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
-    
-    // Capsules
-    // Secure: Read/Write restricted to authenticated users.
-    // Because capsule docs are generated AFTER attachments upload, 
-    // we use UUID entropy for access alongside strict 50MB file size limits.
+
+    // Capsule files — owner writes, owner + recipients read
     match /capsules/{capsuleId}/{allPaths=**} {
-      allow read: if request.auth != null;
+
+      allow read: if request.auth != null
+        && (
+          // Owner always has access
+          firestore.get(/databases/(default)/documents/capsules/$(capsuleId)).data.userId
+            == request.auth.uid
+          // Recipients have access
+          || request.auth.uid in
+             firestore.get(/databases/(default)/documents/capsules/$(capsuleId)).data.recipients
+        );
+
       allow write: if request.auth != null
-                   && request.resource.size <= 50 * 1024 * 1024;
+        && request.resource.size <= 50 * 1024 * 1024;
+
       allow delete: if request.auth != null;
     }
-    
-    // 🚫 Strict Fallback: Block any other unintentional access
+
+    // Strict fallback — block everything else
     match /{allPaths=**} {
       allow read, write: if false;
     }
