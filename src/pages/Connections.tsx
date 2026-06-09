@@ -33,6 +33,7 @@ import {
 import { auth } from "@/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 /* ================= TYPES ================= */
 
@@ -157,6 +158,7 @@ if (typeof document !== "undefined" && !document.getElementById(styleId)) {
 
 const Connections = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
   /* ---- Auth ---- */
@@ -220,8 +222,8 @@ const Connections = () => {
     } catch (err) {
       console.error(err);
       toast({
-        title: "Error",
-        description: "Failed to load connections",
+        title: t('common.error'),
+        description: t('connections.toastLoadError'),
         variant: "destructive",
       });
     } finally {
@@ -289,8 +291,8 @@ const Connections = () => {
       setSearchResults(filtered);
     } catch {
       toast({
-        title: "Search failed",
-        description: "Could not search for users",
+        title: t('connections.toastSearchError'),
+        description: t('connections.toastSearchError'),
         variant: "destructive",
       });
     } finally {
@@ -306,10 +308,10 @@ const Connections = () => {
       setSentRequests((prev) => new Set(prev).add(uid));
       // Remove from suggestions
       setSuggestions((prev) => prev.filter((s) => s.uid !== uid));
-      toast({ title: "Follow request sent!" });
+      toast({ title: t('connections.toastRequestSent') });
     } catch {
       toast({
-        title: "Failed to send request",
+        title: t('connections.toastRequestFailed'),
         variant: "destructive",
       });
     } finally {
@@ -321,11 +323,11 @@ const Connections = () => {
     setActionLoading(id);
     try {
       await apiRemoveFriend(id);
-      toast({ title: "Unfollowed" });
+      toast({ title: t('connections.toastUnfollowed') });
       await loadAll();
     } catch {
       toast({
-        title: "Failed to unfollow",
+        title: t('connections.toastUnfollowFailed'),
         variant: "destructive",
       });
     } finally {
@@ -337,11 +339,11 @@ const Connections = () => {
     setActionLoading(id);
     try {
       await apiAcceptFriendRequest(id);
-      toast({ title: "Follow request accepted!" });
+      toast({ title: t('connections.toastAcceptSuccess') });
       await loadAll();
     } catch {
       toast({
-        title: "Failed to accept request",
+        title: t('connections.toastAcceptFailed'),
         variant: "destructive",
       });
     } finally {
@@ -353,11 +355,11 @@ const Connections = () => {
     setActionLoading(id);
     try {
       await apiRejectFriendRequest(id);
-      toast({ title: "Request declined" });
+      toast({ title: t('connections.toastDeclineSuccess') });
       await loadAll();
     } catch {
       toast({
-        title: "Failed to decline request",
+        title: t('connections.toastDeclineFailed'),
         variant: "destructive",
       });
     } finally {
@@ -428,10 +430,10 @@ const Connections = () => {
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
               <div>
                 <h1 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] tracking-tight mb-1">
-                  Connections
+                  {t('connections.title')}
                 </h1>
                 <p className="text-[#888] text-sm">
-                  Your network on Forá
+                  {t('connections.subtitle')}
                 </p>
               </div>
 
@@ -447,7 +449,7 @@ const Connections = () => {
                 >
                   <Users className="w-4 h-4" />
                   <span className="tabular-nums">{friends.length}</span>
-                  <span className="opacity-80">Following</span>
+                  <span className="opacity-80">{t('connections.following')}</span>
                 </button>
 
                 <button
@@ -460,7 +462,7 @@ const Connections = () => {
                 >
                   <Heart className="w-4 h-4" />
                   <span className="tabular-nums">{friends.length}</span>
-                  <span className="opacity-80">Followers</span>
+                  <span className="opacity-80">{t('connections.followers')}</span>
                 </button>
 
                 {pending.length > 0 && (
@@ -473,7 +475,7 @@ const Connections = () => {
                       {pending.length}
                     </span>
                     <span className="text-sm text-[#FB6376]/80">
-                      {pending.length === 1 ? "Request" : "Requests"}
+                      {pending.length === 1 ? t('connections.request') : t('connections.requests')}
                     </span>
                   </div>
                 )}
@@ -496,10 +498,10 @@ const Connections = () => {
                     </div>
                     <div className="text-left">
                       <p className="text-sm font-semibold text-[#1A1A1A]">
-                        Follow Requests
+                        {t('connections.followRequests')}
                       </p>
                       <p className="text-xs text-[#888]">
-                        {pending.length} {pending.length === 1 ? "person wants" : "people want"} to connect with you
+                        {pending.length} {pending.length === 1 ? t('connections.wantsToConnectSingle') : t('connections.wantsToConnectPlural')}
                       </p>
                     </div>
                   </div>
@@ -572,7 +574,7 @@ const Connections = () => {
                             ) : (
                               <>
                                 <UserCheck className="w-3.5 h-3.5 mr-1" />
-                                Accept
+                                {t('connections.accept')}
                               </>
                             )}
                           </Button>
@@ -601,7 +603,7 @@ const Connections = () => {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#AAAAAA]" />
               <Input
                 className="pl-11 pr-24 bg-white border-[#E8E8E8] rounded-2xl h-12 text-sm placeholder:text-[#BBBBBB] shadow-sm focus:shadow-md focus:border-[#FB6376]/40 transition-all duration-300"
-                placeholder="Search connections or find new people…"
+                placeholder={t('connections.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -632,7 +634,7 @@ const Connections = () => {
                   ) : (
                     <>
                       <Search className="w-3 h-3 mr-1" />
-                      Find
+                      {t('connections.find')}
                     </>
                   )}
                 </Button>
@@ -645,13 +647,13 @@ const Connections = () => {
             <div className="conn-fade-up mb-10">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-[#1A1A1A]">
-                  Search Results
+                  {t('connections.searchResults')}
                 </h2>
                 <button
                   onClick={clearSearch}
                   className="text-xs text-[#FB6376] font-semibold hover:underline"
                 >
-                  Clear search
+                  {t('connections.clearSearch')}
                 </button>
               </div>
 
@@ -661,7 +663,7 @@ const Connections = () => {
                     <Search className="w-7 h-7 text-[#CCBBBB]" />
                   </div>
                   <p className="text-[#999] text-sm">
-                    No users found for "<span className="font-medium text-[#666]">{searchQuery}</span>"
+                    {t('connections.noUsersFound')} "<span className="font-medium text-[#666]">{searchQuery}</span>"
                   </p>
                 </div>
               ) : (
@@ -708,12 +710,12 @@ const Connections = () => {
                           ) : alreadySent ? (
                             <>
                               <UserCheck className="w-3.5 h-3.5 mr-1.5" />
-                              Requested
+                              {t('connections.requested')}
                             </>
                           ) : (
                             <>
                               <UserPlus className="w-3.5 h-3.5 mr-1.5" />
-                              Follow
+                              {t('connections.follow')}
                             </>
                           )}
                         </Button>
@@ -732,7 +734,7 @@ const Connections = () => {
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4.5 h-4.5 text-[#FB6376]" />
                   <h2 className="text-base font-bold text-[#1A1A1A]">
-                    Suggested for you
+                    {t('connections.suggestedForYou')}
                   </h2>
                 </div>
                 <button
@@ -741,7 +743,7 @@ const Connections = () => {
                   className="flex items-center gap-1.5 text-xs font-semibold text-[#FB6376] hover:text-[#e8556a] transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${suggestionsLoading ? "animate-spin" : ""}`} />
-                  Refresh
+                  {t('connections.refresh')}
                 </button>
               </div>
 
@@ -791,12 +793,12 @@ const Connections = () => {
                               ) : alreadySent ? (
                                 <>
                                   <UserCheck className="w-3 h-3 mr-1" />
-                                  Requested
+                                  {t('connections.requested')}
                                 </>
                               ) : (
                                 <>
                                   <UserPlus className="w-3 h-3 mr-1" />
-                                  Follow
+                                  {t('connections.follow')}
                                 </>
                               )}
                             </Button>
@@ -815,7 +817,7 @@ const Connections = () => {
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   <h2 className="text-base font-bold text-[#1A1A1A]">
-                    {activeList === "following" ? "Following" : "Followers"}
+                    {activeList === "following" ? t('connections.following') : t('connections.followers')}
                   </h2>
                   <span className="text-xs text-[#999] font-medium bg-[#F5F5F5] px-2.5 py-1 rounded-lg">
                     {filteredFriends.length}
@@ -832,7 +834,7 @@ const Connections = () => {
                         : "text-[#999] hover:text-[#666]"
                     }`}
                   >
-                    Following
+                    {t('connections.following')}
                   </button>
                   <button
                     onClick={() => setActiveList("followers")}
@@ -842,7 +844,7 @@ const Connections = () => {
                         : "text-[#999] hover:text-[#666]"
                     }`}
                   >
-                    Followers
+                    {t('connections.followers')}
                   </button>
                 </div>
               </div>
@@ -854,12 +856,12 @@ const Connections = () => {
                     <Users className="w-9 h-9 text-[#CCBBBB]" />
                   </div>
                   <h3 className="text-xl font-semibold text-[#1A1A1A] mb-2">
-                    {searchQuery ? "No matches found" : "No connections yet"}
+                    {searchQuery ? t('connections.noMatches') : t('connections.noConnections')}
                   </h3>
                   <p className="text-[#999] text-sm max-w-sm mx-auto mb-6">
                     {searchQuery
-                      ? "Try a different search term"
-                      : "Start building your network by following people you know"}
+                      ? t('connections.tryDifferentSearch')
+                      : t('connections.startBuildingNetwork')}
                   </p>
                   {!searchQuery && (
                     <button
@@ -872,7 +874,7 @@ const Connections = () => {
                       className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FB6376] hover:bg-[#e8556a] text-white text-sm font-semibold rounded-xl shadow-sm shadow-[#FB6376]/20 transition-all duration-200 hover:shadow-md hover:shadow-[#FB6376]/30"
                     >
                       <UserPlus className="w-4 h-4" />
-                      Find People
+                      {t('connections.findPeople')}
                     </button>
                   )}
                 </div>
@@ -923,12 +925,12 @@ const Connections = () => {
                           ) : hoveredFriend === f.id ? (
                             <>
                               <UserMinus className="w-3.5 h-3.5 mr-1.5 inline" />
-                              Unfollow
+                              {t('connections.unfollow')}
                             </>
                           ) : (
                             <>
                               <UserCheck className="w-3.5 h-3.5 mr-1.5 inline" />
-                              Following
+                              {t('connections.following')}
                             </>
                           )}
                         </button>

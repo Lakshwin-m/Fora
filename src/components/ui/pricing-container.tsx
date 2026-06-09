@@ -10,6 +10,18 @@ import { cn } from "@/lib/utils";
 import { startPayment } from "@/lib/razorpay";
 import { useAuth } from "@/hooks/useAuth"; // Make sure you have this hook
 import { useNavigate } from "react-router-dom"; // If using React Router
+import { useTranslation } from "@/contexts/LanguageContext";
+
+export interface PricingPlan {
+  name: string;
+  subtitle: string;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  features: string[];
+  isPopular?: boolean;
+  accent: string;
+  rotation?: number;
+}
 
 interface PricingProps {
   title?: string;
@@ -68,12 +80,14 @@ const PricingToggle = ({
 }: {
   isYearly: boolean;
   onToggle: () => void;
-}) => (
+}) => {
+  const { t } = useTranslation();
+  return (
   <div className="flex justify-center items-center gap-4 mb-8 relative z-10">
     <span
       className={`text-gray-600 font-medium ${!isYearly ? "text-black" : ""}`}
     >
-      Monthly
+      {t('pricing.monthly')}
     </span>
     <motion.button
       className="w-16 h-8 flex items-center bg-gray-200 rounded-full p-1 border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,0.9)]"
@@ -87,7 +101,7 @@ const PricingToggle = ({
     <span
       className={`text-gray-600 font-medium ${isYearly ? "text-black" : ""}`}
     >
-      Yearly
+      {t('pricing.yearly')}
     </span>
     {isYearly && (
       <motion.span
@@ -95,11 +109,12 @@ const PricingToggle = ({
         animate={{ opacity: 1, x: 0 }}
         className="text-green-500 font-medium text-sm"
       >
-        Save 20%
+        {t('pricing.save20')}
       </motion.span>
     )}
   </div>
-);
+  );
+};
 
 // Background Effects Component
 const BackgroundEffects = () => (
@@ -152,6 +167,7 @@ const PricingCard = ({
   isProcessing: boolean;
   onGetStarted: () => void;
 }) => {
+  const { t } = useTranslation();
   const cardRef = useRef<HTMLDivElement>(null);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -221,7 +237,7 @@ const PricingCard = ({
       >
         <div className="text-center text-white">
           {isFree ? (
-            <div className="text-lg font-black">FREE</div>
+            <div className="text-lg font-black">{t('pricing.free')}</div>
           ) : (
             <>
               <div className="text-lg font-black">
@@ -229,7 +245,7 @@ const PricingCard = ({
                 <Counter from={previousPrice} to={currentPrice} />
               </div>
               <div className="text-[10px] font-bold">
-                /{isYearly ? "yr" : "mo"}
+                /{isYearly ? t('pricing.yr') : t('pricing.mo')}
               </div>
             </>
           )}
@@ -263,7 +279,7 @@ const PricingCard = ({
                   repeat: Infinity,
                 }}
               >
-                POPULAR
+                {t('pricing.popular')}
               </motion.span>
             )}
           </div>
@@ -339,12 +355,12 @@ const PricingCard = ({
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
-            PROCESSING...
+            {t('pricing.btnProcessing')}
           </span>
         ) : isFree ? (
-          "CURRENT PLAN"
+          t('pricing.btnCurrent')
         ) : (
-          "GET STARTED →"
+          t('pricing.btnGetStarted')
         )}
       </motion.button>
     </motion.div>
@@ -462,11 +478,11 @@ export const PricingContainer = ({
         transition={{ delay: 1 }}
         className="text-center mt-12 text-gray-600 text-sm relative z-10"
       >
-        <p>All plans include our secure time capsule encryption</p>
+        <p>{t('pricing.footerText')}</p>
         <p className="mt-2">
-          Questions?{" "}
+          {t('pricing.footerQuestions')}{" "}
           <a href="mailto:support@fora.com" className="underline font-semibold">
-            Contact us
+            {t('pricing.footerContact')}
           </a>
         </p>
       </motion.div>

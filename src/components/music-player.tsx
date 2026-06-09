@@ -3,10 +3,12 @@
 import { useState, useRef } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 export function MusicPlayer() {
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const { t } = useTranslation();
 
   const toggleMusic = async () => {
     if (!audioRef.current) return;
@@ -20,9 +22,8 @@ export function MusicPlayer() {
         setIsPlaying(true);
       } catch (err) {
         console.error("Autoplay blocked:", err);
-        toast.error("Cannot play music", {
-          description:
-            "Browser blocked autoplay. Try clicking again after interacting with the page.",
+        toast.error(t('garden.toastMusicError'), {
+          description: t('garden.toastAutoplayBlocked'),
         });
       }
     }
@@ -33,7 +34,7 @@ export function MusicPlayer() {
       <button
         onClick={toggleMusic}
         className="bg-white/80 hover:bg-white p-3 rounded-full shadow-lg transition-all"
-        aria-label={isPlaying ? "Mute music" : "Play music"}
+        aria-label={isPlaying ? t('garden.ariaMute') : t('garden.ariaPlay')}
       >
         {isPlaying ? (
           <Volume2 className="w-6 h-6" />
