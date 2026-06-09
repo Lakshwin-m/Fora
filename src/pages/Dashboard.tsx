@@ -64,6 +64,7 @@ import gsap from "gsap";
 import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
 import { usePlan } from "@/hooks/usePlan";
 import AnimatedNumberCountdown from "@/components/ui/countdown-number";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 /* ===================== TYPES ===================== */
 
@@ -200,6 +201,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
 
   // 🔐 DECRYPT CAPSULE CONTENT
   const { decryptCapsule } = useCapsuleDecryption();
@@ -300,7 +302,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
             {/* Status Indicator */}
             <div className="absolute bottom-[20%] left-0 right-0 flex justify-center z-10">
               <Badge variant="outline" className="bg-[#FFF9EC]/90 backdrop-blur-md border-[#E8E8E8] text-[#5D2A42] text-[10px] px-2 py-0.5 rounded-full shadow-sm">
-                Opened {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
+                {t('dashboard.openedOn')} {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
               </Badge>
             </div>
           </>
@@ -316,7 +318,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
             <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4">
               <div className="rotate-[0deg] flex flex-col items-center max-w-[85%] mt-4">
                 <span className="text-[12px] md:text-[14px] text-[#5D2A42]/90 font-serif italic mb-1 tracking-tight">
-                  open when...
+                  {t('dashboard.openWhen')}
                 </span>
                 <h3 className="text-lg md:text-xl font-bold text-[#1A1A1A]/80 text-balance font-serif tracking-tight leading-snug line-clamp-3">
                   {isDecrypting ? (
@@ -361,19 +363,19 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete Capsule?</AlertDialogTitle>
+                <AlertDialogTitle>{t('dashboard.deleteCapsuleTitle')}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will permanently delete "{title || "this capsule"}" and all its contents.
+                  {t('dashboard.deleteCapsuleDesc')}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <div className="flex gap-3 justify-end mt-4">
-                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>{t('common.cancel')}</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleDelete}
                   className="bg-[#FB6376] text-white hover:bg-[#FB6376]/90"
                   disabled={isDeleting}
                 >
-                  {isDeleting ? "Deleting..." : "Delete"}
+                  {isDeleting ? t('dashboard.deleting') : t('dashboard.delete')}
                 </AlertDialogAction>
               </div>
             </AlertDialogContent>
@@ -389,6 +391,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
 const EmptyState = ({ type }: { type: "sent" | "received" }) => {
   const navigate = useNavigate();
   const containerRef = useRef<HTMLDivElement>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (containerRef.current) {
@@ -419,13 +422,13 @@ const EmptyState = ({ type }: { type: "sent" | "received" }) => {
       </div>
 
       <h3 className="text-2xl font-bold text-[#1A1A1A] mb-4">
-        {type === "sent" ? "No Capsules Created" : "No Capsules Received"}
+        {type === "sent" ? t('dashboard.emptySentTitle') : t('dashboard.emptyReceivedTitle')}
       </h3>
 
       <p className="text-[#666666] mb-10 max-w-md mx-auto text-lg leading-relaxed">
         {type === "sent"
-          ? "Create your first time capsule to preserve precious moments for the future."
-          : "When someone sends you a time capsule, it will appear here."}
+          ? t('dashboard.emptySentDesc')
+          : t('dashboard.emptyReceivedDesc')}
       </p>
 
       {type === "sent" && (
@@ -435,7 +438,7 @@ const EmptyState = ({ type }: { type: "sent" | "received" }) => {
           size="lg"
         >
           <Plus className="w-5 h-5 mr-3" />
-          Create Your First Capsule
+          {t('dashboard.createFirstBtn')}
         </Button>
       )}
     </div>
@@ -452,6 +455,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("sent");
   const [currentTime, setCurrentTime] = useState(serverNow());
   const cardsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(serverNow()), 1000);
@@ -475,7 +479,7 @@ const Dashboard = () => {
       <div className="flex items-center justify-center h-screen bg-[#FFF9EC]">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 mx-auto border-4 border-[#FB6376] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[#5D2A42] text-lg">Loading your capsules...</p>
+          <p className="text-[#5D2A42] text-lg">{t('dashboard.loadingCapsules')}</p>
         </div>
       </div>
     );
@@ -519,20 +523,20 @@ const Dashboard = () => {
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
                 <div>
                   <h1 className="text-3xl font-bold text-[#1A1A1A] mb-3">
-                    <span className="text-[#FB6376]">Forá</span> Time Capsules
+                    <span className="text-[#FB6376]">{t('dashboard.titlePrefix')}</span>{t('dashboard.titleSuffix')}
                   </h1>
                   <p className="text-[#666666] text-md">
-                    Preserve memories, share moments, connect across time
+                    {t('dashboard.subtitle')}
                   </p>
                 </div>
               </div>
 
               {/* Stats */}
               <div className="flex flex-wrap items-center gap-8">
-                <AnimatedStatsCard title="Capsules Created" primaryValue={sent.length} />
-                <AnimatedStatsCard title="Capsules Received" primaryValue={received.length} />
+                <AnimatedStatsCard title={t('dashboard.capsulesCreated')} primaryValue={sent.length} />
+                <AnimatedStatsCard title={t('dashboard.capsulesReceived')} primaryValue={received.length} />
                 <AnimatedStatsCard
-                  title="Unlocked Capsules"
+                  title={t('dashboard.unlockedCapsules')}
                   primaryValue={
                     [...sent, ...received].filter((c) => {
                       const d = parseFirebaseDate(c.unlockDate || c.deliveryDate);
@@ -567,7 +571,7 @@ const Dashboard = () => {
                     className="rounded-[14px] border border-[#FB6376]/20 bg-[#FFDCCC]/10 text-base text-[#5D2A42] font-medium px-4 py-1.5 mb-6"
                   >
                     <Timer className="w-5 h-5 fill-[#FB6376]/20 stroke-[1.5px] text-[#FB6376] mr-2" />
-                    Next memory unlocking in
+                    {t('dashboard.nextMemoryUnlock')}
                   </Badge>
                   
                   {unlockDate && (
@@ -621,14 +625,14 @@ const Dashboard = () => {
                   className="flex-1 sm:flex-none data-[state=active]:bg-[#FB6376] data-[state=active]:text-white px-8 py-3 rounded-lg"
                 >
                   <Send className="w-4 h-4 mr-3" />
-                  Sent ({sent.length})
+                  {t('dashboard.sentTab')} ({sent.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="received"
                   className="flex-1 sm:flex-none data-[state=active]:bg-[#FCB1A6] data-[state=active]:text-[#1A1A1A] px-8 py-3 rounded-lg"
                 >
                   <Inbox className="w-4 h-4 mr-3" />
-                  Received ({received.length})
+                  {t('dashboard.receivedTab')} ({received.length})
                 </TabsTrigger>
               </TabsList>
 

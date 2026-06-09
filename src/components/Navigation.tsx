@@ -41,6 +41,7 @@ import { signOut } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/firebase";
 import { usePlan } from "@/hooks/usePlan";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 const Navigation = () => {
   const location = useLocation();
@@ -52,6 +53,7 @@ const Navigation = () => {
   const [activeItem, setActiveItem] = useState(location.pathname);
   const [userProfile, setUserProfile] = useState<{ photoURL?: string; displayName?: string } | null>(null);
   const { plan } = usePlan();
+  const { t, language, setLanguage } = useTranslation();
 
   const getInitials = (name: string) => {
     if (!name) return "U";
@@ -123,28 +125,27 @@ const Navigation = () => {
   const navItems = [
     {
       path: "/dashboard",
-      label: "Dashboard",
+      label: t("nav.dashboard"),
       icon: Home,
     },
     {
       path: "/create",
-      label: "Create",
+      label: t("nav.create"),
       icon: Plus,
     },
     {
       path: "/connections",
-      label: "Connections",
+      label: t("nav.connections"),
       icon: Users,
     },
-
     {
       path: "/garden",
-      label: "Garden",
+      label: t("nav.garden"),
       icon: Fence,
     },
     {
       path: "/profile",
-      label: "Profile",
+      label: t("nav.profile"),
       icon: User,
     },
   ];
@@ -256,7 +257,13 @@ const Navigation = () => {
                       {userProfile?.displayName || auth.currentUser?.displayName || "User"}
                     </p>
                     <p className="text-xs text-white/60 truncate leading-none">
-                      {plan?.tier ? `${plan.tier.toLowerCase() === 'pro' ? 'Aion' : plan.tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} (${plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)})` : "Arki (Free plan)"}
+                      {plan?.tier ? (
+                        plan.tier.toLowerCase() === 'pro' 
+                          ? t('plans.pro') 
+                          : plan.tier.toLowerCase() === 'starter' 
+                            ? t('plans.starter') 
+                            : t('plans.free')
+                      ) : t('plans.free')}
                     </p>
                   </div>
                 </div>
@@ -278,20 +285,43 @@ const Navigation = () => {
           
           <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors" onClick={() => { if(isMobileView) setIsOpen(false); navigate('/profile'); }}>
             <Settings className="mr-3 h-4 w-4" />
-            <span>Settings</span>
+            <span>{t('menu.settings')}</span>
             <DropdownMenuShortcut className="text-white/40">↑Ctrl,</DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors">
-            <Globe className="mr-3 h-4 w-4" />
-            <span>Language</span>
-            <ChevronRight className="ml-auto h-4 w-4 opacity-50" />
-          </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="focus:bg-white/10 data-[state=open]:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors">
+              <Globe className="mr-3 h-4 w-4" />
+              <span>{t('menu.language')}</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent className="w-40 bg-[#FB6376] border border-white/20 text-white shadow-2xl rounded-xl p-2 ml-1 z-[110]">
+                <DropdownMenuItem 
+                  className={`focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors ${language === 'en' ? 'font-bold' : ''}`}
+                  onClick={() => setLanguage('en')}
+                >
+                  <span>English</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className={`focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors ${language === 'ta' ? 'font-bold' : ''}`}
+                  onClick={() => setLanguage('ta')}
+                >
+                  <span>தமிழ்</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className={`focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors ${language === 'hi' ? 'font-bold' : ''}`}
+                  onClick={() => setLanguage('hi')}
+                >
+                  <span>हिन्दी</span>
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
           
           <DropdownMenuSeparator className="bg-white/10 my-1" />
           
           <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors" onClick={() => { if(isMobileView) setIsOpen(false); navigate('/pricing'); }}>
             <ArrowUpCircle className="mr-3 h-4 w-4" />
-            <span>Upgrade plan</span>
+            <span>{t('menu.upgrade')}</span>
           </DropdownMenuItem>
           
           <DropdownMenuSeparator className="bg-white/10 my-1" />
@@ -299,37 +329,37 @@ const Navigation = () => {
           <DropdownMenuSub>
             <DropdownMenuSubTrigger className="focus:bg-white/10 data-[state=open]:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-3 h-4 w-4"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-              <span>Learn more</span>
+              <span>{t('menu.learnMore')}</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
               <DropdownMenuSubContent className="w-56 bg-[#FB6376] border border-white/20 text-white shadow-2xl rounded-xl p-2 ml-1 z-[110]">
                 <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer flex justify-between">
-                  <span>About Forá</span>
+                  <span>{t('menu.aboutFora')}</span>
                   <ExternalLink className="h-3.5 w-3.5 opacity-50" />
                 </DropdownMenuItem>
                 <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer flex justify-between">
-                  <span>Tutorials</span>
+                  <span>{t('menu.tutorials')}</span>
                   <ExternalLink className="h-3.5 w-3.5 opacity-50" />
                 </DropdownMenuItem>
                 <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer flex justify-between">
-                  <span>Courses</span>
+                  <span>{t('menu.courses')}</span>
                   <ExternalLink className="h-3.5 w-3.5 opacity-50" />
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-white/10 my-1" />
                 <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer flex justify-between">
-                  <span>Usage policy</span>
+                  <span>{t('menu.usagePolicy')}</span>
                   <ExternalLink className="h-3.5 w-3.5 opacity-50" />
                 </DropdownMenuItem>
                 <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer flex justify-between">
-                  <span>Privacy policy</span>
+                  <span>{t('menu.privacyPolicy')}</span>
                   <ExternalLink className="h-3.5 w-3.5 opacity-50" />
                 </DropdownMenuItem>
                 <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer">
-                  <span>Your privacy choices</span>
+                  <span>{t('menu.privacyChoices')}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator className="bg-white/10 my-1" />
                 <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer">
-                  <span>Keyboard shortcuts</span>
+                  <span>{t('menu.shortcuts')}</span>
                   <DropdownMenuShortcut className="text-white/40">Ctrl/</DropdownMenuShortcut>
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
@@ -340,7 +370,7 @@ const Navigation = () => {
           
           <DropdownMenuItem className="focus:bg-white/10 focus:text-white rounded-lg py-2 cursor-pointer transition-colors" onClick={() => { if(isMobileView) setIsOpen(false); handleLogout(); }}>
             <LogOut className="mr-3 h-4 w-4" />
-            <span>Log out</span>
+            <span>{t('menu.logout')}</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -391,7 +421,7 @@ const Navigation = () => {
                   <h1 className="text-xl font-bold text-white tracking-tight">
                     Forá
                   </h1>
-                  <p className="text-xs text-white/60 mt-0.5">Time Capsules</p>
+                  <p className="text-xs text-white/60 mt-0.5">{t('nav.capsules')}</p>
                 </div>
               )}
             </Link>
@@ -438,7 +468,7 @@ const Navigation = () => {
                 <h1 className="text-xl font-bold text-white tracking-tight">
                   Forá
                 </h1>
-                <p className="text-xs text-white/60">Time Capsules</p>
+                <p className="text-xs text-white/60">{t('nav.capsules')}</p>
               </div>
             </div>
           </div>

@@ -4,6 +4,7 @@ import { Plus, User } from "lucide-react";
 import { StoryViewer, type Story } from "@/components/ui/story-viewer";
 import { cn } from "@/lib/utils";
 import { apiGetFriends } from "@/services/friendServices";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 interface UserProfile {
   uid: string;
@@ -23,6 +24,7 @@ interface FriendWithStories extends Friend {
 }
 
 function AddStoryButton() {
+  const { t } = useTranslation();
   return (
     <button
       className={cn(
@@ -52,7 +54,7 @@ function AddStoryButton() {
         </motion.div>
       </div>
       <span className="text-xs text-muted-foreground truncate max-w-[80px]">
-        Add story
+        {t('stories.addStory')}
       </span>
     </button>
   );
@@ -89,6 +91,7 @@ const generateMockStories = (friendId: string): Story[] => {
 };
 
 export default function FriendsStories() {
+  const { t } = useTranslation();
   const [friends, setFriends] = React.useState<FriendWithStories[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -151,7 +154,7 @@ export default function FriendsStories() {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 mb-8">
       <h3 className="text-sm font-semibold mb-3 px-1 text-[#1A1A1A]">
-        Friends' Stories
+        {t('stories.friendsStories')}
       </h3>
       <div className="flex gap-4 overflow-x-auto py-2 px-1 scrollbar-hide [&::-webkit-scrollbar]:hidden md:[&::-webkit-scrollbar]:block md:[&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-muted-foreground/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/30">
         <AddStoryButton />

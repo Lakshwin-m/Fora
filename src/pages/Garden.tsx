@@ -10,6 +10,7 @@ import { PlantingDrawer } from "@/components/planting-drawer";
 import { FlowerDetailModal } from "@/components/flower-detail-modal";
 import { InfoModal } from "@/components/info-modal";
 import Navigation from "@/components/Navigation";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 /* ── Injected Styles ─────────────────────────────────────── */
 const STYLE_ID = "garden-overhaul-styles";
@@ -59,7 +60,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL;
 /* ── Growth Helpers ────────────────────────────────────── */
 const GROWTH_SCALES = [0.3, 0.55, 0.8, 1.0];
 const GROWTH_OPACITY = [0.55, 0.7, 0.88, 1.0];
-const GROWTH_LABELS = ["Seed", "Sprout", "Growing", "Full Bloom"];
+const GROWTH_LABELS = ["Seed", "Sprout", "Growing", "Full Bloom"]; // fallback only, translated in components
 const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
 const WORLD_PADDING = 800;
 const MIN_WORLD_WIDTH = 3000;
@@ -82,6 +83,7 @@ function loadCooldowns(): Record<string, number> {
 export default function GardenPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   // State machine
   const [userState, setUserState] = useState<UserState>("normal");
@@ -343,7 +345,7 @@ export default function GardenPage() {
       <div className="fixed inset-0 flex items-center justify-center bg-blue-50">
         <img
           src="/special_flower.png"
-          alt="Loading"
+          alt={t('garden.loading')}
           className="w-[150px] h-[150px] animate-spin"
         />
       </div>
@@ -462,7 +464,7 @@ export default function GardenPage() {
                   <button
                     className="garden-water-btn absolute -top-10 left-1/2 -translate-x-1/2 z-50 bg-blue-400/90 hover:bg-blue-500 text-white rounded-full w-9 h-9 flex items-center justify-center shadow-lg backdrop-blur-sm border-2 border-white/40"
                     onClick={(e) => handleWater(flower.id, e)}
-                    title="Water this flower"
+                    title={t('garden.waterTooltip')}
                   >
                     💧
                   </button>
@@ -564,7 +566,7 @@ export default function GardenPage() {
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M10 4V16M4 10H16" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
           </svg>
-          Plant a Flower
+          {t('garden.plantButton')}
         </button>
       )}
     </div>

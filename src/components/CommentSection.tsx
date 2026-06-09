@@ -11,6 +11,7 @@ import {
   deleteComment,
   Comment,
 } from "@/services/communityServices";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 interface CommentSectionProps {
   capsuleId: string;
@@ -18,6 +19,7 @@ interface CommentSectionProps {
 
 const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
   const auth = getAuth();
+  const { t } = useTranslation();
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -57,7 +59,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
       await addComment(
         capsuleId,
         auth.currentUser.uid,
-        auth.currentUser.displayName || "Anonymous",
+        auth.currentUser.displayName || t('common.anonymous', "Anonymous"),
         auth.currentUser.photoURL || undefined,
         newComment
       );
@@ -79,7 +81,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
       await addComment(
         capsuleId,
         auth.currentUser.uid,
-        auth.currentUser.displayName || "Anonymous",
+        auth.currentUser.displayName || t('common.anonymous', "Anonymous"),
         auth.currentUser.photoURL || undefined,
         replyText,
         parentCommentId
@@ -94,7 +96,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!confirm("Are you sure you want to delete this comment?")) {
+    if (!confirm(t('capsuleDetail.confirmDeleteComment'))) {
       return;
     }
 
@@ -127,7 +129,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
     return (
       <div className="flex flex-col items-center justify-center py-8">
         <Loader2 className="w-6 h-6 animate-spin text-[#FB6376] mb-2" />
-        <p className="text-sm text-[#5D2A42]/60">Loading comments...</p>
+        <p className="text-sm text-[#5D2A42]/60">{t('capsuleDetail.loadingComments')}</p>
       </div>
     );
   }
@@ -138,7 +140,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
       <div className="flex items-center space-x-2 mb-6">
         <MessageCircle className="w-5 h-5 text-[#5D2A42]" />
         <h3 className="text-lg font-semibold text-[#5D2A42]">
-          Comments ({comments.length})
+          {t('capsuleDetail.commentsHeader')} ({comments.length})
         </h3>
       </div>
 
@@ -149,15 +151,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
             <Avatar className="w-10 h-10 flex-shrink-0">
               <AvatarImage
                 src={auth.currentUser.photoURL || undefined}
-                alt={auth.currentUser.displayName || "Anonymous"}
+                alt={auth.currentUser.displayName || t('common.anonymous', "Anonymous")}
               />
               <AvatarFallback className="bg-[#FB6376] text-white text-sm">
-                {getInitials(auth.currentUser.displayName || "User")}
+                {getInitials(auth.currentUser.displayName || t('common.user', "User"))}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 space-y-2">
               <Textarea
-                placeholder="Share your thoughts..."
+                placeholder={t('capsuleDetail.shareThoughts')}
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 className="min-h-[80px] border-2 border-[#5D2A42]/20 bg-white resize-none focus:border-[#FB6376] focus:ring-2 focus:ring-[#FB6376]/20 focus:outline-none"
@@ -171,12 +173,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
                   {submitting ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Posting...
+                      {t('capsuleDetail.postingBtn')}
                     </>
                   ) : (
                     <>
                       <Send className="w-4 h-4 mr-2" />
-                      Post Comment
+                      {t('capsuleDetail.postCommentBtn')}
                     </>
                   )}
                 </Button>
@@ -186,7 +188,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
         </form>
       ) : (
         <div className="bg-[#FFDCCC]/20 border border-[#5D2A42]/20 rounded-lg p-4 text-center text-[#5D2A42]/70">
-          Please log in to comment
+          {t('capsuleDetail.loginToComment')}
         </div>
       )}
 
@@ -195,7 +197,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
         {comments.length === 0 ? (
           <div className="text-center py-8 text-[#5D2A42]/60">
             <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>No comments yet. Be the first to comment!</p>
+            <p>{t('capsuleDetail.noCommentsYet')}</p>
           </div>
         ) : (
           comments.map((comment) => (
@@ -218,7 +220,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
                       <span className="text-xs text-[#5D2A42]/60">
                         {comment.timestamp
                           ? format(comment.timestamp.toDate(), "MMM dd, yyyy")
-                          : "Recently"}
+                          : t('capsuleDetail.recently')}
                       </span>
                       {auth.currentUser?.uid === comment.userId && (
                         <button
@@ -247,7 +249,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
                         className="flex items-center space-x-1 text-xs text-[#5D2A42]/60 hover:text-[#FB6376] transition-colors"
                       >
                         <Reply className="w-3 h-3" />
-                        <span>Reply</span>
+                        <span>{t('capsuleDetail.reply')}</span>
                       </button>
                     )}
                     {comment.replyCount > 0 && (
@@ -256,9 +258,8 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
                         className="flex items-center space-x-1 text-xs text-[#5D2A42]/60 hover:text-[#FB6376] transition-colors"
                       >
                         <span>
-                          {expandedReplies.has(comment.id) ? "Hide" : "Show"}{" "}
-                          {comment.replyCount} repl
-                          {comment.replyCount > 1 ? "ies" : "y"}
+                          {expandedReplies.has(comment.id) ? t('capsuleDetail.hide') : t('capsuleDetail.show')}{" "}
+                          {comment.replyCount} {comment.replyCount > 1 ? t('capsuleDetail.replyPlural') : t('capsuleDetail.replySingle')}
                         </span>
                       </button>
                     )}
@@ -273,15 +274,15 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
                     <Avatar className="w-8 h-8 flex-shrink-0 mt-1">
                       <AvatarImage
                         src={auth.currentUser.photoURL || undefined}
-                        alt={auth.currentUser.displayName || "Anonymous"}
+                        alt={auth.currentUser.displayName || t('common.anonymous', "Anonymous")}
                       />
                       <AvatarFallback className="bg-[#FB6376] text-white text-xs">
-                        {getInitials(auth.currentUser.displayName || "User")}
+                        {getInitials(auth.currentUser.displayName || t('common.user', "User"))}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 space-y-2">
                       <Textarea
-                        placeholder="Write a reply..."
+                        placeholder={t('capsuleDetail.writeReply')}
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
                         className="min-h-[60px] text-sm border-2 border-[#5D2A42]/20 bg-white resize-none focus:border-[#FB6376] focus:ring-2 focus:ring-[#FB6376]/20 focus:outline-none"
@@ -296,7 +297,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
                           }}
                           className="border-[#5D2A42]/20 text-[#5D2A42] text-sm"
                         >
-                          Cancel
+                          {t('capsuleDetail.cancel')}
                         </Button>
                         <Button
                           type="button"
@@ -307,12 +308,12 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
                           {submittingReply ? (
                             <>
                               <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                              Posting...
+                              {t('capsuleDetail.postingBtn')}
                             </>
                           ) : (
                             <>
                               <Send className="w-3 h-3 mr-1" />
-                              Reply
+                              {t('capsuleDetail.reply')}
                             </>
                           )}
                         </Button>
@@ -350,7 +351,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
                               <span className="text-xs text-[#5D2A42]/60">
                                 {reply.timestamp
                                   ? format(reply.timestamp.toDate(), "MMM dd")
-                                  : "Recently"}
+                                  : t('capsuleDetail.recently')}
                               </span>
                               {auth.currentUser?.uid === reply.userId && (
                                 <button

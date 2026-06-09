@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 interface PlantingDrawerProps {
@@ -37,17 +38,18 @@ export function PlantingDrawer({
   const [selectedFlower, setSelectedFlower] =
     useState<FlowerType>("yellow-sunflower");
   const [isLoading, setIsLoading] = useState(false);
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!title.trim() || !message.trim()) {
-      toast.error("Please fill in all required fields");
+      toast.error(t('garden.toastFillRequired'));
       return;
     }
 
     if (!clickPosition) {
-      toast.error("Invalid planting position");
+      toast.error(t('garden.toastInvalidPosition'));
       return;
     }
 
@@ -73,8 +75,8 @@ export function PlantingDrawer({
 
       const newFlower = await response.json();
 
-      toast.success("Flower planted!", {
-        description: "Your message has been added to the garden.",
+      toast.success(t('garden.toastPlantSuccess'), {
+        description: t('garden.toastPlantSuccessDesc'),
       });
 
       onPlantSuccess(newFlower);
@@ -86,8 +88,8 @@ export function PlantingDrawer({
       setSelectedFlower("yellow-sunflower");
     } catch (error) {
       console.error("Error planting flower:", error);
-      toast.error("Failed to plant flower", {
-        description: "Please try again.",
+      toast.error(t('garden.toastPlantFailed'), {
+        description: t('garden.toastPlantFailedDesc'),
       });
     } finally {
       setIsLoading(false);
@@ -120,9 +122,9 @@ export function PlantingDrawer({
               />
             </div>
             <div className="flex-1">
-              <SheetTitle>Plant a Flower</SheetTitle>
+              <SheetTitle>{t('garden.plantingDrawerTitle')}</SheetTitle>
               <SheetDescription>
-                Share a positive message with the world. Spread peace and love.
+                {t('garden.plantingDrawerDesc')}
               </SheetDescription>
             </div>
           </div>
@@ -131,13 +133,13 @@ export function PlantingDrawer({
         <form onSubmit={handleSubmit} className="space-y-6 mt-1">
           <div>
             <label htmlFor="title" className="block text-sm font-medium mb-2">
-              Title <span className="text-red-500">*</span>
+              {t('garden.fieldTitleReq').replace(' *', '')} <span className="text-red-500">*</span>
             </label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Give your message a title"
+              placeholder={t('garden.titlePlaceholder')}
               required
               maxLength={100}
               className="bg-white"
@@ -146,13 +148,13 @@ export function PlantingDrawer({
 
           <div>
             <label htmlFor="message" className="block text-sm font-medium mb-2">
-              Message <span className="text-red-500">*</span>
+              {t('garden.fieldMessageReq').replace(' *', '')} <span className="text-red-500">*</span>
             </label>
             <Textarea
               id="message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Share your positive thoughts..."
+              placeholder={t('garden.messagePlaceholder')}
               required
               rows={4}
               maxLength={500}
@@ -162,13 +164,13 @@ export function PlantingDrawer({
 
           <div>
             <label htmlFor="author" className="block text-sm font-medium mb-2">
-              Your Name
+              {t('garden.fieldAuthor')}
             </label>
             <Input
               id="author"
               value={author}
               onChange={(e) => setAuthor(e.target.value)}
-              placeholder="Anonymous"
+              placeholder={t('garden.authorPlaceholder')}
               maxLength={50}
               className="bg-white"
             />
@@ -176,7 +178,7 @@ export function PlantingDrawer({
 
           <div>
             <label className="block text-sm font-medium mb-2">
-              Choose a Flower <span className="text-red-500">*</span>
+              {t('garden.fieldChooseFlower').replace(' *', '')} <span className="text-red-500">*</span>
             </label>
             <FlowerSelector
               selectedFlower={selectedFlower}
@@ -196,7 +198,7 @@ export function PlantingDrawer({
                     : "#4CAF50",
               }}
             >
-              {isLoading ? "Planting..." : "Plant Flower"}
+              {isLoading ? t('garden.btnPlanting') : t('garden.btnPlant')}
             </Button>
           </div>
         </form>
