@@ -552,15 +552,52 @@ function ScrollColumn({ items, selected, onChange, valueDisplay, label }: any) {
   const [isScrolling, setIsScrolling] = useState(false);
   let scrollTimeout: any = null;
 
+  const selectedValue = typeof valueDisplay !== "undefined" ? valueDisplay : selected;
+  const selectedIndex = items.findIndex((i: any) => i === selectedValue);
+
   useEffect(() => {
     // Scroll to the selected item initially
     if (containerRef.current) {
-      const selectedIndex = items.findIndex((i: any) => i === selected || i === valueDisplay);
       if (selectedIndex >= 0) {
         containerRef.current.scrollTop = selectedIndex * 48; // 48px height per item
       }
     }
   }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let isAnimating = false;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (isAnimating) return;
+
+      const direction = Math.sign(e.deltaY);
+      if (direction === 0) return;
+
+      const targetIndex = selectedIndex + direction;
+
+      if (targetIndex >= 0 && targetIndex < items.length) {
+        isAnimating = true;
+        onChange(items[targetIndex]);
+        container.scrollTo({
+          top: targetIndex * 48,
+          behavior: "smooth",
+        });
+
+        setTimeout(() => {
+          isAnimating = false;
+        }, 200);
+      }
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, [selectedIndex, items, onChange]);
 
   const handleScroll = () => {
     setIsScrolling(true);

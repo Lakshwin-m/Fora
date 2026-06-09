@@ -74,6 +74,69 @@ export const verifyAuth = async (req: any) => {
    EXISTING BACKEND LOGIC (UNCHANGED)
    ============================================================ */
 
+function getNextUnlockDate(currentUnlockDate: Date, pattern: "minutely" | "daily" | "yearly"): Date {
+  const next = new Date(currentUnlockDate);
+  if (pattern === "minutely") {
+    next.setMinutes(next.getMinutes() + 1);
+  } else if (pattern === "daily") {
+    next.setDate(next.getDate() + 1);
+  } else if (pattern === "yearly") {
+    next.setFullYear(next.getFullYear() + 1);
+  }
+  return next;
+}
+
+function handleCapsuleUnlock(doc: admin.firestore.DocumentSnapshot, batch: admin.firestore.WriteBatch) {
+  const data = doc.data();
+  if (!data) return;
+
+  batch.update(doc.ref, {
+    isUnlocked: true,
+    status: "unlocked",
+    unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
+    recurrencePattern: "none",
+  });
+
+  // Create notifications for each recipient upon unlock
+  if (data.recipients && Array.isArray(data.recipients)) {
+    data.recipients.forEach((recipientId: string) => {
+      const notifRef = db.collection("notifications").doc();
+      batch.set(notifRef, {
+        userId: recipientId,
+        type: "capsule_unlocked",
+        message: `A time capsule has unlocked!`,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        read: false,
+      });
+    });
+  } else {
+    const notifRef = db.collection("notifications").doc();
+    batch.set(notifRef, {
+      userId: data.userId,
+      type: "capsule_unlocked",
+      message: `Your time capsule has unlocked!`,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      read: false,
+    });
+  }
+
+  if (data.recurrencePattern && data.recurrencePattern !== "none") {
+    const currentUnlockDate = data.unlockDate.toDate();
+    const nextUnlockDate = getNextUnlockDate(currentUnlockDate, data.recurrencePattern);
+    const nextRef = db.collection("capsules").doc();
+    batch.set(nextRef, {
+      ...data,
+      id: nextRef.id,
+      unlockDate: admin.firestore.Timestamp.fromDate(nextUnlockDate),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      status: "scheduled",
+      isUnlocked: false,
+      unlockedAt: null,
+      priorReminderSent: false,
+    });
+  }
+}
+
 /**
  * Scheduled unlock (every minute)
  */
@@ -82,6 +145,7 @@ export const checkAndUnlockCapsules = onSchedule(
   async () => {
     const now = admin.firestore.Timestamp.now();
 
+    // 1. Unlocking capsules
     const snapshot = await db
       .collection("capsules")
       .where("isUnlocked", "==", false)
@@ -90,18 +154,52 @@ export const checkAndUnlockCapsules = onSchedule(
       .where("unlockDate", "<=", now)
       .get();
 
-    if (snapshot.empty) return;
-
-    const batch = db.batch();
-    snapshot.forEach((doc) => {
-      batch.update(doc.ref, {
-        isUnlocked: true,
-        status: "unlocked",
-        unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
+    if (!snapshot.empty) {
+      const batch = db.batch();
+      snapshot.forEach((doc) => {
+        handleCapsuleUnlock(doc, batch);
       });
-    });
+      await batch.commit();
+    }
 
-    await batch.commit();
+    // 2. Processing Prior Reminders
+    const reminderSnapshot = await db
+      .collection("capsules")
+      .where("isUnlocked", "==", false)
+      .where("status", "==", "scheduled")
+      .where("triggerType", "==", "time")
+      .where("priorReminderEnabled", "==", true)
+      .where("priorReminderSent", "==", false)
+      .get();
+
+    if (!reminderSnapshot.empty) {
+      const reminderBatch = db.batch();
+      const nowMs = Date.now();
+
+      for (const doc of reminderSnapshot.docs) {
+        const data = doc.data();
+        const unlockDateMs = data.unlockDate.toMillis();
+        const reminderDaysMs = data.priorReminderDays * 24 * 60 * 60 * 1000;
+
+        if (unlockDateMs - reminderDaysMs <= nowMs) {
+          // Send notification to user
+          const notifRef = db.collection("notifications").doc();
+          reminderBatch.set(notifRef, {
+            userId: data.userId,
+            type: "prior_reminder",
+            message: `A time capsule is scheduled to unlock in ${data.priorReminderDays} days!`,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            read: false,
+          });
+
+          // Mark reminder as sent
+          reminderBatch.update(doc.ref, {
+            priorReminderSent: true,
+          });
+        }
+      }
+      await reminderBatch.commit();
+    }
   }
 );
 
@@ -128,11 +226,7 @@ export const checkCapsuleUnlockStatus = onCall(async (request) => {
 
   const batch = db.batch();
   snapshot.forEach((doc) => {
-    batch.update(doc.ref, {
-      isUnlocked: true,
-      status: "unlocked",
-      unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    handleCapsuleUnlock(doc, batch);
   });
 
   await batch.commit();
@@ -280,6 +374,11 @@ export const createCapsule = onRequest((req, res) => {
           createdAt:        admin.firestore.FieldValue.serverTimestamp(),
           status:           "scheduled",
           isUnlocked:       false,
+          autoRecurYearly:   req.body.autoRecurYearly || false,
+          recurrencePattern: req.body.recurrencePattern || "none",
+          priorReminderEnabled: req.body.priorReminderEnabled || false,
+          priorReminderDays: req.body.priorReminderDays || 0,
+          priorReminderSent: false,
         });
 
         // 🔢 Increment usage (single source of truth)
@@ -513,16 +612,17 @@ export const getMyProfile = onRequest((req, res) => {
 
       const subSnap = await db.collection("subscriptions").doc(decoded.uid).get();
       const rawPlan = subSnap.data() || { tier: "free" };
+      const rawTier = rawPlan.tier || "free";
       let capsuleLimit: number | null = 5;
 
-      if (rawPlan.tier === "starter") {
+      if (rawTier === "starter") {
         capsuleLimit = 50;
       }
 
-      if (rawPlan.tier === "pro") {
+      if (rawTier === "pro") {
         capsuleLimit = null; // Unlimited
       }
-      if (rawPlan.tier === "free") {
+      if (rawTier === "free") {
         capsuleLimit = 5;
       }
 
@@ -530,7 +630,7 @@ export const getMyProfile = onRequest((req, res) => {
         uid: decoded.uid,
         username: userData?.username || userData?.name || decoded.email,
         plan: {
-          tier: rawPlan.tier,
+          tier: rawTier,
           capsuleLimit,
           usedCapsules: rawPlan.usedCapsules ?? 0,
         },

@@ -25,6 +25,7 @@ import Garden from "./pages/Garden.tsx";
 import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
 import { GlobalAlertManager } from "./components/GlobalAlertManager";
+import { Toaster } from "@/components/ui/toaster";
 
 function App() {
   useEffect(() => {
@@ -38,6 +39,7 @@ function App() {
     <AuthProvider>
       <CapsuleProvider>
       <GlobalAlertManager />
+      <Toaster />
       <Router>
         <Routes>
           <Route path="/signup" element={<SignUpLoginForm />} />

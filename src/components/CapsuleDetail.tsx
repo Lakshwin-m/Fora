@@ -56,6 +56,13 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   // Find the capsule in both sent and received capsules
   const capsule = [...capsules, ...receivedCapsules].find((c) => c.id === id);
 
+  // Auto-skip opening animation if already opened
+  useEffect(() => {
+    if (capsule && capsule.status === "opened") {
+      setInteractionStep(2);
+    }
+  }, [capsule?.status]);
+
   // 🔐 DECRYPT CAPSULE CONTENT
   const { decryptCapsule } = useCapsuleDecryption();
   const [decryptedTitle,   setDecryptedTitle]   = useState<string>("");
@@ -263,7 +270,12 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                 exit={{ opacity: 0, scale: 1.05 }}
                 transition={{ duration: 0.4, ease: "easeInOut" }}
                 className="relative max-w-sm mx-auto aspect-square cursor-pointer hover:-translate-y-2 transition-transform duration-300 mt-12"
-                onClick={() => setInteractionStep(1)}
+                onClick={() => {
+                  setInteractionStep(1);
+                  if (capsule.status !== "opened") {
+                    markCapsuleAsOpened(capsule.id);
+                  }
+                }}
               >
                 <img src="/letter_cover-4fCnauP6.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Sealed Envelope" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4">

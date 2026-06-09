@@ -21,7 +21,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Navigation from "@/components/Navigation";
 import { toast } from "@/hooks/use-toast";
 import { auth, db, storage } from "@/firebase";
-import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, setDoc, collection, query, where, orderBy, limit, getDocs, onSnapshot, writeBatch } from "firebase/firestore";
+import { formatFirebaseDate } from "@/lib/date";
 import { updateProfile as updateAuthProfile, updateEmail } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
@@ -45,6 +46,8 @@ import {
   Search,
   ChevronRight,
   Image as ImageIcon,
+  Unlock,
+  Clock,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import CountrySelect from "@/components/CountrySelect";
@@ -67,6 +70,8 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
+  const [notificationsList, setNotificationsList] = useState<any[]>([]);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
 
   // Photo upload state
   const [showCropModal, setShowCropModal] = useState(false);
@@ -104,6 +109,60 @@ const Profile = () => {
   useEffect(() => {
     fetchUserProfile();
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== "notifications" || !auth.currentUser) return;
+
+    setLoadingNotifs(true);
+    const q = query(
+      collection(db, "notifications"),
+      where("userId", "==", auth.currentUser.uid),
+      orderBy("createdAt", "desc"),
+      limit(20)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }));
+      setNotificationsList(list);
+      setLoadingNotifs(false);
+    }, (error) => {
+      console.error("Error loading notifications:", error);
+      setLoadingNotifs(false);
+    });
+
+    return () => unsubscribe();
+  }, [activeTab, auth.currentUser]);
+
+  const handleMarkAllRead = async () => {
+    if (!auth.currentUser) return;
+    try {
+      const q = query(
+        collection(db, "notifications"),
+        where("userId", "==", auth.currentUser.uid),
+        where("read", "==", false)
+      );
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      snapshot.docs.forEach((docSnap) => {
+        batch.update(docSnap.ref, { read: true });
+      });
+      await batch.commit();
+      toast({
+        title: "All marked as read",
+        description: "Your notifications have been updated.",
+      });
+    } catch (err) {
+      console.error("Error marking all read:", err);
+      toast({
+        title: "Error",
+        description: "Failed to update notifications.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const fetchUserProfile = async () => {
     try {
@@ -843,6 +902,74 @@ const Profile = () => {
                       <Button onClick={handleSaveSettings} disabled={saving} className="bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white px-8 py-2 h-11 rounded-xl shadow-none font-medium transition-colors">
                         {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : "Save Settings"}
                       </Button>
+                    </div>
+
+                    {/* Recent Notifications List */}
+                    <div className="mt-12 pt-8 border-t border-[#5D2A42]/10">
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <h3 className="text-xl font-bold text-[#5D2A42]">Recent Notifications</h3>
+                          <p className="text-sm text-[#5D2A42]/60 mt-0.5">Your updates, reminders, and activity history.</p>
+                        </div>
+                        {notificationsList.length > 0 && notificationsList.some(n => !n.read) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleMarkAllRead}
+                            className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFF9EC] rounded-xl text-xs font-semibold px-4 h-8 transition-colors"
+                          >
+                            Mark all as read
+                          </Button>
+                        )}
+                      </div>
+
+                      {loadingNotifs ? (
+                        <div className="flex items-center justify-center py-8">
+                          <Loader2 className="w-6 h-6 animate-spin text-[#FB6376]" />
+                        </div>
+                      ) : notificationsList.length === 0 ? (
+                        <div className="text-center py-8 bg-[#FFF9EC]/30 rounded-2xl border border-dashed border-[#5D2A42]/10 p-6">
+                          <Bell className="w-8 h-8 text-[#5D2A42]/30 mx-auto mb-2" />
+                          <p className="text-sm text-[#5D2A42]/60 font-medium">No recent notifications</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                          {notificationsList.map((notif) => {
+                            const Icon = notif.type === "capsule_unlocked" ? Unlock : notif.type === "prior_reminder" ? Clock : Bell;
+                            const isUnread = !notif.read;
+
+                            return (
+                              <div
+                                key={notif.id}
+                                className={`flex items-start justify-between p-4 rounded-xl border transition-all duration-200 ${
+                                  isUnread
+                                    ? "bg-[#FFDCCC]/20 border-[#FB6376]/30 shadow-sm"
+                                    : "bg-white border-[#5D2A42]/5"
+                                }`}
+                              >
+                                <div className="flex items-start gap-3 flex-1 min-w-0">
+                                  <div className={`p-2 rounded-lg mt-0.5 ${
+                                    isUnread ? "bg-[#FB6376]/10 text-[#FB6376]" : "bg-[#5D2A42]/5 text-[#5D2A42]/60"
+                                  }`}>
+                                    <Icon className="w-4 h-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-sm leading-snug break-words ${isUnread ? "font-semibold text-[#5D2A42]" : "text-[#5D2A42]/80"}`}>
+                                      {notif.message}
+                                    </p>
+                                    <span className="text-xs text-[#5D2A42]/40 mt-1 block font-medium">
+                                      {notif.createdAt ? formatFirebaseDate(notif.createdAt) : "Just now"}
+                                    </span>
+                                  </div>
+                                </div>
+                                {isUnread && (
+                                  <span className="w-2.5 h-2.5 bg-[#FB6376] rounded-full ml-3 mt-2 flex-shrink-0 animate-pulse" />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
