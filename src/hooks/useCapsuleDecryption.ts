@@ -3,6 +3,7 @@
 // Designed to be called on-demand (not as an effect) so the caller
 // controls when decryption fires (e.g. only after unlock gate).
 
+import { useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { unwrapContentKey, decryptText } from "@/utils/cryptoUtils";
 
@@ -30,7 +31,7 @@ export function useCapsuleDecryption() {
    * - If the user has no key entry in `encryptedKeys`: returns locked fallback.
    * - If decryption throws (wrong key, corrupt data): returns locked fallback.
    */
-  async function decryptCapsule(capsule: any): Promise<DecryptedCapsuleContent> {
+  const decryptCapsule = useCallback(async (capsule: any): Promise<DecryptedCapsuleContent> => {
     // ── v1 fallback: old plain-text capsules ──
     if (!capsule.version || capsule.version !== "v2") {
       return {
@@ -79,7 +80,7 @@ export function useCapsuleDecryption() {
         content: "This capsule could not be decrypted. The key may be invalid.",
       };
     }
-  }
+  }, [user, privateKey]);
 
   return { decryptCapsule };
 }
