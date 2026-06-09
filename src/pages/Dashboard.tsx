@@ -222,8 +222,10 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
 
   const unlockDate =
     parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ?? new Date(0);
-  const isUnlocked =
-    unlockDate.getTime() <= currentTime.getTime() || capsule.isUnlocked;
+  const isUnlockedDate = unlockDate.getTime() <= currentTime.getTime();
+  const isUnlocked = isUnlockedDate || capsule.isUnlocked;
+  const isOpened = capsule.status === "opened";
+  const showAsOpen = isUnlocked && isOpened;
   const isSentToSelf = capsule.recipientType === "self";
   const countdown = getCountdown(capsule.unlockDate || capsule.deliveryDate, currentTime);
 
@@ -277,8 +279,8 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
         className="relative w-full h-full transition-transform duration-300 group-hover:-translate-y-2 cursor-pointer flex items-center justify-center"
         onClick={handleCapsuleClick}
       >
-        {isUnlocked ? (
-          // UNLOCKED STATE (OPEN ENVELOPE)
+        {showAsOpen ? (
+          // UNLOCKED & OPENED STATE (OPEN ENVELOPE)
           <>
             <img 
               src="/open_envelope-eMfrWOgA.png" 
@@ -303,7 +305,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
             </div>
           </>
         ) : (
-          // LOCKED STATE (CLOSED ENVELOPE)
+          // LOCKED / SEALED STATE (CLOSED ENVELOPE)
           <>
             <img 
               src="/letter_cover-4fCnauP6.png" 
@@ -325,12 +327,19 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                 </h3>
               </div>
             </div>
-            {/* Countdown Meta */}
+            {/* Countdown / Ready badge */}
             <div className="absolute bottom-[22%] left-0 right-0 flex justify-center z-10">
-               <Badge className="bg-[#1A1A1A]/80 hover:bg-[#1A1A1A] text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md">
-                 <Lock className="w-3 h-3" />
-                 <span className="font-medium tracking-wide">{countdown}</span>
-               </Badge>
+               {isUnlocked ? (
+                 <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md animate-pulse">
+                   <Unlock className="w-3.5 h-3.5" />
+                   <span className="font-semibold tracking-wide">Ready to Open</span>
+                 </Badge>
+               ) : (
+                 <Badge className="bg-[#1A1A1A]/80 hover:bg-[#1A1A1A] text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+                   <Lock className="w-3 h-3" />
+                   <span className="font-medium tracking-wide">{countdown}</span>
+                 </Badge>
+               )}
             </div>
           </>
         )}
@@ -437,6 +446,7 @@ const EmptyState = ({ type }: { type: "sent" | "received" }) => {
 
 const Dashboard = () => {
   const { plan, loading: planLoading } = usePlan();
+  const tier = plan?.tier || "free";
   const navigate = useNavigate();
   const { capsules, receivedCapsules, loading, serverNow } = useCapsules();
   const [activeTab, setActiveTab] = useState("sent");
@@ -576,21 +586,21 @@ const Dashboard = () => {
               <div className="absolute top-6 right-8 z-30">
                 <UsageBadge
                   icon={
-                    plan.tier === "pro" ? (
+                    tier === "pro" ? (
                       <Crown className="h-4 w-4" />
-                    ) : plan.tier === "starter" ? (
+                    ) : tier === "starter" ? (
                       <Zap className="h-4 w-4" />
                     ) : (
                       <Sparkles className="h-4 w-4" />
                     )
                   }
-                  planName={`${plan.tier.toLowerCase() === 'pro' ? 'Aion' : plan.tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} (${plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)})`}
+                  planName={`${tier.toLowerCase() === 'pro' ? 'Aion' : tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} (${tier.charAt(0).toUpperCase() + tier.slice(1)})`}
                   usage={plan.usedCapsules}
                   limit={plan.capsuleLimit}
                   tooltipContent={
                     <div className="space-y-1 text-left">
                       <p className="font-semibold text-[#5D2A42]">
-                        {plan.tier.toLowerCase() === 'pro' ? 'Aion' : plan.tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} Plan ({plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)})
+                        {tier.toLowerCase() === 'pro' ? 'Aion' : tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} Plan ({tier.charAt(0).toUpperCase() + tier.slice(1)})
                       </p>
                       <p className="text-xs text-[#5D2A42]/70">
                         {plan.capsuleLimit === null

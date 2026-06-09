@@ -7,6 +7,9 @@ import {
   ReactNode,
 } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { db } from "@/firebase";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { toast } from "@/hooks/use-toast";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -53,10 +56,12 @@ export interface Capsule {
 
   userId?: string;
   username?: string;
+  creatorName?: string;
   signature?: string;
 
   visibility?: "public" | "private";
   isReceived?: boolean;
+  version?: string;
 }
 
 /* ================= CONTEXT TYPE ================= */
@@ -309,17 +314,57 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     fetchServerTime(); // Get server time offset on mount
     
+    let unsubscribeNotif: (() => void) | null = null;
+    const sessionStart = new Date();
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         await refreshCapsules();
+
+        if (unsubscribeNotif) {
+          unsubscribeNotif();
+        }
+
+        const q = query(
+          collection(db, "notifications"),
+          where("userId", "==", user.uid),
+          where("read", "==", false)
+        );
+
+        unsubscribeNotif = onSnapshot(q, (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+              const data = change.doc.data();
+              const createdAt = data.createdAt?.toDate();
+              if (createdAt && createdAt.getTime() > sessionStart.getTime()) {
+                toast({
+                  title: "Notification",
+                  description: data.message,
+                });
+                refreshCapsules();
+              }
+            }
+          });
+        }, (error) => {
+          console.error("Notifications listener error:", error);
+        });
       } else {
         setCapsules([]);
         setReceivedCapsules([]);
         setLoading(false);
+        if (unsubscribeNotif) {
+          unsubscribeNotif();
+          unsubscribeNotif = null;
+        }
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubscribeNotif) {
+        unsubscribeNotif();
+      }
+    };
   }, []);
 
   /* ================= PROVIDER ================= */

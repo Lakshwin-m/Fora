@@ -69,6 +69,9 @@ const CreateCapsule = () => {
   const [currentStep, setCurrentStep] = useState(0); // ✅ starts at 0, not NaN
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSealModal, setShowSealModal] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState<"none" | "minutely" | "daily" | "yearly">("none");
+  const [priorReminderEnabled, setPriorReminderEnabled] = useState(false);
+  const [priorReminderDays, setPriorReminderDays] = useState(7); // default 7 days
 
   const getAuthHeaders = async () => {
     if (!auth.currentUser) throw new Error("No authenticated user");
@@ -201,6 +204,9 @@ const CreateCapsule = () => {
     const capturedUserId = currentUser.uid;
     const capturedReshare = !!location.state?.reshareFrom;
     const capturedOriginalId = location.state?.reshareFrom?.capsuleId || null;
+    const capturedRecurrencePattern = recurrencePattern;
+    const capturedPriorReminderEnabled = priorReminderEnabled;
+    const capturedPriorReminderDays = priorReminderDays;
 
     // Fire-and-forget: do all backend work in the background
     (async () => {
@@ -276,6 +282,10 @@ const CreateCapsule = () => {
             userId:           capturedUserId,
             isReshare:        capturedReshare,
             originalCapsuleId: capturedOriginalId,
+            autoRecurYearly:   capturedRecurrencePattern === "yearly",
+            recurrencePattern: capturedRecurrencePattern,
+            priorReminderEnabled: capturedPriorReminderEnabled,
+            priorReminderDays: capturedPriorReminderDays,
           }),
         });
 
@@ -364,6 +374,12 @@ const CreateCapsule = () => {
           onCancel={() => navigate("/")}
           onSubmit={handleFormSubmit}
           isSubmitting={isSubmitting}
+          recurrencePattern={recurrencePattern}
+          onRecurrencePatternChange={setRecurrencePattern}
+          priorReminderEnabled={priorReminderEnabled}
+          onPriorReminderEnabledChange={setPriorReminderEnabled}
+          priorReminderDays={priorReminderDays}
+          onPriorReminderDaysChange={setPriorReminderDays}
         />
       </div>
 

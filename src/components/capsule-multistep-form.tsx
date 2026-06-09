@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
@@ -83,6 +84,7 @@ interface Attachment {
   name: string;
   uploading?: boolean;
   progress?: number;
+  altText?: string;
 }
 
 interface CapsuleMultistepFormProps {
@@ -97,6 +99,12 @@ interface CapsuleMultistepFormProps {
   attachments: Attachment[];
   friends: Friend[];
   username: string;
+  recurrencePattern: "none" | "minutely" | "daily" | "yearly";
+  onRecurrencePatternChange: (value: "none" | "minutely" | "daily" | "yearly") => void;
+  priorReminderEnabled: boolean;
+  onPriorReminderEnabledChange: (value: boolean) => void;
+  priorReminderDays: number;
+  onPriorReminderDaysChange: (value: number) => void;
 
   onTitleChange: (value: string) => void;
   onContentChange: (value: string) => void;
@@ -135,7 +143,7 @@ const slideVariants = {
     opacity: 1,
     scale: 1,
     transition: {
-      x: { type: "spring", stiffness: 300, damping: 30 },
+      x: { type: "spring" as const, stiffness: 300, damping: 30 },
       opacity: { duration: 0.2 },
     },
   },
@@ -145,7 +153,7 @@ const slideVariants = {
     opacity: 0,
     scale: 0.98,
     transition: {
-      x: { type: "spring", stiffness: 300, damping: 30 },
+      x: { type: "spring" as const, stiffness: 300, damping: 30 },
       opacity: { duration: 0.2 },
     },
   }),
@@ -163,6 +171,12 @@ export const CapsuleMultistepForm = ({
   attachments = [],
   friends = [],
   username,
+  recurrencePattern,
+  onRecurrencePatternChange,
+  priorReminderEnabled,
+  onPriorReminderEnabledChange,
+  priorReminderDays,
+  onPriorReminderDaysChange,
 
   onTitleChange,
   onContentChange,
@@ -174,6 +188,7 @@ export const CapsuleMultistepForm = ({
   onCapsuleCategoryChange,
   onFileSelect,
   onRemoveAttachment,
+  onAttachmentsChange,
 
   onNextStep,
   onPrevStep,
@@ -434,7 +449,7 @@ export const CapsuleMultistepForm = ({
                             setTime={onDeliveryTimeChange} 
                           />
                         </TabsContent>
-                        <TabsContent value="event" className="mt-0 space-y-4 outline-none">
+                        <TabsContent value="event" className="mt-0 space-y-6 outline-none">
                           <div className="flex flex-col gap-3">
                             <Label htmlFor="eventTrigger" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
                               Reminder Schedule
@@ -448,6 +463,100 @@ export const CapsuleMultistepForm = ({
                               We'll send automatic reminders based on your schedule to ensure the capsule gets unlocked.
                             </p>
                           </div>
+
+                          <motion.div 
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 15 }}
+                            className="space-y-6 mt-6"
+                          >
+                            {/* Recurrence Frequency Card */}
+                            <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
+                              <div className="flex flex-col gap-2">
+                                <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
+                                  <span className="text-xl">⟳</span> Recurrence Frequency
+                                </h4>
+                                <p className="text-sm text-[#5D2A42]/70 font-medium">
+                                  Choose how often this capsule should be sent automatically.
+                                </p>
+                              </div>
+                              
+                              <Select 
+                                value={recurrencePattern} 
+                                onValueChange={(val: any) => onRecurrencePatternChange(val)}
+                              >
+                                <SelectTrigger className="h-12 border-[#E8E8E8] bg-white text-base font-semibold text-[#1A1A1A] rounded-xl focus:ring-0 focus:border-[#FB6376] w-full">
+                                  <SelectValue placeholder="No Recurrence" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm">
+                                  <SelectItem value="none" className="font-medium">No Recurrence</SelectItem>
+                                  <SelectItem value="minutely" className="font-medium">Every Minute (Minutely)</SelectItem>
+                                  <SelectItem value="daily" className="font-medium">Every Day (Daily)</SelectItem>
+                                  <SelectItem value="yearly" className="font-medium">Every Year (Yearly)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Prior Reminder Card (Only visible if recurrence is none or yearly) */}
+                            {(recurrencePattern === "none" || recurrencePattern === "yearly") && (
+                              <motion.div 
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
+                                  <div className="flex items-center justify-between">
+                                    <div className="space-y-1 pr-4">
+                                      <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
+                                        <span className="text-xl">🔔</span> Prior Reminder
+                                      </h4>
+                                      <p className="text-sm text-[#5D2A42]/70 font-medium">
+                                        Get notified before the capsule unlocks.
+                                      </p>
+                                    </div>
+                                    <Switch 
+                                      checked={priorReminderEnabled}
+                                      onCheckedChange={onPriorReminderEnabledChange}
+                                      className="data-[state=checked]:bg-[#FB6376]"
+                                    />
+                                  </div>
+
+                                  <AnimatePresence>
+                                    {priorReminderEnabled && (
+                                      <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: "auto" }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="overflow-hidden space-y-3 pt-3 border-t border-[#FFDCCC]/50"
+                                      >
+                                        <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider block">
+                                          Days Before Unlock
+                                        </Label>
+                                        <div className="flex flex-wrap gap-2">
+                                          {[1, 3, 7, 14, 30].map((days) => (
+                                            <button
+                                              key={days}
+                                              type="button"
+                                              onClick={() => onPriorReminderDaysChange(days)}
+                                              className={cn(
+                                                "px-4 py-2 text-sm font-bold rounded-xl border transition-all",
+                                                priorReminderDays === days
+                                                  ? "bg-[#FB6376] text-white border-[#FB6376]"
+                                                  : "bg-white text-[#5D2A42] border-[#E8E8E8] hover:border-[#FB6376] hover:bg-[#FFF9EC]"
+                                              )}
+                                            >
+                                              {days} {days === 1 ? "day" : "days"} before
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              </motion.div>
+                            )}
+                          </motion.div>
                         </TabsContent>
                     </div>
                   </Tabs>
@@ -790,7 +899,7 @@ export const CapsuleMultistepForm = ({
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-8 border-b border-[#E8E8E8]">
                           <div>
                             <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Recipients</span>
                             <span className="text-xl font-bold text-[#1A1A1A] capitalize">
@@ -801,6 +910,23 @@ export const CapsuleMultistepForm = ({
                              <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Memories Attached</span>
                              <span className="text-xl font-bold text-[#1A1A1A]">
                                 {attachments.length} file(s)
+                             </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8">
+                          <div>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Recurrence Frequency</span>
+                            <span className="text-xl font-bold text-[#1A1A1A] capitalize">
+                               {recurrencePattern === "none" ? "None" : recurrencePattern}
+                            </span>
+                          </div>
+                          <div>
+                             <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Prior Reminder</span>
+                             <span className="text-xl font-bold text-[#1A1A1A]">
+                                {(recurrencePattern === "none" || recurrencePattern === "yearly") && priorReminderEnabled 
+                                  ? `${priorReminderDays} ${priorReminderDays === 1 ? "day" : "days"} before` 
+                                  : "Disabled"}
                              </span>
                           </div>
                         </div>
