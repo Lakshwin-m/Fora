@@ -69,6 +69,43 @@ function InfiniteScrollColumn({
     updateHighlight(selectedIndex);
   }, [selectedIndex, updateHighlight]);
 
+  const totalItems = items.length * repeat;
+
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let isAnimating = false;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (isAnimating) return;
+
+      const direction = Math.sign(e.deltaY);
+      if (direction === 0) return;
+
+      isAnimating = true;
+      const targetIndex = selectedIndex + direction;
+
+      if (targetIndex >= 0 && targetIndex < totalItems) {
+        onIndexChange(targetIndex);
+        container.scrollTo({
+          top: targetIndex * 48,
+          behavior: "smooth",
+        });
+      }
+
+      setTimeout(() => {
+        isAnimating = false;
+      }, 200);
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, [selectedIndex, totalItems, onIndexChange]);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     isScrollingRef.current = true;
     if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
@@ -89,8 +126,6 @@ function InfiniteScrollColumn({
       }
     }, 100);
   };
-
-  const totalItems = items.length * repeat;
 
   // Memoize the huge array of buttons so React NEVER diffs them on state changes
   const buttonsList = React.useMemo(() => {
