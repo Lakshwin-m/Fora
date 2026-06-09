@@ -83,23 +83,25 @@ const getInitials = (name?: string) =>
 /* ================= SKELETON COMPONENTS ================= */
 
 const SkeletonCard = () => (
-  <div className="animate-pulse flex items-center gap-4 p-4 rounded-2xl bg-white/60 border border-[#E8E8E8]">
-    <div className="w-12 h-12 rounded-full bg-[#F0E8E4]" />
+  <div className="animate-pulse flex items-center gap-4 p-4 rounded-2xl bg-[#FFF9EC]/20 border border-[#5D2A42]/5">
+    <div className="w-12 h-12 rounded-full bg-[#5D2A42]/10" />
     <div className="flex-1 space-y-2">
-      <div className="h-3.5 bg-[#F0E8E4] rounded-full w-28" />
-      <div className="h-3 bg-[#F0E8E4] rounded-full w-40" />
+      <div className="h-3.5 bg-[#5D2A42]/10 rounded-full w-28" />
+      <div className="h-3 bg-[#5D2A42]/10 rounded-full w-40" />
     </div>
-    <div className="h-8 w-20 bg-[#F0E8E4] rounded-lg" />
+    <div className="h-8 w-20 bg-[#5D2A42]/10 rounded-lg" />
   </div>
 );
 
 const SkeletonSuggestion = () => (
-  <div className="animate-pulse flex-shrink-0 w-[180px] p-5 rounded-2xl bg-white/60 border border-[#E8E8E8]">
-    <div className="flex flex-col items-center gap-3">
-      <div className="w-16 h-16 rounded-full bg-[#F0E8E4]" />
-      <div className="h-3.5 bg-[#F0E8E4] rounded-full w-24" />
-      <div className="h-3 bg-[#F0E8E4] rounded-full w-20" />
-      <div className="h-8 w-full bg-[#F0E8E4] rounded-lg mt-1" />
+  <div className="animate-pulse flex-shrink-0 w-full p-4 rounded-2xl bg-white border border-[#5D2A42]/10">
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-full bg-[#5D2A42]/10" />
+      <div className="flex-1 space-y-1.5">
+        <div className="h-3 bg-[#5D2A42]/10 rounded-full w-24" />
+        <div className="h-2 bg-[#5D2A42]/10 rounded-full w-16" />
+      </div>
+      <div className="h-7 w-7 rounded-full bg-[#5D2A42]/10" />
     </div>
   </div>
 );
@@ -115,30 +117,27 @@ if (typeof document !== "undefined" && !document.getElementById(styleId)) {
       from { opacity: 0; transform: translateY(16px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    @keyframes conn-fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
     @keyframes conn-slide-down {
       from { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; margin-bottom: 0; }
       to { opacity: 1; max-height: 500px; }
     }
-    @keyframes conn-pulse-ring {
-      0% { box-shadow: 0 0 0 0 rgba(251, 99, 118, 0.4); }
-      70% { box-shadow: 0 0 0 8px rgba(251, 99, 118, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(251, 99, 118, 0); }
-    }
-    @keyframes conn-shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
+
     .conn-fade-up {
       animation: conn-fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       opacity: 0;
+    }
+    .conn-fade-in {
+      animation: conn-fade-in 0.4s ease-out forwards;
     }
     .conn-slide-down {
       animation: conn-slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       overflow: hidden;
     }
-    .conn-pulse-ring {
-      animation: conn-pulse-ring 2s ease-in-out infinite;
-    }
+
     .conn-stagger-1 { animation-delay: 0.05s; }
     .conn-stagger-2 { animation-delay: 0.1s; }
     .conn-stagger-3 { animation-delay: 0.15s; }
@@ -176,9 +175,12 @@ const Connections = () => {
   /* ---- Active list toggle ---- */
   const [activeList, setActiveList] = useState<"followers" | "following">("following");
 
-  /* ---- Search ---- */
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  /* ---- Local Filter ---- */
+  const [localQuery, setLocalQuery] = useState("");
+  const [debouncedLocalQuery, setDebouncedLocalQuery] = useState("");
+
+  /* ---- Global Search ---- */
+  const [globalQuery, setGlobalQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchMode, setSearchMode] = useState(false); // true when showing API results
@@ -258,23 +260,23 @@ const Connections = () => {
   /* ================= DEBOUNCED LOCAL FILTER ================= */
   useEffect(() => {
     const t = setTimeout(() => {
-      setDebouncedQuery(searchQuery.toLowerCase());
+      setDebouncedLocalQuery(localQuery.toLowerCase());
     }, 250);
     return () => clearTimeout(t);
-  }, [searchQuery]);
+  }, [localQuery]);
 
-  const filteredFriends = debouncedQuery
+  const filteredFriends = debouncedLocalQuery
     ? friends.filter(
         (f) =>
-          f.profile?.name?.toLowerCase().includes(debouncedQuery) ||
-          f.profile?.email?.toLowerCase().includes(debouncedQuery) ||
-          f.profile?.username?.toLowerCase().includes(debouncedQuery)
+          f.profile?.name?.toLowerCase().includes(debouncedLocalQuery) ||
+          f.profile?.email?.toLowerCase().includes(debouncedLocalQuery) ||
+          f.profile?.username?.toLowerCase().includes(debouncedLocalQuery)
       )
     : friends;
 
   /* ================= API SEARCH ================= */
   const handleGlobalSearch = useCallback(async () => {
-    if (!searchQuery.trim()) {
+    if (!globalQuery.trim()) {
       setSearchMode(false);
       setSearchResults([]);
       return;
@@ -282,7 +284,7 @@ const Connections = () => {
     setSearching(true);
     setSearchMode(true);
     try {
-      const results = await apiSearchUsers(searchQuery.trim());
+      const results = await apiSearchUsers(globalQuery.trim());
       const friendUids = new Set(friends.map((f) => f.profile?.uid));
       const currentUid = auth.currentUser?.uid;
       const filtered = (results || []).filter(
@@ -298,7 +300,7 @@ const Connections = () => {
     } finally {
       setSearching(false);
     }
-  }, [searchQuery, friends]);
+  }, [globalQuery, friends, t]);
 
   /* ================= ACTIONS ================= */
   const handleSendRequest = async (uid: string) => {
@@ -368,7 +370,7 @@ const Connections = () => {
   };
 
   const clearSearch = () => {
-    setSearchQuery("");
+    setGlobalQuery("");
     setSearchMode(false);
     setSearchResults([]);
   };
@@ -379,37 +381,57 @@ const Connections = () => {
       <div className="min-h-screen bg-[#FFF9EC]">
         <Navigation />
         <main className="ml-0 md:ml-20">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-            {/* Skeleton header */}
-            <div className="animate-pulse mb-10">
-              <div className="h-8 bg-[#F0E8E4] rounded-xl w-48 mb-3" />
-              <div className="h-4 bg-[#F0E8E4] rounded-lg w-64 mb-6" />
-              <div className="flex gap-3">
-                <div className="h-10 bg-[#F0E8E4] rounded-xl w-32" />
-                <div className="h-10 bg-[#F0E8E4] rounded-xl w-32" />
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            {/* Header / Stats row skeleton */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-10 border-b border-[#5D2A42]/5 pb-8 animate-pulse">
+              <div>
+                <div className="h-9 bg-[#5D2A42]/10 rounded-xl w-48 mb-3" />
+                <div className="h-4 bg-[#5D2A42]/10 rounded-lg w-64" />
+              </div>
+              <div className="flex flex-wrap gap-4">
+                <div className="h-18 bg-[#5D2A42]/10 rounded-2xl w-36" />
+                <div className="h-18 bg-[#5D2A42]/10 rounded-2xl w-36" />
               </div>
             </div>
 
-            {/* Skeleton search */}
-            <div className="animate-pulse mb-8">
-              <div className="h-12 bg-[#F0E8E4] rounded-2xl w-full max-w-xl" />
-            </div>
-
-            {/* Skeleton suggestions */}
-            <div className="mb-10">
-              <div className="animate-pulse h-5 bg-[#F0E8E4] rounded-lg w-36 mb-4" />
-              <div className="flex gap-4 overflow-hidden">
-                {[...Array(5)].map((_, i) => (
-                  <SkeletonSuggestion key={i} />
-                ))}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left column skeleton */}
+              <div className="lg:col-span-8 flex flex-col gap-6">
+                <div className="bg-white border border-[#5D2A42]/10 rounded-3xl p-6 flex flex-col gap-6">
+                  <div className="flex items-center justify-between border-b border-[#5D2A42]/5 pb-4">
+                    <div className="h-6 bg-[#5D2A42]/10 rounded-lg w-28" />
+                    <div className="h-10 bg-[#5D2A42]/10 rounded-xl w-48" />
+                  </div>
+                  <div className="h-11 bg-[#5D2A42]/10 rounded-2xl w-full" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                      <SkeletonCard key={i} />
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Skeleton connections */}
-            <div className="space-y-3">
-              {[...Array(4)].map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
+              {/* Right column skeleton */}
+              <div className="lg:col-span-4 flex flex-col gap-6">
+                <div className="bg-white border border-[#5D2A42]/10 rounded-3xl p-5 flex flex-col gap-4">
+                  <div className="h-5 bg-[#5D2A42]/10 rounded-lg w-32 mb-2" />
+                  <div className="h-10 bg-[#5D2A42]/10 rounded-xl w-full" />
+                </div>
+                <div className="bg-white border border-[#5D2A42]/10 rounded-3xl p-5 flex flex-col gap-4">
+                  <div className="h-5 bg-[#5D2A42]/10 rounded-lg w-36 mb-2" />
+                  <div className="space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-[#5D2A42]/10" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="h-3 bg-[#5D2A42]/10 rounded-full w-24" />
+                          <div className="h-2 bg-[#5D2A42]/10 rounded-full w-16" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </main>
@@ -423,524 +445,447 @@ const Connections = () => {
       <Navigation />
 
       <main className="ml-0 md:ml-20">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+          
+          {/* ========== HEADER SECTION WITH STATS ========== */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-10 border-b border-[#5D2A42]/5 pb-8 conn-fade-up">
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold text-[#5D2A42] tracking-tight mb-2 flex items-center gap-3">
+                <Users className="w-8 h-8 text-[#FB6376]" />
+                {t('connections.title')}
+              </h1>
+              <p className="text-[#5D2A42]/70 text-sm sm:text-base font-medium">
+                {t('connections.subtitle')}
+              </p>
+            </div>
 
-          {/* ========== HEADER ========== */}
-          <div className="conn-fade-up mb-10">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-bold text-[#1A1A1A] tracking-tight mb-1">
-                  {t('connections.title')}
-                </h1>
-                <p className="text-[#888] text-sm">
-                  {t('connections.subtitle')}
-                </p>
+            {/* Premium Metric Badges */}
+            <div className="flex flex-wrap gap-4">
+              <div className="bg-white border border-[#5D2A42]/10 rounded-2xl p-4 flex items-center gap-4 min-w-[140px] shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="w-10 h-10 rounded-xl bg-[#FB6376]/10 flex items-center justify-center text-[#FB6376]">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-[#5D2A42] tabular-nums leading-none mb-1">{friends.length}</div>
+                  <div className="text-[11px] text-[#5D2A42]/60 font-bold uppercase tracking-wider">{t('connections.following')}</div>
+                </div>
+              </div>
+              
+              <div className="bg-white border border-[#5D2A42]/10 rounded-2xl p-4 flex items-center gap-4 min-w-[140px] shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="w-10 h-10 rounded-xl bg-[#5D2A42]/10 flex items-center justify-center text-[#5D2A42]">
+                  <Heart className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-[#5D2A42] tabular-nums leading-none mb-1">{friends.length}</div>
+                  <div className="text-[11px] text-[#5D2A42]/60 font-bold uppercase tracking-wider">{t('connections.followers')}</div>
+                </div>
               </div>
 
-              {/* Stats pills */}
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <button
-                  onClick={() => setActiveList("following")}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all duration-300 ${
-                    activeList === "following"
-                      ? "bg-[#FB6376] text-white shadow-lg shadow-[#FB6376]/20"
-                      : "bg-white text-[#1A1A1A] border border-[#E8E8E8] hover:border-[#FB6376]/30"
-                  }`}
-                >
-                  <Users className="w-4 h-4" />
-                  <span className="tabular-nums">{friends.length}</span>
-                  <span className="opacity-80">{t('connections.following')}</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveList("followers")}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all duration-300 ${
-                    activeList === "followers"
-                      ? "bg-[#5D2A42] text-white shadow-lg shadow-[#5D2A42]/20"
-                      : "bg-white text-[#1A1A1A] border border-[#E8E8E8] hover:border-[#5D2A42]/30"
-                  }`}
-                >
-                  <Heart className="w-4 h-4" />
-                  <span className="tabular-nums">{friends.length}</span>
-                  <span className="opacity-80">{t('connections.followers')}</span>
-                </button>
-
-                {pending.length > 0 && (
-                  <div className="flex items-center gap-2 px-4 py-2.5 bg-[#FB6376]/10 border border-[#FB6376]/20 rounded-2xl conn-pulse-ring">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FB6376] opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#FB6376]" />
-                    </span>
-                    <span className="text-sm font-semibold text-[#FB6376] tabular-nums">
-                      {pending.length}
-                    </span>
-                    <span className="text-sm text-[#FB6376]/80">
-                      {pending.length === 1 ? t('connections.request') : t('connections.requests')}
-                    </span>
+              {pending.length > 0 && (
+                <div className="bg-white border border-[#FB6376]/30 rounded-2xl p-4 flex items-center gap-4 min-w-[140px] shadow-sm hover:shadow-md transition-all duration-300">
+                  <div className="w-10 h-10 rounded-xl bg-[#FB6376]/25 flex items-center justify-center text-[#FB6376]">
+                    <UserPlus className="w-5 h-5" />
                   </div>
-                )}
-              </div>
+                  <div>
+                    <div className="text-2xl font-bold text-[#FB6376] tabular-nums leading-none mb-1">{pending.length}</div>
+                    <div className="text-[11px] text-[#FB6376]/80 font-bold uppercase tracking-wider">{t('connections.requests')}</div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* ========== PENDING REQUESTS BANNER ========== */}
-          {pending.length > 0 && (
-            <div className="conn-slide-down mb-8">
-              <div className="bg-gradient-to-r from-[#FB6376]/5 via-[#FCB1A6]/10 to-[#FFDCCC]/10 border border-[#FB6376]/15 rounded-2xl overflow-hidden">
-                {/* Banner header */}
-                <button
-                  onClick={() => setPendingExpanded(!pendingExpanded)}
-                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#FB6376]/5 transition-colors duration-200"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#FB6376] flex items-center justify-center">
-                      <UserPlus className="w-4.5 h-4.5 text-white" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-[#1A1A1A]">
-                        {t('connections.followRequests')}
-                      </p>
-                      <p className="text-xs text-[#888]">
-                        {pending.length} {pending.length === 1 ? t('connections.wantsToConnectSingle') : t('connections.wantsToConnectPlural')}
-                      </p>
-                    </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            {/* ========== LEFT COLUMN: MY CONNECTIONS NETWORK ========== */}
+            <div className="lg:col-span-8 flex flex-col gap-6">
+              <div className="bg-white border border-[#5D2A42]/10 rounded-3xl p-6 shadow-sm flex flex-col gap-6 conn-fade-up conn-stagger-1">
+                
+                {/* Section header & tabs toggle */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#5D2A42]/5 pb-4">
+                  <h2 className="text-xl font-bold text-[#5D2A42] flex items-center gap-2">
+                    {activeList === "following" ? t('connections.following') : t('connections.followers')}
+                  </h2>
+                  <div className="flex items-center bg-[#FFF9EC] border border-[#5D2A42]/10 rounded-2xl p-1 shadow-inner w-fit">
+                    <button
+                      onClick={() => setActiveList("following")}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${
+                        activeList === "following"
+                          ? "bg-[#FB6376] text-white shadow-sm"
+                          : "text-[#5D2A42]/60 hover:text-[#5D2A42] hover:bg-white/50"
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      {t('connections.following')}
+                      <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${activeList === "following" ? "bg-white/20 text-white" : "bg-[#5D2A42]/10 text-[#5D2A42]"}`}>
+                        {friends.length}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setActiveList("followers")}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-300 ${
+                        activeList === "followers"
+                          ? "bg-[#5D2A42] text-white shadow-sm"
+                          : "text-[#5D2A42]/60 hover:text-[#5D2A42] hover:bg-white/50"
+                      }`}
+                    >
+                      <Heart className="w-3.5 h-3.5" />
+                      {t('connections.followers')}
+                      <span className={`ml-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${activeList === "followers" ? "bg-white/20 text-white" : "bg-[#5D2A42]/10 text-[#5D2A42]"}`}>
+                        {friends.length}
+                      </span>
+                    </button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {/* Stacked avatars preview */}
-                    <div className="flex -space-x-2 mr-2">
-                      {pending.slice(0, 3).map((p, i) => (
-                        <Avatar
-                          key={p.id}
-                          className="w-7 h-7 border-2 border-white"
-                          style={{ zIndex: 3 - i }}
+                </div>
+
+                {/* Local search filter */}
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#5D2A42]/40" />
+                  <Input
+                    className="pl-11 pr-10 bg-[#FFF9EC]/40 border-[#5D2A42]/10 focus:border-[#FB6376]/50 focus:bg-white text-[#5D2A42] rounded-2xl h-11 text-sm placeholder:text-[#5D2A42]/40 focus:ring-0 focus-visible:ring-0 transition-all duration-300"
+                    placeholder={t('connections.searchPlaceholder')}
+                    value={localQuery}
+                    onChange={(e) => setLocalQuery(e.target.value)}
+                  />
+                  {localQuery && (
+                    <button
+                      onClick={() => setLocalQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-[#5D2A42]/40 hover:text-[#5D2A42] rounded-lg hover:bg-[#5D2A42]/5 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Connections Cards Grid */}
+                <div className="min-h-[220px]">
+                  {filteredFriends.length === 0 ? (
+                    <div className="py-16 text-center flex flex-col items-center justify-center conn-fade-in">
+                      <div className="w-20 h-20 mb-5 bg-[#FFF9EC] border border-[#5D2A42]/10 rounded-3xl flex items-center justify-center text-[#5D2A42]/30">
+                        <Users className="w-9 h-9" />
+                      </div>
+                      <h3 className="text-xl font-bold text-[#5D2A42] mb-2">
+                        {localQuery ? t('connections.noMatches') : t('connections.noConnections')}
+                      </h3>
+                      <p className="text-[#5D2A42]/60 text-sm max-w-sm mb-6">
+                        {localQuery
+                          ? t('connections.tryDifferentSearch')
+                          : t('connections.startBuildingNetwork')}
+                      </p>
+                      {!localQuery && (
+                        <button
+                          onClick={() => document.getElementById("global-search-input")?.focus()}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FB6376] hover:bg-[#e8556a] text-white text-sm font-bold rounded-xl shadow-sm transition-all duration-200 active:scale-95"
                         >
-                          <AvatarImage src={p.senderPhotoURL} />
-                          <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-[10px] font-semibold">
-                            {getInitials(p.senderName)}
-                          </AvatarFallback>
-                        </Avatar>
-                      ))}
-                      {pending.length > 3 && (
-                        <div className="w-7 h-7 rounded-full bg-[#FB6376] border-2 border-white flex items-center justify-center text-[10px] font-bold text-white">
-                          +{pending.length - 3}
-                        </div>
+                          <Search className="w-4.5 h-4.5" />
+                          {t('connections.findPeople')}
+                        </button>
                       )}
                     </div>
-                    {pendingExpanded ? (
-                      <ChevronUp className="w-4.5 h-4.5 text-[#999]" />
-                    ) : (
-                      <ChevronDown className="w-4.5 h-4.5 text-[#999]" />
-                    )}
-                  </div>
-                </button>
-
-                {/* Expanded list */}
-                {pendingExpanded && (
-                  <div className="px-5 pb-4 space-y-2.5">
-                    {pending.map((p, idx) => (
-                      <div
-                        key={p.id}
-                        className={`conn-fade-up conn-stagger-${Math.min(idx + 1, 9)} flex items-center justify-between p-3.5 bg-white rounded-xl border border-[#E8E8E8] hover:border-[#FB6376]/25 transition-all duration-200`}
-                      >
-                        <div 
-                          className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group/item"
-                          onClick={() => navigate(`/profile/${p.senderUid}`)}
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {filteredFriends.map((f, idx) => (
+                        <div
+                          key={f.id}
+                          className={`conn-fade-up conn-stagger-${Math.min(idx + 1, 9)} flex items-center justify-between p-4 bg-[#FFF9EC]/20 rounded-2xl border border-[#5D2A42]/5 hover:border-[#FB6376]/30 hover:bg-white hover:shadow-md transition-all duration-300 group`}
                         >
-                          <Avatar className="w-10 h-10 flex-shrink-0 border border-[#E8E8E8] group-hover/item:border-[#FB6376]/30 transition-colors">
+                          <div 
+                            className="flex items-center gap-3.5 min-w-0 flex-1 cursor-pointer group/item"
+                            onClick={() => navigate(`/profile/${f.profile?.uid}`)}
+                          >
+                            <Avatar className="w-12 h-12 flex-shrink-0 border-2 border-[#5D2A42]/5 group-hover/item:border-[#FB6376]/40 transition-colors duration-300 shadow-sm">
+                              <AvatarImage src={f.profile?.photoURL} />
+                              <AvatarFallback className="bg-gradient-to-br from-[#FFDCCC] to-[#FCB1A6] text-[#5D2A42] text-sm font-bold">
+                                {getInitials(f.profile?.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-[#5D2A42] text-sm truncate group-hover/item:text-[#FB6376] transition-colors duration-300">
+                                {f.profile?.name || "Unknown"}
+                              </p>
+                              <p className="text-[11px] text-[#5D2A42]/50 truncate font-mono">
+                                {f.profile?.username ? `@${f.profile.username}` : f.profile?.email}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                            <button
+                              className={`h-9 px-4 rounded-xl text-xs font-bold transition-all duration-200 border ${
+                                hoveredFriend === f.id
+                                  ? "bg-[#FB6376]/10 border-[#FB6376]/35 text-[#FB6376]"
+                                  : "bg-[#5D2A42]/5 border-[#5D2A42]/10 text-[#5D2A42]/80 hover:bg-[#5D2A42]/10"
+                              }`}
+                              disabled={actionLoading === f.id}
+                              onClick={() => handleRemove(f.id)}
+                              onMouseEnter={() => setHoveredFriend(f.id)}
+                              onMouseLeave={() => setHoveredFriend(null)}
+                            >
+                              {actionLoading === f.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : hoveredFriend === f.id ? (
+                                <>
+                                  <UserMinus className="w-3.5 h-3.5 mr-1 inline" />
+                                  {t('connections.unfollow')}
+                                </>
+                              ) : (
+                                <>
+                                  <UserCheck className="w-3.5 h-3.5 mr-1 inline" />
+                                  {t('connections.following')}
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ========== RIGHT COLUMN: ACTIVITY, DISCOVER & REQUESTS ========== */}
+            <div className="lg:col-span-4 flex flex-col gap-6">
+              
+              {/* Pending Requests Widget */}
+              {pending.length > 0 && (
+                <div className="conn-slide-down bg-gradient-to-b from-[#FB6376]/10 to-white border border-[#FB6376]/25 p-5 rounded-3xl shadow-sm flex flex-col gap-4">
+                  <h3 className="font-extrabold text-[#5D2A42] flex items-center justify-between text-sm sm:text-base border-b border-[#FB6376]/10 pb-3">
+                    <span className="flex items-center gap-2">
+                      <div className="relative">
+                        <UserPlus className="w-4.5 h-4.5 text-[#FB6376]" />
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#FB6376] rounded-full animate-ping" />
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#FB6376] rounded-full" />
+                      </div>
+                      {t('connections.followRequests')}
+                    </span>
+                    <span className="text-xs font-extrabold bg-[#FB6376] text-white px-2 py-0.5 rounded-full shadow-sm tabular-nums">
+                      {pending.length}
+                    </span>
+                  </h3>
+                  
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto conn-hide-scrollbar pr-1">
+                    {pending.map((p) => (
+                      <div key={p.id} className="bg-white p-3.5 rounded-2xl border border-[#5D2A42]/10 shadow-sm flex flex-col gap-3 transition-all duration-300 hover:border-[#FB6376]/20">
+                        <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate(`/profile/${p.senderUid}`)}>
+                          <Avatar className="w-9 h-9 flex-shrink-0 border border-[#5D2A42]/10">
                             <AvatarImage src={p.senderPhotoURL} />
-                            <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-xs font-semibold">
+                            <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-xs font-bold">
                               {getInitials(p.senderName)}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-[#1A1A1A] text-sm truncate group-hover/item:text-[#FB6376] transition-colors">
-                              {p.senderName || "Unknown"}
-                            </p>
-                            <p className="text-xs text-[#999] truncate">
-                              {p.senderEmail}
-                            </p>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-[#5D2A42] text-xs truncate">{p.senderName || "Unknown"}</p>
+                            <p className="text-[10px] text-[#5D2A42]/60 truncate font-mono">{p.senderEmail}</p>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                          <Button
-                            size="sm"
-                            className="bg-[#FB6376] hover:bg-[#e8556a] text-white h-8 px-4 rounded-xl text-xs font-semibold shadow-sm shadow-[#FB6376]/20"
-                            disabled={actionLoading === p.id}
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            size="sm" 
+                            className="flex-1 bg-[#FB6376] hover:bg-[#e8556a] text-white h-8 rounded-xl text-xs font-bold" 
+                            disabled={actionLoading === p.id} 
                             onClick={() => handleAccept(p.id)}
                           >
-                            {actionLoading === p.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                              <>
-                                <UserCheck className="w-3.5 h-3.5 mr-1" />
-                                {t('connections.accept')}
-                              </>
-                            )}
+                            {actionLoading === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : t('connections.accept')}
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-[#999] hover:text-[#FB6376] hover:bg-[#FB6376]/5 h-8 w-8 p-0 rounded-xl"
-                            disabled={actionLoading === p.id}
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="flex-1 border-[#5D2A42]/15 text-[#5D2A42]/80 hover:bg-[#5D2A42]/5 h-8 rounded-xl text-xs font-bold" 
+                            disabled={actionLoading === p.id} 
                             onClick={() => handleReject(p.id)}
-                            title="Decline"
                           >
-                            <UserX className="w-3.5 h-3.5" />
+                            {t('connections.decline')}
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ========== SEARCH BAR ========== */}
-          <div className="conn-fade-up conn-stagger-2 mb-10">
-            <div className="relative max-w-xl">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[#AAAAAA]" />
-              <Input
-                className="pl-11 pr-24 bg-white border-[#E8E8E8] rounded-2xl h-12 text-sm placeholder:text-[#BBBBBB] shadow-sm focus:shadow-md focus:border-[#FB6376]/40 transition-all duration-300"
-                placeholder={t('connections.searchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  if (!e.target.value.trim()) {
-                    setSearchMode(false);
-                    setSearchResults([]);
-                  }
-                }}
-                onKeyDown={(e) => e.key === "Enter" && handleGlobalSearch()}
-              />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                {searchQuery && (
-                  <button
-                    onClick={clearSearch}
-                    className="p-1.5 text-[#999] hover:text-[#666] rounded-lg hover:bg-[#F5F5F5] transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <Button
-                  size="sm"
-                  onClick={handleGlobalSearch}
-                  disabled={searching || !searchQuery.trim()}
-                  className="bg-[#5D2A42] hover:bg-[#4a2135] text-white h-8 px-3.5 rounded-xl text-xs font-semibold"
-                >
-                  {searching ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <>
-                      <Search className="w-3 h-3 mr-1" />
-                      {t('connections.find')}
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* ========== SEARCH RESULTS (when in search mode) ========== */}
-          {searchMode && (
-            <div className="conn-fade-up mb-10">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-[#1A1A1A]">
-                  {t('connections.searchResults')}
-                </h2>
-                <button
-                  onClick={clearSearch}
-                  className="text-xs text-[#FB6376] font-semibold hover:underline"
-                >
-                  {t('connections.clearSearch')}
-                </button>
-              </div>
-
-              {searchResults.length === 0 && !searching ? (
-                <div className="py-12 text-center bg-white rounded-2xl border border-[#E8E8E8]">
-                  <div className="w-14 h-14 mx-auto mb-4 bg-[#FFF4F2] rounded-2xl flex items-center justify-center">
-                    <Search className="w-7 h-7 text-[#CCBBBB]" />
-                  </div>
-                  <p className="text-[#999] text-sm">
-                    {t('connections.noUsersFound')} "<span className="font-medium text-[#666]">{searchQuery}</span>"
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {searchResults.map((user, idx) => {
-                    const alreadySent = sentRequests.has(user.uid);
-                    return (
-                      <div
-                        key={user.uid}
-                        className={`conn-fade-up conn-stagger-${Math.min(idx + 1, 9)} flex items-center justify-between p-4 bg-white rounded-2xl border border-[#E8E8E8] hover:border-[#FB6376]/20 hover:shadow-sm transition-all duration-200`}
-                      >
-                        <div 
-                          className="flex items-center gap-3.5 min-w-0 flex-1 cursor-pointer group/item"
-                          onClick={() => navigate(`/profile/${user.uid}`)}
-                        >
-                          <Avatar className="w-12 h-12 flex-shrink-0 border-2 border-[#F0E8E4] group-hover/item:border-[#FB6376]/30 transition-colors">
-                            <AvatarImage src={user.photoURL} />
-                            <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-sm font-semibold">
-                              {getInitials(user.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-[#1A1A1A] text-sm truncate group-hover/item:text-[#FB6376] transition-colors">
-                              {user.name || "Unknown"}
-                            </p>
-                            <p className="text-xs text-[#999] truncate">
-                              {user.username ? `@${user.username}` : user.email}
-                            </p>
-                          </div>
-                        </div>
-
-                        <Button
-                          size="sm"
-                          className={`h-9 px-5 rounded-xl text-xs font-semibold transition-all duration-300 ${
-                            alreadySent
-                              ? "bg-[#F5F5F5] text-[#999] cursor-default hover:bg-[#F5F5F5] border border-[#E8E8E8]"
-                              : "bg-[#FB6376] hover:bg-[#e8556a] text-white shadow-sm shadow-[#FB6376]/20"
-                          }`}
-                          disabled={alreadySent || actionLoading === user.uid}
-                          onClick={() => handleSendRequest(user.uid)}
-                        >
-                          {actionLoading === user.uid ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : alreadySent ? (
-                            <>
-                              <UserCheck className="w-3.5 h-3.5 mr-1.5" />
-                              {t('connections.requested')}
-                            </>
-                          ) : (
-                            <>
-                              <UserPlus className="w-3.5 h-3.5 mr-1.5" />
-                              {t('connections.follow')}
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    );
-                  })}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* ========== SUGGESTED FOR YOU ========== */}
-          {!searchMode && suggestions.length > 0 && (
-            <div className="conn-fade-up conn-stagger-3 mb-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4.5 h-4.5 text-[#FB6376]" />
-                  <h2 className="text-base font-bold text-[#1A1A1A]">
-                    {t('connections.suggestedForYou')}
-                  </h2>
+              {/* Global Search / Find People */}
+              <div className="bg-white p-6 rounded-3xl border border-[#5D2A42]/10 shadow-sm flex flex-col gap-5 conn-fade-up conn-stagger-2">
+                <h3 className="font-extrabold text-[#5D2A42] flex items-center gap-2 text-sm sm:text-base border-b border-[#5D2A42]/5 pb-4.5">
+                  <Search className="w-4.5 h-4.5 text-[#FB6376]" />
+                  {t('connections.findPeople')}
+                </h3>
+                
+                <div className="relative my-2">
+                  <Input
+                    id="global-search-input"
+                    className="pl-4 pr-11 bg-[#F9F9F9] border-[#E8E8E8] rounded-xl h-11 text-sm placeholder:text-[#BBBBBB] focus:bg-white focus:shadow-sm focus:border-[#5D2A42]/40 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:ring-transparent focus-visible:outline-none focus:outline-none transition-all duration-300"
+                    placeholder={t('connections.searchPlaceholder')}
+                    value={globalQuery}
+                    onChange={(e) => {
+                      setGlobalQuery(e.target.value);
+                      if (!e.target.value.trim()) {
+                        setSearchMode(false);
+                        setSearchResults([]);
+                      }
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleGlobalSearch()}
+                  />
+                  <Button
+                    size="icon"
+                    onClick={handleGlobalSearch}
+                    disabled={searching || !globalQuery.trim()}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-[#5D2A42] hover:bg-[#4a2135] text-white h-8 w-8 rounded-lg transition-transform active:scale-95"
+                  >
+                    {searching ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    )}
+                  </Button>
                 </div>
-                <button
-                  onClick={loadSuggestions}
-                  disabled={suggestionsLoading}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-[#FB6376] hover:text-[#e8556a] transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${suggestionsLoading ? "animate-spin" : ""}`} />
-                  {t('connections.refresh')}
-                </button>
+
+                {/* Global Search Results */}
+                {searchMode && (
+                  <div className="border-t border-[#5D2A42]/5 pt-5 flex flex-col gap-5 conn-fade-in">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-extrabold text-[#5D2A42]/60 uppercase tracking-wider">
+                        {t('connections.searchResults')}
+                      </span>
+                      <button onClick={clearSearch} className="text-[10px] font-bold text-[#FB6376] hover:underline">
+                        {t('connections.clearSearch')}
+                      </button>
+                    </div>
+
+                    {searchResults.length === 0 && !searching ? (
+                      <p className="text-[#5D2A42]/60 text-xs text-center py-4 italic">
+                        {t('connections.noUsersFound')} "{globalQuery}"
+                      </p>
+                    ) : (
+                      <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                        {searchResults.map((user) => {
+                          const alreadySent = sentRequests.has(user.uid);
+                          return (
+                            <div key={user.uid} className="flex items-center justify-between gap-2 p-3 rounded-xl bg-[#FFF9EC]/20 border border-[#5D2A42]/5">
+                              <div className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1" onClick={() => navigate(`/profile/${user.uid}`)}>
+                                <Avatar className="w-8 h-8 flex-shrink-0 border border-[#5D2A42]/10 shadow-sm">
+                                  <AvatarImage src={user.photoURL} />
+                                  <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-[10px] font-bold">
+                                    {getInitials(user.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-bold text-[#5D2A42] text-xs truncate">{user.name}</p>
+                                  <p className="text-[9px] text-[#5D2A42]/50 truncate font-mono">
+                                    {user.username ? `@${user.username}` : user.email}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                className={`h-7 px-2.5 rounded-lg text-[10px] font-bold transition-all ${
+                                  alreadySent
+                                    ? "bg-[#5D2A42]/5 text-[#5D2A42]/50 cursor-default"
+                                    : "bg-[#FB6376] hover:bg-[#e8556a] text-white hover:shadow-sm"
+                                }`}
+                                disabled={alreadySent || actionLoading === user.uid}
+                                onClick={() => handleSendRequest(user.uid)}
+                              >
+                                {actionLoading === user.uid ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : alreadySent ? (
+                                  t('connections.requested')
+                                ) : (
+                                  <>
+                                    <UserPlus className="w-3 h-3 mr-1 inline" />
+                                    {t('connections.follow')}
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div
-                ref={suggestionsRef}
-                className="flex gap-3.5 overflow-x-auto pb-2 conn-hide-scrollbar"
-              >
-                {suggestionsLoading
-                  ? [...Array(5)].map((_, i) => <SkeletonSuggestion key={i} />)
-                  : suggestions.map((user, idx) => {
-                      const alreadySent = sentRequests.has(user.uid);
-                      return (
-                        <div
-                          key={user.uid}
-                          className={`conn-fade-up conn-stagger-${Math.min(idx + 1, 9)} flex-shrink-0 w-[180px] p-5 rounded-2xl bg-white border border-[#E8E8E8] hover:border-[#FB6376]/25 hover:shadow-md transition-all duration-300 group`}
-                        >
-                          <div className="flex flex-col items-center text-center">
+              {/* Suggested For You */}
+              {!searchMode && suggestions.length > 0 && (
+                <div className="bg-white p-5 rounded-3xl border border-[#5D2A42]/10 shadow-sm flex flex-col gap-4 conn-fade-up conn-stagger-3">
+                  <div className="flex items-center justify-between border-b border-[#5D2A42]/5 pb-3">
+                    <h3 className="font-extrabold text-[#5D2A42] flex items-center gap-2 text-sm sm:text-base">
+                      <Sparkles className="w-4.5 h-4.5 text-[#FB6376]" />
+                      {t('connections.suggestedForYou')}
+                    </h3>
+                    <button 
+                      onClick={loadSuggestions} 
+                      disabled={suggestionsLoading} 
+                      className="p-1.5 text-[#5D2A42]/50 hover:text-[#5D2A42] hover:bg-[#5D2A42]/5 rounded-lg transition-all"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${suggestionsLoading ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3.5">
+                    {suggestionsLoading ? (
+                      [...Array(3)].map((_, i) => (
+                        <div key={i} className="animate-pulse flex items-center gap-3 py-1.5">
+                          <div className="w-9 h-9 rounded-full bg-[#5D2A42]/10" />
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-2.5 bg-[#5D2A42]/10 rounded-full w-24" />
+                            <div className="h-2 bg-[#5D2A42]/10 rounded-full w-16" />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      suggestions.slice(0, 5).map((user) => {
+                        const alreadySent = sentRequests.has(user.uid);
+                        return (
+                          <div key={user.uid} className="flex items-center justify-between gap-2 py-0.5 group">
                             <div 
-                              className="cursor-pointer group/avatar"
+                              className="flex items-center gap-3 min-w-0 cursor-pointer" 
                               onClick={() => navigate(`/profile/${user.uid}`)}
                             >
-                              <Avatar className="w-16 h-16 mb-3 border-2 border-[#F0E8E4] group-hover/avatar:border-[#FB6376]/30 transition-colors duration-300">
+                              <Avatar className="w-9 h-9 flex-shrink-0 border border-[#5D2A42]/10 group-hover:border-[#FB6376]/35 transition-colors duration-300 shadow-sm">
                                 <AvatarImage src={user.photoURL} />
-                                <AvatarFallback className="bg-gradient-to-br from-[#FFDCCC] to-[#FCB1A6] text-[#5D2A42] text-lg font-semibold">
+                                <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-[10px] font-bold">
                                   {getInitials(user.name)}
                                 </AvatarFallback>
                               </Avatar>
-                              <p className="font-semibold text-[#1A1A1A] text-sm truncate w-full mb-0.5 group-hover/avatar:text-[#FB6376] transition-colors">
-                                {user.name || "Unknown"}
-                              </p>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-[#5D2A42] text-xs truncate group-hover:text-[#FB6376] transition-colors duration-300">{user.name}</p>
+                                <p className="text-[10px] text-[#5D2A42]/50 truncate font-mono">
+                                  {user.username ? `@${user.username}` : user.email}
+                                </p>
+                              </div>
                             </div>
-                            <p className="text-[11px] text-[#999] truncate w-full mb-3">
-                              {user.username ? `@${user.username}` : user.email}
-                            </p>
                             <Button
                               size="sm"
-                              className={`w-full h-8 rounded-xl text-xs font-semibold transition-all duration-300 ${
-                                alreadySent
-                                  ? "bg-[#F5F5F5] text-[#999] hover:bg-[#F5F5F5] border border-[#E8E8E8]"
-                                  : "bg-[#FB6376] hover:bg-[#e8556a] text-white shadow-sm shadow-[#FB6376]/20 hover:shadow-md hover:shadow-[#FB6376]/30"
+                              variant="ghost"
+                              className={`h-8 w-8 p-0 rounded-full transition-all ${
+                                alreadySent 
+                                  ? "bg-[#5D2A42]/5 text-[#5D2A42]/40 cursor-default" 
+                                  : "bg-[#FFF9EC] text-[#5D2A42] hover:bg-[#5D2A42] hover:text-white"
                               }`}
                               disabled={alreadySent || actionLoading === user.uid}
                               onClick={() => handleSendRequest(user.uid)}
                             >
                               {actionLoading === user.uid ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
                               ) : alreadySent ? (
-                                <>
-                                  <UserCheck className="w-3 h-3 mr-1" />
-                                  {t('connections.requested')}
-                                </>
+                                <UserCheck className="w-4 h-4 text-[#5D2A42]/60" />
                               ) : (
-                                <>
-                                  <UserPlus className="w-3 h-3 mr-1" />
-                                  {t('connections.follow')}
-                                </>
+                                <UserPlus className="w-4 h-4" />
                               )}
                             </Button>
                           </div>
-                        </div>
-                      );
-                    })}
-              </div>
-            </div>
-          )}
-
-          {/* ========== CONNECTIONS LIST ========== */}
-          {!searchMode && (
-            <div className="conn-fade-up conn-stagger-4">
-              {/* Section header with toggle */}
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-base font-bold text-[#1A1A1A]">
-                    {activeList === "following" ? t('connections.following') : t('connections.followers')}
-                  </h2>
-                  <span className="text-xs text-[#999] font-medium bg-[#F5F5F5] px-2.5 py-1 rounded-lg">
-                    {filteredFriends.length}
-                  </span>
-                </div>
-
-                {/* Mini toggle */}
-                <div className="flex items-center bg-white border border-[#E8E8E8] rounded-xl p-1">
-                  <button
-                    onClick={() => setActiveList("following")}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                      activeList === "following"
-                        ? "bg-[#FB6376] text-white shadow-sm"
-                        : "text-[#999] hover:text-[#666]"
-                    }`}
-                  >
-                    {t('connections.following')}
-                  </button>
-                  <button
-                    onClick={() => setActiveList("followers")}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
-                      activeList === "followers"
-                        ? "bg-[#5D2A42] text-white shadow-sm"
-                        : "text-[#999] hover:text-[#666]"
-                    }`}
-                  >
-                    {t('connections.followers')}
-                  </button>
-                </div>
-              </div>
-
-              {/* Connection cards */}
-              {filteredFriends.length === 0 ? (
-                <div className="py-16 text-center">
-                  <div className="w-20 h-20 mx-auto mb-5 bg-gradient-to-br from-[#FFF4F2] to-[#FFDCCC]/50 rounded-3xl flex items-center justify-center">
-                    <Users className="w-9 h-9 text-[#CCBBBB]" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-[#1A1A1A] mb-2">
-                    {searchQuery ? t('connections.noMatches') : t('connections.noConnections')}
-                  </h3>
-                  <p className="text-[#999] text-sm max-w-sm mx-auto mb-6">
-                    {searchQuery
-                      ? t('connections.tryDifferentSearch')
-                      : t('connections.startBuildingNetwork')}
-                  </p>
-                  {!searchQuery && (
-                    <button
-                      onClick={() => {
-                        const searchInput = document.querySelector<HTMLInputElement>(
-                          'input[placeholder*="Search connections"]'
                         );
-                        searchInput?.focus();
-                      }}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#FB6376] hover:bg-[#e8556a] text-white text-sm font-semibold rounded-xl shadow-sm shadow-[#FB6376]/20 transition-all duration-200 hover:shadow-md hover:shadow-[#FB6376]/30"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      {t('connections.findPeople')}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-2.5">
-                  {filteredFriends.map((f, idx) => (
-                    <div
-                      key={f.id}
-                      className={`conn-fade-up conn-stagger-${Math.min(idx + 1, 9)} flex items-center justify-between p-4 bg-white rounded-2xl border border-[#E8E8E8] hover:border-[#FB6376]/20 hover:shadow-sm transition-all duration-200 group`}
-                    >
-                        <div 
-                          className="flex items-center gap-3.5 min-w-0 flex-1 cursor-pointer group/item"
-                          onClick={() => navigate(`/profile/${f.profile?.uid}`)}
-                        >
-                          <div className="relative">
-                            <Avatar className="w-12 h-12 flex-shrink-0 border-2 border-[#F0E8E4] group-hover/item:border-[#FB6376]/30 transition-colors duration-300">
-                              <AvatarImage src={f.profile?.photoURL} />
-                              <AvatarFallback className="bg-gradient-to-br from-[#FFDCCC] to-[#FCB1A6] text-[#5D2A42] text-sm font-semibold">
-                                {getInitials(f.profile?.name)}
-                              </AvatarFallback>
-                            </Avatar>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-[#1A1A1A] text-sm truncate group-hover/item:text-[#FB6376] transition-colors">
-                              {f.profile?.name || "Unknown"}
-                            </p>
-                            <p className="text-xs text-[#999] truncate">
-                              {f.profile?.username ? `@${f.profile.username}` : f.profile?.email}
-                            </p>
-                          </div>
-                        </div>
-
-                      {/* Instagram-style Following/Unfollow button */}
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                        <button
-                          className={`h-9 px-4 rounded-xl text-xs font-semibold transition-all duration-200 border ${
-                            hoveredFriend === f.id
-                              ? "bg-[#FFF4F2] border-[#FB6376]/30 text-[#FB6376]"
-                              : "bg-[#F8F8F8] border-[#E8E8E8] text-[#666]"
-                          }`}
-                          disabled={actionLoading === f.id}
-                          onClick={() => handleRemove(f.id)}
-                          onMouseEnter={() => setHoveredFriend(f.id)}
-                          onMouseLeave={() => setHoveredFriend(null)}
-                        >
-                          {actionLoading === f.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : hoveredFriend === f.id ? (
-                            <>
-                              <UserMinus className="w-3.5 h-3.5 mr-1.5 inline" />
-                              {t('connections.unfollow')}
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="w-3.5 h-3.5 mr-1.5 inline" />
-                              {t('connections.following')}
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                      })
+                    )}
+                  </div>
                 </div>
               )}
+
             </div>
-          )}
+          </div>
         </div>
       </main>
     </div>
