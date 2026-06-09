@@ -100,12 +100,23 @@ interface CapsuleMultistepFormProps {
   attachments: Attachment[];
   friends: Friend[];
   username: string;
-  recurrencePattern: "none" | "minutely" | "daily" | "yearly";
-  onRecurrencePatternChange: (value: "none" | "minutely" | "daily" | "yearly") => void;
+  recurrencePattern: "daily" | "weekly" | "monthly" | "yearly";
+  onRecurrencePatternChange: (value: "daily" | "weekly" | "monthly" | "yearly") => void;
   priorReminderEnabled: boolean;
   onPriorReminderEnabledChange: (value: boolean) => void;
   priorReminderDays: number;
   onPriorReminderDaysChange: (value: number) => void;
+
+  reminderFrequency: "daily" | "weekly" | "monthly" | "yearly";
+  onReminderFrequencyChange: (value: "daily" | "weekly" | "monthly" | "yearly") => void;
+  reminderTime: string;
+  onReminderTimeChange: (value: string) => void;
+  reminderDayOfWeek: string;
+  onReminderDayOfWeekChange: (value: string) => void;
+  reminderDayOfMonth: number | null;
+  onReminderDayOfMonthChange: (value: number | null) => void;
+  reminderYearlyDate: Date | null;
+  onReminderYearlyDateChange: (value: Date | null) => void;
 
   onTitleChange: (value: string) => void;
   onContentChange: (value: string) => void;
@@ -178,6 +189,17 @@ export const CapsuleMultistepForm = ({
   onPriorReminderEnabledChange,
   priorReminderDays,
   onPriorReminderDaysChange,
+
+  reminderFrequency,
+  onReminderFrequencyChange,
+  reminderTime,
+  onReminderTimeChange,
+  reminderDayOfWeek,
+  onReminderDayOfWeekChange,
+  reminderDayOfMonth,
+  onReminderDayOfMonthChange,
+  reminderYearlyDate,
+  onReminderYearlyDateChange,
 
   onTitleChange,
   onContentChange,
@@ -499,72 +521,35 @@ export const CapsuleMultistepForm = ({
                                   <SelectValue placeholder="No Recurrence" />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm">
-                                  <SelectItem value="none" className="font-medium">No Recurrence</SelectItem>
-                                  <SelectItem value="minutely" className="font-medium">Every Minute (Minutely)</SelectItem>
-                                  <SelectItem value="daily" className="font-medium">Every Day (Daily)</SelectItem>
-                                  <SelectItem value="yearly" className="font-medium">Every Year (Yearly)</SelectItem>
+                                  <SelectItem value="daily">Every Day</SelectItem>
+                                  <SelectItem value="weekly">Every Week</SelectItem>
+                                  <SelectItem value="monthly">Every Month</SelectItem>
+                                  <SelectItem value="yearly">Every Year</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
-
-                            {/* Prior Reminder Card (Only visible if recurrence is none or yearly) */}
-                            {(recurrencePattern === "none" || recurrencePattern === "yearly") && (
-                              <motion.div 
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                exit={{ opacity: 0, height: 0 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
-                                  <div className="flex items-center justify-between">
-                                    <div className="space-y-1 pr-4">
-                                      <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
-                                        <span className="text-xl">🔔</span> Prior Reminder
-                                      </h4>
-                                      <p className="text-sm text-[#5D2A42]/70 font-medium">
-                                        Get notified before the capsule unlocks.
-                                      </p>
-                                    </div>
-                                    <Switch 
-                                      checked={priorReminderEnabled}
-                                      onCheckedChange={onPriorReminderEnabledChange}
-                                      className="data-[state=checked]:bg-[#FB6376]"
-                                    />
-                                  </div>
-
-                                  <AnimatePresence>
-                                    {priorReminderEnabled && (
-                                      <motion.div
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: "auto" }}
-                                        exit={{ opacity: 0, height: 0 }}
-                                        className="overflow-hidden space-y-3 pt-3 border-t border-[#FFDCCC]/50"
-                                      >
-                                        <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider block">
-                                          Days Before Unlock
-                                        </Label>
-                                        <div className="flex flex-wrap gap-2">
-                                          {[1, 3, 7, 14, 30].map((days) => (
-                                            <button
-                                              key={days}
-                                              type="button"
-                                              onClick={() => onPriorReminderDaysChange(days)}
-                                              className={cn(
-                                                "px-4 py-2 text-sm font-bold rounded-xl border transition-all",
-                                                priorReminderDays === days
-                                                  ? "bg-[#FB6376] text-white border-[#FB6376]"
-                                                  : "bg-white text-[#5D2A42] border-[#E8E8E8] hover:border-[#FB6376] hover:bg-[#FFF9EC]"
-                                              )}
-                                            >
-                                              {days} {days === 1 ? "day" : "days"} before
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </motion.div>
-                                    )}
-                                  </AnimatePresence>
+                            {recurrencePattern === "daily" && (
+                              <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
+                                <div className="flex flex-col gap-2">
+                                  <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
+                                    <span className="text-xl">⏰</span> Reminder Time
+                                  </h4>
+                                  <p className="text-sm text-[#5D2A42]/70 font-medium">
+                                    Choose the time when this capsule should appear every day.
+                                  </p>
                                 </div>
-                              </motion.div>
+                                <Input
+                                  type="time"
+                                  value={reminderTime}
+                                  onChange={(e) => onReminderTimeChange(e.target.value)}
+                                  className="h-12 border-[#E8E8E8] bg-white rounded-xl"
+                                />
+                                {reminderTime && (
+                                  <p className="text-sm font-medium text-[#FB6376]">
+                                    ✓ This capsule will appear every day at {reminderTime}
+                                  </p>
+                                )}
+                              </div>
                             )}
                           </motion.div>
                         </TabsContent>
@@ -928,15 +913,13 @@ export const CapsuleMultistepForm = ({
                           <div>
                             <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Recurrence Frequency</span>
                             <span className="text-xl font-bold text-[#1A1A1A] capitalize">
-                               {recurrencePattern === "none" ? "None" : recurrencePattern}
+                               {recurrencePattern}
                             </span>
                           </div>
                           <div>
                              <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Prior Reminder</span>
                              <span className="text-xl font-bold text-[#1A1A1A]">
-                                {(recurrencePattern === "none" || recurrencePattern === "yearly") && priorReminderEnabled 
-                                  ? `${priorReminderDays} ${priorReminderDays === 1 ? "day" : "days"} before` 
-                                  : "Disabled"}
+                                `${recurrencePattern.charAt(0).toUpperCase() + recurrencePattern.slice(1)} Reminder`
                              </span>
                           </div>
                         </div>
