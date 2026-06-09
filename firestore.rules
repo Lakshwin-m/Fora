@@ -120,5 +120,11 @@ service cloud.firestore {
       allow delete: if isSignedIn()
         && resource.data.userId == request.auth.uid;
     }
+
+    /* NOTIFICATIONS */
+    match /notifications/{notificationId} {
+      allow read, update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, delete: if false;
+    }
   }
 }
