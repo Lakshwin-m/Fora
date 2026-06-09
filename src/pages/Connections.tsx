@@ -232,10 +232,8 @@ const Connections = () => {
   const loadSuggestions = async () => {
     setSuggestionsLoading(true);
     try {
-      // Use a few common queries to get a mix of users
-      const queries = ["a", "e", "i", "s", "m"];
-      const randomQuery = queries[Math.floor(Math.random() * queries.length)];
-      const results = await apiSearchUsers(randomQuery);
+      // Fetch users dynamically using a guaranteed trigger
+      const results = await apiSearchUsers("SUGGESTIONS_TRIGGER");
 
       const currentUid = auth.currentUser?.uid;
       const friendUids = new Set(friends.map((f) => f.profile?.uid));

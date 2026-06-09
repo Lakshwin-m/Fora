@@ -72,7 +72,7 @@ const CreateCapsule = () => {
 
   const getAuthHeaders = async () => {
     if (!auth.currentUser) throw new Error("No authenticated user");
-    const token = await auth.currentUser.getIdToken(true);
+    const token = await auth.currentUser.getIdToken();
     return {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",

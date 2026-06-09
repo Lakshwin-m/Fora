@@ -9,8 +9,8 @@ async function authedFetch(path: string, body?: any) {
     throw new Error("Auth not ready");
   }
 
-  // 🔑 FORCE a fresh token
-  const token = await user.getIdToken(true);
+  // Use cached token for much faster requests
+  const token = await user.getIdToken();
 
   const res = await fetch(`${BASE_URL}/${path}`, {
     method: "POST",
