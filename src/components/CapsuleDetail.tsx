@@ -46,7 +46,7 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { capsules, receivedCapsules, markCapsuleAsOpened, serverNow } = useCapsules();
-  const [currentTime, setCurrentTime] = useState(serverNow());
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<TimeRemaining | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -129,10 +129,10 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   // Update time every second for countdown
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(serverNow());
+      setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(timer);
-  }, [serverNow]);
+  }, []);
 
   // Calculate unlock status and time remaining
   useEffect(() => {
@@ -166,10 +166,14 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   };
 
   const formatTimeRemaining = (time: TimeRemaining): string => {
-    if (time.years > 0) return `${time.years}y ${time.months}m ${time.days}d ${time.hours}h`;
-    else if (time.months > 0) return `${time.months}m ${time.days}d ${time.hours}h ${time.minutes}m`;
-    else if (time.days > 0) return `${time.days}d ${time.hours}h ${time.minutes}m ${time.seconds}s`;
-    else return `${time.hours}h ${time.minutes}m ${time.seconds}s`;
+    const parts = [];
+    if (time.years > 0) parts.push(`${time.years}y`);
+    if (time.months > 0) parts.push(`${time.months}mo`);
+    if (time.days > 0) parts.push(`${time.days}d`);
+    if (time.hours > 0) parts.push(`${time.hours}h`);
+    if (time.minutes > 0 || parts.length > 0) parts.push(`${time.minutes}m`);
+    parts.push(`${time.seconds}s`);
+    return parts.join(' ');
   };
 
   if (!capsule) {
