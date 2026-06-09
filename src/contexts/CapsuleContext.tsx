@@ -150,7 +150,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("User not authenticated");
     }
 
-    const token = await auth.currentUser.getIdToken(true);
+    const token = await auth.currentUser.getIdToken();
     return {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",

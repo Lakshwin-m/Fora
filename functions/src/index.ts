@@ -564,6 +564,7 @@ export const sendFriendRequest = onRequest((req, res) => {
 
       await ref.set({
         requesterId: user.uid,
+        receiverId: receiverId,
         participants: [user.uid, receiverId],
         status: "pending",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -703,16 +704,14 @@ export const getPendingRequests = onRequest((req, res) => {
 
           const senderId = data.requesterId;
           const senderSnap = await db.collection("users").doc(senderId).get();
+          const senderData = senderSnap.exists ? senderSnap.data() : {};
 
           return {
             id: doc.id,
-            senderId,
-            profile: senderSnap.exists
-              ? {
-                  uid: senderId,
-                  ...senderSnap.data(),
-                }
-              : null,
+            senderUid: senderId,
+            senderName: senderData?.name || "Unknown",
+            senderEmail: senderData?.email || "",
+            senderPhotoURL: senderData?.photoURL || "",
           };
         })
       );
@@ -757,16 +756,48 @@ export const searchUsers = onRequest((req, res) => {
       const user = await verifyAuth(req);
       const { query } = req.body;
 
-      const snap = await db
-        .collection("users")
-        .where("email", ">=", query)
-        .where("email", "<=", query + "\uf8ff")
-        .limit(10)
-        .get();
+      if (!query) {
+        res.json([]);
+        return;
+      }
 
-      res.json(
-        snap.docs.map((d) => d.data()).filter((u) => u.uid !== user.uid)
-      );
+      if (query === "SUGGESTIONS_TRIGGER") {
+        const snap = await db.collection("users").limit(30).get();
+        res.json(
+          snap.docs
+            .map((d) => d.data())
+            .filter((u) => u.uid !== user.uid)
+            .sort(() => Math.random() - 0.5) // Shuffle slightly
+            .slice(0, 12)
+        );
+        return;
+      }
+
+      const queryLower = query.toLowerCase();
+      const queryTitle = query.charAt(0).toUpperCase() + query.slice(1).toLowerCase();
+
+      const promises = [
+        db.collection("users").where("email", ">=", queryLower).where("email", "<=", queryLower + "\uf8ff").limit(10).get(),
+        db.collection("users").where("username", ">=", queryLower).where("username", "<=", queryLower + "\uf8ff").limit(10).get(),
+        db.collection("users").where("username", ">=", query).where("username", "<=", query + "\uf8ff").limit(10).get(),
+        db.collection("users").where("name", ">=", query).where("name", "<=", query + "\uf8ff").limit(10).get(),
+        db.collection("users").where("name", ">=", queryTitle).where("name", "<=", queryTitle + "\uf8ff").limit(10).get(),
+        db.collection("users").where("name", ">=", queryLower).where("name", "<=", queryLower + "\uf8ff").limit(10).get(),
+      ];
+
+      const snaps = await Promise.all(promises);
+      const resultsMap = new Map();
+
+      snaps.forEach((snap) => {
+        snap.docs.forEach((doc) => {
+          const data = doc.data();
+          if (data.uid !== user.uid) {
+            resultsMap.set(data.uid, data);
+          }
+        });
+      });
+
+      res.json(Array.from(resultsMap.values()).slice(0, 20));
     } catch (e: any) {
       res.status(401).json({ error: e.message });
     }
