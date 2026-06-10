@@ -100,15 +100,12 @@ interface CapsuleMultistepFormProps {
   attachments: Attachment[];
   friends: Friend[];
   username: string;
-  recurrencePattern: "daily" | "weekly" | "monthly" | "yearly";
-  onRecurrencePatternChange: (value: "daily" | "weekly" | "monthly" | "yearly") => void;
+  recurrencePattern: "none" | "minutely" | "daily" | "weekly" | "monthly" | "yearly";
+  onRecurrencePatternChange: (value: "none" | "minutely" | "daily" | "weekly" | "monthly" | "yearly") => void;
   priorReminderEnabled: boolean;
   onPriorReminderEnabledChange: (value: boolean) => void;
   priorReminderDays: number;
   onPriorReminderDaysChange: (value: number) => void;
-
-  reminderFrequency: "daily" | "weekly" | "monthly" | "yearly";
-  onReminderFrequencyChange: (value: "daily" | "weekly" | "monthly" | "yearly") => void;
   reminderTime: string;
   onReminderTimeChange: (value: string) => void;
   reminderDayOfWeek: string;
@@ -117,7 +114,6 @@ interface CapsuleMultistepFormProps {
   onReminderDayOfMonthChange: (value: number | null) => void;
   reminderYearlyDate: Date | null;
   onReminderYearlyDateChange: (value: Date | null) => void;
-
   onTitleChange: (value: string) => void;
   onContentChange: (value: string) => void;
   onTriggerTypeChange: (value: "time" | "event" | "connection") => void;
@@ -189,9 +185,6 @@ export const CapsuleMultistepForm = ({
   onPriorReminderEnabledChange,
   priorReminderDays,
   onPriorReminderDaysChange,
-
-  reminderFrequency,
-  onReminderFrequencyChange,
   reminderTime,
   onReminderTimeChange,
   reminderDayOfWeek,
@@ -200,6 +193,7 @@ export const CapsuleMultistepForm = ({
   onReminderDayOfMonthChange,
   reminderYearlyDate,
   onReminderYearlyDateChange,
+
 
   onTitleChange,
   onContentChange,
@@ -521,10 +515,12 @@ export const CapsuleMultistepForm = ({
                                   <SelectValue placeholder="No Recurrence" />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm">
-                                  <SelectItem value="daily">Every Day</SelectItem>
-                                  <SelectItem value="weekly">Every Week</SelectItem>
-                                  <SelectItem value="monthly">Every Month</SelectItem>
-                                  <SelectItem value="yearly">Every Year</SelectItem>
+                                  <SelectItem value="none" className="font-medium">No Recurrence</SelectItem>
+                                  <SelectItem value="minutely" className="font-medium">Every Minute (Minutely)</SelectItem>
+                                  <SelectItem value="daily" className="font-medium">Every Day (Daily)</SelectItem>
+                                  <SelectItem value="weekly" className="font-medium">Every Week (Weekly)</SelectItem>
+                                  <SelectItem value="monthly" className="font-medium">Every Month (Monthly)</SelectItem>
+                                  <SelectItem value="yearly" className="font-medium">Every Year (Yearly)</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -547,6 +543,188 @@ export const CapsuleMultistepForm = ({
                                 {reminderTime && (
                                   <p className="text-sm font-medium text-[#FB6376]">
                                     ✓ This capsule will appear every day at {reminderTime}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                            
+                            {recurrencePattern === "weekly" && (
+                              <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
+                                <div className="flex flex-col gap-2">
+                                  <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
+                                    <span className="text-xl">📅</span> Day of the Week
+                                  </h4>
+                                  <p className="text-sm text-[#5D2A42]/70 font-medium">
+                                    Choose the day of the week and time when this capsule should unlock.
+                                  </p>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider mb-2 block">Day</Label>
+                                    <Select 
+                                      value={reminderDayOfWeek} 
+                                      onValueChange={(val: any) => onReminderDayOfWeekChange(val)}
+                                    >
+                                      <SelectTrigger className="h-12 border-[#E8E8E8] bg-white text-base font-semibold text-[#1A1A1A] rounded-xl focus:ring-0 focus:border-[#FB6376] w-full">
+                                        <SelectValue placeholder="Select Day" />
+                                      </SelectTrigger>
+                                      <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm">
+                                        <SelectItem value="monday">Monday</SelectItem>
+                                        <SelectItem value="tuesday">Tuesday</SelectItem>
+                                        <SelectItem value="wednesday">Wednesday</SelectItem>
+                                        <SelectItem value="thursday">Thursday</SelectItem>
+                                        <SelectItem value="friday">Friday</SelectItem>
+                                        <SelectItem value="saturday">Saturday</SelectItem>
+                                        <SelectItem value="sunday">Sunday</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div>
+                                    <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider mb-2 block">Time</Label>
+                                    <Input
+                                      type="time"
+                                      value={reminderTime}
+                                      onChange={(e) => onReminderTimeChange(e.target.value)}
+                                      className="h-12 border-[#E8E8E8] bg-white rounded-xl"
+                                    />
+                                  </div>
+                                </div>
+                                
+                                {reminderDayOfWeek && reminderTime && (
+                                  <p className="text-sm font-medium text-[#FB6376]">
+                                    ✓ This capsule will appear every {reminderDayOfWeek.charAt(0).toUpperCase() + reminderDayOfWeek.slice(1)} at {reminderTime}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {recurrencePattern === "monthly" && (
+                              <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
+                                <div className="flex flex-col gap-2">
+                                  <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
+                                    <span className="text-xl">📅</span> Day of the Month
+                                  </h4>
+                                  <p className="text-sm text-[#5D2A42]/70 font-medium">
+                                    Choose which day of the month and time this capsule should unlock.
+                                  </p>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider mb-2 block">Day of Month</Label>
+                                    <Select 
+                                      value={reminderDayOfMonth ? reminderDayOfMonth.toString() : ""} 
+                                      onValueChange={(val: any) => onReminderDayOfMonthChange(val ? parseInt(val) : null)}
+                                    >
+                                      <SelectTrigger className="h-12 border-[#E8E8E8] bg-white text-base font-semibold text-[#1A1A1A] rounded-xl focus:ring-0 focus:border-[#FB6376] w-full">
+                                        <SelectValue placeholder="Select Day" />
+                                      </SelectTrigger>
+                                      <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm max-h-60 overflow-y-auto">
+                                        {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                          <SelectItem key={day} value={day.toString()}>
+                                            Day {day}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div>
+                                    <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider mb-2 block">Time</Label>
+                                    <Input
+                                      type="time"
+                                      value={reminderTime}
+                                      onChange={(e) => onReminderTimeChange(e.target.value)}
+                                      className="h-12 border-[#E8E8E8] bg-white rounded-xl"
+                                    />
+                                  </div>
+                                </div>
+                                
+                                {reminderDayOfMonth && reminderTime && (
+                                  <p className="text-sm font-medium text-[#FB6376]">
+                                    ✓ This capsule will appear on Day {reminderDayOfMonth} of every month at {reminderTime}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {recurrencePattern === "yearly" && (
+                              <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
+                                <div className="flex flex-col gap-2">
+                                  <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
+                                    <span className="text-xl">🎉</span> Date of the Year
+                                  </h4>
+                                  <p className="text-sm text-[#5D2A42]/70 font-medium">
+                                    Choose the specific date and time when this yearly capsule should unlock.
+                                  </p>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <div>
+                                    <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider mb-2 block">Month</Label>
+                                    <Select 
+                                      value={reminderYearlyDate ? reminderYearlyDate.getMonth().toString() : ""} 
+                                      onValueChange={(val: any) => {
+                                        const newDate = reminderYearlyDate ? new Date(reminderYearlyDate) : new Date();
+                                        newDate.setMonth(parseInt(val));
+                                        onReminderYearlyDateChange(newDate);
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-12 border-[#E8E8E8] bg-white text-base font-semibold text-[#1A1A1A] rounded-xl focus:ring-0 focus:border-[#FB6376] w-full">
+                                        <SelectValue placeholder="Select Month" />
+                                      </SelectTrigger>
+                                      <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm">
+                                        {[
+                                          "January", "February", "March", "April", "May", "June",
+                                          "July", "August", "September", "October", "November", "December"
+                                        ].map((month, idx) => (
+                                          <SelectItem key={idx} value={idx.toString()}>
+                                            {month}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div>
+                                    <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider mb-2 block">Day</Label>
+                                    <Select 
+                                      value={reminderYearlyDate ? reminderYearlyDate.getDate().toString() : ""} 
+                                      onValueChange={(val: any) => {
+                                        const newDate = reminderYearlyDate ? new Date(reminderYearlyDate) : new Date();
+                                        newDate.setDate(parseInt(val));
+                                        onReminderYearlyDateChange(newDate);
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-12 border-[#E8E8E8] bg-white text-base font-semibold text-[#1A1A1A] rounded-xl focus:ring-0 focus:border-[#FB6376] w-full">
+                                        <SelectValue placeholder="Select Day" />
+                                      </SelectTrigger>
+                                      <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm max-h-60 overflow-y-auto">
+                                        {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                          <SelectItem key={day} value={day.toString()}>
+                                            {day}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  
+                                  <div>
+                                    <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider mb-2 block">Time</Label>
+                                    <Input
+                                      type="time"
+                                      value={reminderTime}
+                                      onChange={(e) => onReminderTimeChange(e.target.value)}
+                                      className="h-12 border-[#E8E8E8] bg-white rounded-xl"
+                                    />
+                                  </div>
+                                </div>
+                                
+                                {reminderYearlyDate && reminderTime && (
+                                  <p className="text-sm font-medium text-[#FB6376]">
+                                    ✓ This capsule will appear every year on {reminderYearlyDate.toLocaleDateString("en-US", { month: "long", day: "numeric" })} at {reminderTime}
                                   </p>
                                 )}
                               </div>

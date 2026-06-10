@@ -88,6 +88,8 @@ interface Capsule {
   visibility?: string;
   status?: string;
   isUnlocked?: boolean;
+  isOpenedByMe?: boolean;
+  openedBy?: string[];
   attachments?: Attachment[];
   username?: string;
   deliveryDate?: any;
@@ -226,7 +228,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
     parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ?? new Date(0);
   const isUnlockedDate = unlockDate.getTime() <= currentTime.getTime();
   const isUnlocked = isUnlockedDate || capsule.isUnlocked;
-  const isOpened = capsule.status === "opened";
+  const isOpened = capsule.isOpenedByMe === true;
   const showAsOpen = isUnlocked && isOpened;
   const isSentToSelf = capsule.recipientType === "self";
   const countdown = getCountdown(capsule.unlockDate || capsule.deliveryDate, currentTime);
@@ -432,14 +434,24 @@ const EmptyState = ({ type }: { type: "sent" | "received" }) => {
       </p>
 
       {type === "sent" && (
-        <Button
-          onClick={() => navigate("/create")}
-          className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white px-8 py-6 text-base h-auto"
-          size="lg"
-        >
-          <Plus className="w-5 h-5 mr-3" />
-          {t('dashboard.createFirstBtn')}
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <Button
+            onClick={() => navigate("/create?type=capsule")}
+            className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white px-8 py-6 text-base h-auto rounded-xl flex items-center shadow-sm hover:scale-[1.02] transition-all"
+            size="lg"
+          >
+            <Plus className="w-5 h-5 mr-3" />
+            {t('dashboard.createFirstBtn')}
+          </Button>
+          <Button
+            onClick={() => navigate("/create?type=reminder")}
+            className="bg-white hover:bg-[#FFF9EC] text-[#5D2A42] border border-[#FFDCCC] px-8 py-6 text-base h-auto rounded-xl flex items-center shadow-sm hover:scale-[1.02] transition-all"
+            size="lg"
+          >
+            <Clock className="w-5 h-5 mr-3 text-[#FB6376]" />
+            Set First Auto Reminder
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -511,6 +523,49 @@ const Dashboard = () => {
   const sent = sortCapsules(capsules || []);
   const received = sortCapsules(receivedCapsules || []);
 
+  const isReminder = (c: Capsule) => c.isReminderCapsule === true;
+
+  const sortedSentCapsules = sent.filter((c) => !isReminder(c));
+  const sortedReceivedCapsules = received.filter((c) => !isReminder(c));
+  
+  const getUniqueReminders = (reminders: Capsule[]) => {
+    const groups: { [key: string]: Capsule[] } = {};
+    reminders.forEach((r) => {
+      const key = r.encryptedTitle || r.title || r.id;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(r);
+    });
+
+    const result: Capsule[] = [];
+    Object.values(groups).forEach((group) => {
+      const unlocked = group.find((r) => {
+        const isUnlocked = r.isUnlocked || (parseFirebaseDate(r.unlockDate || r.deliveryDate)?.getTime() || 0) <= currentTime.getTime();
+        return isUnlocked;
+      });
+
+      if (unlocked) {
+        result.push(unlocked);
+      } else {
+        const sorted = [...group].sort((a, b) => {
+          const da = parseFirebaseDate(a.unlockDate || a.deliveryDate)?.getTime() || 0;
+          const db = parseFirebaseDate(b.unlockDate || b.deliveryDate)?.getTime() || 0;
+          return da - db;
+        });
+        if (sorted.length > 0) {
+          result.push(sorted[0]);
+        }
+      }
+    });
+
+    return result;
+  };
+
+  const allReminders = [
+    ...sent.filter((c) => isReminder(c) && !c.isOpenedByMe),
+    ...received.filter((c) => isReminder(c) && !c.isOpenedByMe)
+  ];
+  const sortedReminders = getUniqueReminders(allReminders);
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-[#FFF9EC]">
@@ -528,6 +583,23 @@ const Dashboard = () => {
                   <p className="text-[#666666] text-md">
                     {t('dashboard.subtitle')}
                   </p>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    onClick={() => navigate("/create?type=capsule")}
+                    className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white font-semibold px-5 py-2.5 rounded-xl text-sm flex items-center shadow-sm hover:scale-[1.02] transition-all"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Capsule
+                  </Button>
+                  <Button
+                    onClick={() => navigate("/create?type=reminder")}
+                    className="bg-white hover:bg-[#FFF9EC] text-[#5D2A42] border border-[#FFDCCC] font-semibold px-5 py-2.5 rounded-xl text-sm flex items-center shadow-sm hover:scale-[1.02] transition-all"
+                  >
+                    <Clock className="w-4 h-4 mr-2 text-[#FB6376]" />
+                    Set Auto Reminder
+                  </Button>
                 </div>
               </div>
 
@@ -617,6 +689,39 @@ const Dashboard = () => {
               </div>
             )}
 
+            {/* Auto Reminders Section */}
+            {sortedReminders.length > 0 && (
+              <div className="mb-14">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-[#FFDCCC]/20 rounded-xl">
+                    <Clock className="w-6 h-6 text-[#FB6376]" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-[#5D2A42]">Auto Reminders</h2>
+                    <p className="text-sm text-[#666666]">Your recurring habits and reminders</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+                  {sortedReminders.map((capsule) => (
+                    <div key={capsule.id}>
+                      <CapsuleCard capsule={capsule} currentTime={currentTime} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Time Capsules Section Title */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-[#FFDCCC]/20 rounded-xl">
+                <Send className="w-6 h-6 text-[#FB6376]" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-[#5D2A42]">Time Capsules</h2>
+                <p className="text-sm text-[#666666]">Preserved memories sealed for the future</p>
+              </div>
+            </div>
+
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="w-full sm:w-auto mb-10 bg-white border border-[#E8E8E8] p-1.5 rounded-xl">
@@ -625,24 +730,24 @@ const Dashboard = () => {
                   className="flex-1 sm:flex-none data-[state=active]:bg-[#FB6376] data-[state=active]:text-white px-8 py-3 rounded-lg"
                 >
                   <Send className="w-4 h-4 mr-3" />
-                  {t('dashboard.sentTab')} ({sent.length})
+                  {t('dashboard.sentTab')} ({sortedSentCapsules.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="received"
                   className="flex-1 sm:flex-none data-[state=active]:bg-[#FCB1A6] data-[state=active]:text-[#1A1A1A] px-8 py-3 rounded-lg"
                 >
                   <Inbox className="w-4 h-4 mr-3" />
-                  {t('dashboard.receivedTab')} ({received.length})
+                  {t('dashboard.receivedTab')} ({sortedReceivedCapsules.length})
                 </TabsTrigger>
               </TabsList>
 
               {/* Sent */}
               <TabsContent value="sent" className="space-y-8">
-                {sent.length === 0 ? (
+                {sortedSentCapsules.length === 0 ? (
                   <EmptyState type="sent" />
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                    {sent.map((capsule, index) => (
+                    {sortedSentCapsules.map((capsule, index) => (
                       <div key={capsule.id} ref={(el) => (cardsRef.current[index] = el)}>
                         <CapsuleCard capsule={capsule} currentTime={currentTime} />
                       </div>
@@ -653,14 +758,14 @@ const Dashboard = () => {
 
               {/* Received */}
               <TabsContent value="received" className="space-y-8">
-                {received.length === 0 ? (
+                {sortedReceivedCapsules.length === 0 ? (
                   <EmptyState type="received" />
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
-                    {received.map((capsule, index) => (
+                    {sortedReceivedCapsules.map((capsule, index) => (
                       <div
                         key={capsule.id}
-                        ref={(el) => (cardsRef.current[sent.length + index] = el)}
+                        ref={(el) => (cardsRef.current[sortedSentCapsules.length + index] = el)}
                       >
                         <CapsuleCard
                           capsule={capsule}

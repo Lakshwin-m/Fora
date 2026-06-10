@@ -58,10 +58,10 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
 
   // Auto-skip opening animation if already opened
   useEffect(() => {
-    if (capsule && capsule.status === "opened") {
+    if (capsule && capsule.isOpenedByMe === true) {
       setInteractionStep(2);
     }
-  }, [capsule?.status]);
+  }, [capsule?.isOpenedByMe]);
 
   // 🔐 DECRYPT CAPSULE CONTENT
   const { decryptCapsule } = useCapsuleDecryption();
@@ -272,7 +272,7 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                 className="relative max-w-sm mx-auto aspect-square cursor-pointer hover:-translate-y-2 transition-transform duration-300 mt-12"
                 onClick={() => {
                   setInteractionStep(1);
-                  if (capsule.status !== "opened") {
+                  if (!capsule.isOpenedByMe) {
                     markCapsuleAsOpened(capsule.id);
                   }
                 }}
@@ -405,6 +405,35 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                               ))}
                             </div>
                           </div>
+                       )}
+
+                       {(capsule.isReminder || (capsule as any).isReminderCapsule) && (
+                         <div className="mt-16 flex justify-center pb-8 border-t border-[#5D2A42]/10 pt-8">
+                           <Button 
+                             onClick={() => {
+                               // Find next occurrence
+                               const nextCapsule = [...capsules, ...receivedCapsules].find(c => 
+                                 (c.isReminder || (c as any).isReminderCapsule) && 
+                                 c.id !== capsule.id && 
+                                 (c as any).encryptedTitle === (capsule as any).encryptedTitle && 
+                                 !c.isUnlocked
+                               );
+                               if (nextCapsule) {
+                                 navigate(`/capsule/${nextCapsule.id}`);
+                               } else {
+                                 toast({
+                                   title: "Sealing Capsule...",
+                                   description: "The next reminder will appear in your vault shortly.",
+                                 });
+                                 navigate("/dashboard");
+                               }
+                             }}
+                             className="bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white px-8 py-6 rounded-full text-lg shadow-lg font-bold flex items-center gap-2 transition-transform hover:scale-105"
+                           >
+                             <Lock className="w-5 h-5" />
+                             Seal for Next Time
+                           </Button>
+                         </div>
                        )}
                     </div>
                   </div>
