@@ -523,44 +523,10 @@ const Dashboard = () => {
 
   const sortedSentCapsules = sent.filter((c) => !isReminder(c));
   const sortedReceivedCapsules = received.filter((c) => !isReminder(c));
-  
-  const getUniqueReminders = (reminders: Capsule[]) => {
-    const groups: { [key: string]: Capsule[] } = {};
-    reminders.forEach((r) => {
-      const key = r.encryptedTitle || r.title || r.id;
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(r);
-    });
-
-    const result: Capsule[] = [];
-    Object.values(groups).forEach((group) => {
-      const unlocked = group.find((r) => {
-        const isUnlocked = r.isUnlocked || (parseFirebaseDate(r.unlockDate || r.deliveryDate)?.getTime() || 0) <= currentTime.getTime();
-        return isUnlocked;
-      });
-
-      if (unlocked) {
-        result.push(unlocked);
-      } else {
-        const sorted = [...group].sort((a, b) => {
-          const da = parseFirebaseDate(a.unlockDate || a.deliveryDate)?.getTime() || 0;
-          const db = parseFirebaseDate(b.unlockDate || b.deliveryDate)?.getTime() || 0;
-          return da - db;
-        });
-        if (sorted.length > 0) {
-          result.push(sorted[0]);
-        }
-      }
-    });
-
-    return result;
-  };
-
-  const allReminders = [
-    ...sent.filter((c) => isReminder(c) && !c.isOpenedByMe),
-    ...received.filter((c) => isReminder(c) && !c.isOpenedByMe)
+  const sortedReminders = [
+    ...sent.filter(isReminder),
+    ...received.filter(isReminder)
   ];
-  const sortedReminders = getUniqueReminders(allReminders);
 
   return (
     <ErrorBoundary>

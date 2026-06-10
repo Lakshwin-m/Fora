@@ -45,7 +45,7 @@ interface CapsuleDetailProps {}
 const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { capsules, receivedCapsules, markCapsuleAsOpened, serverNow } = useCapsules();
+  const { capsules, receivedCapsules, markCapsuleAsOpened, sealReminder, serverNow } = useCapsules();
   const [currentTime, setCurrentTime] = useState(serverNow());
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<TimeRemaining | null>(null);
@@ -406,22 +406,21 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                        {(capsule.isReminder || (capsule as any).isReminderCapsule) && (
                          <div className="mt-16 flex justify-center pb-8 border-t border-[#5D2A42]/10 pt-8">
                            <Button 
-                             onClick={() => {
-                               // Find next occurrence
-                               const nextCapsule = [...capsules, ...receivedCapsules].find(c => 
-                                 (c.isReminder || (c as any).isReminderCapsule) && 
-                                 c.id !== capsule.id && 
-                                 (c as any).encryptedTitle === (capsule as any).encryptedTitle && 
-                                 !c.isUnlocked
-                               );
-                               if (nextCapsule) {
-                                 navigate(`/capsule/${nextCapsule.id}`);
-                               } else {
+                             onClick={async () => {
+                               try {
+                                 await sealReminder(capsule.id);
                                  toast({
-                                   title: "Sealing Capsule...",
-                                   description: "The next reminder will appear in your vault shortly.",
+                                   title: "Reminder Sealed 🔒",
+                                   description: "This reminder has been locked until the next scheduled time.",
                                  });
                                  navigate("/dashboard");
+                               } catch (err) {
+                                 console.error("Failed to seal reminder:", err);
+                                 toast({
+                                   title: "Error",
+                                   description: "Failed to seal reminder. Please try again.",
+                                   variant: "destructive"
+                                 });
                                }
                              }}
                              className="bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white px-8 py-6 rounded-full text-lg shadow-lg font-bold flex items-center gap-2 transition-transform hover:scale-105"

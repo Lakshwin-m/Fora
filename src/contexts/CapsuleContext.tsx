@@ -77,6 +77,7 @@ interface CapsuleContextType {
   updateCapsule: (id: string, updates: Partial<Capsule>) => void;
   deleteCapsule: (id: string) => Promise<void>;
   markCapsuleAsOpened: (id: string) => Promise<void>;
+  sealReminder: (id: string) => Promise<void>;
   refreshCapsules: () => Promise<void>;
 
   /** Media-safe helpers */
@@ -281,6 +282,24 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const sealReminder = async (id: string) => {
+    try {
+      const headers = await getAuthHeaders();
+
+      const res = await fetch(`${API_BASE}/sealReminder`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ capsuleId: id }),
+      });
+
+      if (!res.ok) throw new Error("Failed to seal reminder");
+      await refreshCapsules();
+    } catch (error) {
+      console.error("sealReminder failed:", error);
+      throw error;
+    }
+  };
+
   const deleteCapsule = async (id: string) => {
     try {
       const headers = await getAuthHeaders();
@@ -383,6 +402,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         updateCapsule,
         deleteCapsule,
         markCapsuleAsOpened,
+        sealReminder,
         refreshCapsules,
 
         capsuleHasMedia,
