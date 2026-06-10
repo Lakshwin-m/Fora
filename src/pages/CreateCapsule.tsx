@@ -69,9 +69,13 @@ const CreateCapsule = () => {
   const [currentStep, setCurrentStep] = useState(0); // ✅ starts at 0, not NaN
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSealModal, setShowSealModal] = useState(false);
-  const [recurrencePattern, setRecurrencePattern] = useState<"none" | "minutely" | "daily" | "yearly">("none");
+  const [recurrencePattern, setRecurrencePattern] = useState<"none" | "minutely" | "daily" | "weekly" | "monthly" | "yearly">("none");
   const [priorReminderEnabled, setPriorReminderEnabled] = useState(false);
   const [priorReminderDays, setPriorReminderDays] = useState(7); // default 7 days
+  const [reminderTime, setReminderTime] = useState("");
+  const [reminderDayOfWeek, setReminderDayOfWeek] = useState("");
+  const [reminderDayOfMonth, setReminderDayOfMonth] = useState<number | null>(null);
+  const [reminderYearlyDate, setReminderYearlyDate] = useState<Date | null>(null);
 
   const getAuthHeaders = async () => {
     if (!auth.currentUser) throw new Error("No authenticated user");
@@ -122,6 +126,16 @@ const CreateCapsule = () => {
     }
   }, [location.state]);
 
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const typeParam = queryParams.get("type");
+    if (typeParam === "reminder") {
+      setTriggerType("event");
+    } else if (typeParam === "capsule") {
+      setTriggerType("time");
+    }
+  }, [location.search]);
+
   const handleFileSelect = (
     type: "image" | "video" | "audio",
     event: React.ChangeEvent<HTMLInputElement>
@@ -169,6 +183,24 @@ const CreateCapsule = () => {
       toast({ title: "Missing unlock time", description: "Select date and time", variant: "destructive" });
       return false;
     }
+    if (triggerType === "event") {
+      if (!reminderTime) {
+        toast({ title: "Missing reminder time", description: "Please choose a time for the reminder", variant: "destructive" });
+        return false;
+      }
+      if (recurrencePattern === "weekly" && !reminderDayOfWeek) {
+        toast({ title: "Missing day of week", description: "Please choose a day of the week for the reminder", variant: "destructive" });
+        return false;
+      }
+      if (recurrencePattern === "monthly" && !reminderDayOfMonth) {
+        toast({ title: "Missing day of month", description: "Please choose a day of the month for the reminder", variant: "destructive" });
+        return false;
+      }
+      if (recurrencePattern === "yearly" && !reminderYearlyDate) {
+        toast({ title: "Missing yearly date", description: "Please choose a month and day for the yearly reminder", variant: "destructive" });
+        return false;
+      }
+    }
     return true;
   };
 
@@ -207,6 +239,57 @@ const CreateCapsule = () => {
     const capturedRecurrencePattern = recurrencePattern;
     const capturedPriorReminderEnabled = priorReminderEnabled;
     const capturedPriorReminderDays = priorReminderDays;
+
+    const capturedReminderTime = reminderTime;
+    const capturedReminderDayOfWeek = reminderDayOfWeek;
+    const capturedReminderDayOfMonth = reminderDayOfMonth;
+    const capturedReminderYearlyDate = reminderYearlyDate;
+    
+    let nextUnlockAt: string | null = null;
+    let visibleFrom: string | null = null;
+
+    if (capturedTriggerType === "event" && capturedReminderTime) {
+      const now = new Date();
+      const next = new Date();
+      const [hours, minutes] = capturedReminderTime.split(":").map(Number);
+      next.setHours(hours, minutes, 0, 0);
+
+      if (capturedRecurrencePattern === "daily") {
+        if (next <= now) {
+          next.setDate(next.getDate() + 1);
+        }
+      } else if (capturedRecurrencePattern === "weekly" && capturedReminderDayOfWeek) {
+        const daysMap: { [key: string]: number } = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+        const targetDay = daysMap[capturedReminderDayOfWeek.toLowerCase()] ?? 1;
+        const currentDay = now.getDay();
+        let daysToAdd = (targetDay - currentDay + 7) % 7;
+        if (daysToAdd === 0 && next <= now) {
+          daysToAdd = 7;
+        }
+        next.setDate(next.getDate() + daysToAdd);
+      } else if (capturedRecurrencePattern === "monthly" && capturedReminderDayOfMonth) {
+        next.setDate(capturedReminderDayOfMonth);
+        if (next <= now) {
+          next.setMonth(next.getMonth() + 1);
+          next.setDate(capturedReminderDayOfMonth);
+        }
+      } else if (capturedRecurrencePattern === "yearly" && capturedReminderYearlyDate) {
+        const targetMonth = capturedReminderYearlyDate.getMonth();
+        const targetDate = capturedReminderYearlyDate.getDate();
+        next.setMonth(targetMonth);
+        next.setDate(targetDate);
+        if (next <= now) {
+          next.setFullYear(next.getFullYear() + 1);
+          next.setMonth(targetMonth);
+          next.setDate(targetDate);
+        }
+      }
+
+      nextUnlockAt = next.toISOString();
+      const visible = new Date(next);
+      visible.setHours(visible.getHours() - 1);
+      visibleFrom = visible.toISOString();
+    }
 
     // Fire-and-forget: do all backend work in the background
     (async () => {
@@ -282,10 +365,20 @@ const CreateCapsule = () => {
             userId:           capturedUserId,
             isReshare:        capturedReshare,
             originalCapsuleId: capturedOriginalId,
-            autoRecurYearly:   capturedRecurrencePattern === "yearly",
-            recurrencePattern: capturedRecurrencePattern,
+            autoRecurYearly:   capturedTriggerType === "event" && capturedRecurrencePattern === "yearly",
+            recurrencePattern: capturedTriggerType === "event" ? capturedRecurrencePattern : "none",
             priorReminderEnabled: capturedPriorReminderEnabled,
             priorReminderDays: capturedPriorReminderDays,
+            reminderConfig: capturedTriggerType === "event" ? {
+              frequency: capturedRecurrencePattern,
+              time: capturedReminderTime,
+              dayOfWeek: capturedReminderDayOfWeek,
+              dayOfMonth: capturedReminderDayOfMonth,
+              yearlyDate: capturedReminderYearlyDate,
+            } : null,
+            isReminderCapsule: capturedTriggerType === "event",
+            nextUnlockAt,
+            visibleFrom,
           }),
         });
 
@@ -374,12 +467,20 @@ const CreateCapsule = () => {
           onCancel={() => navigate("/")}
           onSubmit={handleFormSubmit}
           isSubmitting={isSubmitting}
-          recurrencePattern={recurrencePattern}
-          onRecurrencePatternChange={setRecurrencePattern}
+          recurrencePattern={recurrencePattern as any}
+          onRecurrencePatternChange={setRecurrencePattern as any}
           priorReminderEnabled={priorReminderEnabled}
           onPriorReminderEnabledChange={setPriorReminderEnabled}
           priorReminderDays={priorReminderDays}
           onPriorReminderDaysChange={setPriorReminderDays}
+          reminderTime={reminderTime}
+          onReminderTimeChange={setReminderTime}
+          reminderDayOfWeek={reminderDayOfWeek}
+          onReminderDayOfWeekChange={setReminderDayOfWeek}
+          reminderDayOfMonth={reminderDayOfMonth}
+          onReminderDayOfMonthChange={setReminderDayOfMonth}
+          reminderYearlyDate={reminderYearlyDate}
+          onReminderYearlyDateChange={setReminderYearlyDate}
         />
       </div>
 

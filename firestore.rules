@@ -113,7 +113,7 @@ service cloud.firestore {
         || (
           isRecipient(resource.data.recipients)
           && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['likedBy', 'isUnlocked'])
+               .hasOnly(['likedBy', 'isUnlocked', 'openedBy'])
         )
       );
 

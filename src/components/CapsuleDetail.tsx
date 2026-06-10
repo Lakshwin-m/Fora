@@ -58,10 +58,10 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
 
   // Auto-skip opening animation if already opened
   useEffect(() => {
-    if (capsule && capsule.status === "opened") {
+    if (capsule && capsule.isOpenedByMe === true) {
       setInteractionStep(2);
     }
-  }, [capsule?.status]);
+  }, [capsule?.isOpenedByMe]);
 
   // 🔐 DECRYPT CAPSULE CONTENT
   const { decryptCapsule } = useCapsuleDecryption();
@@ -268,7 +268,7 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                 className="relative max-w-sm mx-auto aspect-square cursor-pointer hover:-translate-y-2 transition-transform duration-300 mt-12"
                 onClick={() => {
                   setInteractionStep(1);
-                  if (capsule.status !== "opened") {
+                  if (!capsule.isOpenedByMe) {
                     markCapsuleAsOpened(capsule.id);
                   }
                 }}

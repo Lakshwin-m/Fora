@@ -53,6 +53,8 @@ export interface Capsule {
 
   status?: "scheduled" | "delivered" | "opened";
   isUnlocked?: boolean;
+  isOpenedByMe?: boolean;
+  openedBy?: string[];
 
   userId?: string;
   username?: string;
@@ -270,7 +272,8 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         body: JSON.stringify({ capsuleId: id }),
       });
 
-      updateCapsule(id, { status: "opened", isUnlocked: true });
+      updateCapsule(id, { isOpenedByMe: true, isUnlocked: true });
+      await refreshCapsules();
     } catch (error) {
       console.error("markCapsuleAsOpened failed:", error);
     }
