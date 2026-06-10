@@ -56,6 +56,7 @@ import CameraModal from "@/components/CameraModal";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import countriesData from "@/data/countries.json";
 import { apiGetFriends } from "@/services/friendServices";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 const getCountryFlag = (countryName: string) => {
   const country = (countriesData as any[]).find(
@@ -66,6 +67,7 @@ const getCountryFlag = (countryName: string) => {
 
 const Profile = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
@@ -170,8 +172,8 @@ const Profile = () => {
 
       if (!user) {
         toast({
-          title: "Error",
-          description: "Please sign in to view your profile",
+          title: t('common.error'),
+          description: t('profile.toastSignInError'),
           variant: "destructive",
         });
         setLoading(false);
@@ -388,8 +390,8 @@ const Profile = () => {
       }, { merge: true });
 
       toast({
-        title: "Settings updated",
-        description: "Your preferences have been saved.",
+        title: t('profile.toastSettingsUpdated'),
+        description: t('profile.toastPreferencesSaved'),
       });
     } catch (error) {
       console.error("Error updating settings:", error);
@@ -417,8 +419,8 @@ const Profile = () => {
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         toast({
-          title: "File too large",
-          description: "Please select an image under 10MB.",
+          title: t('profile.toastFileTooLarge'),
+          description: t('profile.toastFileTooLargeDesc'),
           variant: "destructive",
         });
         return;
@@ -457,14 +459,14 @@ const Profile = () => {
       // 5. Update local state instantly
       setProfile((prev) => ({ ...prev, photoURL: downloadURL }));
 
-      toast({ title: "Photo updated!" });
+      toast({ title: t('profile.toastPhotoUpdated') });
     } catch (err: any) {
       console.error("Photo upload error:", err);
       toast({
-        title: "Upload failed",
+        title: t('profile.toastUploadFailed'),
         description: err.code === "storage/unauthorized"
-          ? "Permission denied. Check your Firebase Storage rules."
-          : err.message || "Could not upload photo.",
+          ? t('profile.toastPermissionDenied')
+          : err.message || t('profile.toastUploadFailedDesc'),
         variant: "destructive",
       });
     } finally {
@@ -497,11 +499,11 @@ const Profile = () => {
   }
 
   const settingsMenu = [
-    { id: "profile", label: "Public Profile", icon: User },
-    { id: "account", label: "Your account" },
-    { id: "security", label: "Security and account access" },
-    { id: "privacy", label: "Privacy and safety" },
-    { id: "notifications", label: "Notifications" },
+    { id: "profile", label: t('profile.tabPublicProfile'), icon: User },
+    { id: "account", label: t('profile.tabYourAccount') },
+    { id: "security", label: t('profile.tabSecurity') },
+    { id: "privacy", label: t('profile.tabPrivacy') },
+    { id: "notifications", label: t('profile.tabNotifications') },
   ];
 
   return (
@@ -514,11 +516,11 @@ const Profile = () => {
           {/* Navigation Sidebar */}
           <div className="md:w-80 shrink-0 border-r border-[#5D2A42]/10 bg-white flex flex-col">
             <div className="p-6 pb-2">
-              <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight mb-6">Settings</h2>
+              <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight mb-6">{t('profile.settingsTitle')}</h2>
               <div className="relative mb-2">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#5D2A42]/50" />
                 <Input
-                  placeholder="Search Settings"
+                  placeholder={t('profile.searchSettings')}
                   className="pl-10 border-[#5D2A42]/20 focus:border-[#FB6376] bg-[#FFF9EC]/30 text-[#5D2A42] rounded-full h-10 shadow-sm text-sm"
                 />
               </div>
@@ -589,14 +591,14 @@ const Profile = () => {
                               onClick={() => triggerImageUpload()}
                             >
                               <ImageIcon className="w-4 h-4" />
-                              Upload from Gallery
+                              {t('profile.uploadGallery')}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="flex items-center gap-2 cursor-pointer text-[#5D2A42] hover:bg-[#FFF9EC] hover:text-[#FB6376] focus:bg-[#FFF9EC] focus:text-[#FB6376] rounded-lg p-2 font-medium outline-none"
                               onClick={() => setShowCameraModal(true)}
                             >
                               <Camera className="w-4 h-4" />
-                              Take a Photo
+                              {t('profile.takePhoto')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -609,7 +611,7 @@ const Profile = () => {
                             variant="outline"
                             className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFF9EC] rounded-full font-bold px-6 h-9 transition-colors"
                           >
-                            Edit profile
+                            {t('profile.btnEditProfile')}
                           </Button>
                         )}
                       </div>
@@ -632,7 +634,7 @@ const Profile = () => {
 
                         <div className="mb-4">
                           <p className="text-[#5D2A42]/90 whitespace-pre-wrap leading-relaxed">
-                            {profile.bio || <span className="text-[#5D2A42]/40 italic">No bio added yet.</span>}
+                            {profile.bio || <span className="text-[#5D2A42]/40 italic">{t('profile.noBioYet')}</span>}
                           </p>
                         </div>
 
@@ -654,7 +656,7 @@ const Profile = () => {
                           {profile.createdAt && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-4 h-4 opacity-70" />
-                              Joined {new Date(profile.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                              {t('profile.joined')} {new Date(profile.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                             </span>
                           )}
                         </div>
@@ -665,26 +667,26 @@ const Profile = () => {
                             className="flex items-center gap-1.5 hover:underline cursor-pointer"
                           >
                             <span className="font-bold text-[#5D2A42]">{profile.connectionsCount || 0}</span>
-                            <span className="text-[#5D2A42]/60">Following</span>
+                            <span className="text-[#5D2A42]/60">{t('connections.following')}</span>
                           </div>
                           <div 
                             onClick={() => navigate("/connections")}
                             className="flex items-center gap-1.5 hover:underline cursor-pointer"
                           >
                             <span className="font-bold text-[#5D2A42]">{profile.connectionsCount || 0}</span>
-                            <span className="text-[#5D2A42]/60">Followers</span>
+                            <span className="text-[#5D2A42]/60">{t('connections.followers')}</span>
                           </div>
                         </div>
                       </div>
                     ) : (
                       // Edit Mode Form
                       <div className="animate-in slide-in-from-bottom-2 duration-300 mt-6 border-t border-[#5D2A42]/10 pt-6">
-                        <h3 className="text-xl font-bold text-[#5D2A42] mb-6">Edit Information</h3>
+                        <h3 className="text-xl font-bold text-[#5D2A42] mb-6">{t('profile.editInformation')}</h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                       <div className="space-y-2">
                         <Label htmlFor="name" className="text-[#5D2A42] font-semibold text-sm">
-                          Full Name
+                          {t('profile.fullName')}
                         </Label>
                         <Input
                           id="name"
@@ -698,7 +700,7 @@ const Profile = () => {
 
                       <div className="space-y-2">
                         <Label htmlFor="username" className="text-[#5D2A42] font-semibold text-sm">
-                          Username
+                          {t('profile.username')}
                         </Label>
                         <Input
                           id="username"
@@ -715,7 +717,7 @@ const Profile = () => {
 
                       <div className="space-y-2">
                         <Label htmlFor="email" className="text-[#5D2A42] font-semibold text-sm">
-                          Email Address
+                          {t('profile.emailAddress')}
                         </Label>
                         <Input
                           id="email"
@@ -730,20 +732,20 @@ const Profile = () => {
 
                       <div className="space-y-2">
                         <Label htmlFor="location" className="text-[#5D2A42] font-semibold text-sm">
-                          Location
+                          {t('profile.location')}
                         </Label>
                         <CountrySelect
                           value={profile.location}
                           onChange={(val) =>
                             setProfile({ ...profile, location: val })
                           }
-                          placeholder="Select your country…"
+                          placeholder={t('profile.locationPlaceholder')}
                         />
                       </div>
 
                       <div className="space-y-2 md:col-span-2">
                         <Label htmlFor="bio" className="text-[#5D2A42] font-semibold text-sm">
-                          Bio
+                          {t('profile.bio')}
                         </Label>
                         <Textarea
                           id="bio"
@@ -751,7 +753,7 @@ const Profile = () => {
                           onChange={(e) =>
                             setProfile({ ...profile, bio: e.target.value })
                           }
-                          placeholder="Tell us a little about yourself..."
+                          placeholder={t('profile.bioPlaceholder')}
                           maxLength={500}
                           className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-[#FFF9EC]/50 hover:bg-white text-[#5D2A42] rounded-xl min-h-[120px] resize-none"
                         />
@@ -771,7 +773,7 @@ const Profile = () => {
                           variant="ghost"
                           className="text-[#5D2A42] hover:bg-[#FFDCCC]/50 px-6 py-2 h-11 rounded-xl shadow-none font-medium transition-colors"
                         >
-                          Cancel
+                          {t('profile.btnCancel')}
                         </Button>
                         <Button
                           onClick={handleSaveProfile}
@@ -781,10 +783,10 @@ const Profile = () => {
                           {saving ? (
                             <>
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Saving...
+                              {t('profile.btnSaving')}
                             </>
                           ) : (
-                            "Save Changes"
+                            t('profile.btnSaveChanges')
                           )}
                         </Button>
                       </div>
@@ -798,17 +800,17 @@ const Profile = () => {
               <div className="animate-in fade-in duration-300 min-h-[500px]">
                 <div className="p-6 md:p-10 max-w-3xl">
                   <div className="mb-8 border-b border-[#5D2A42]/10 pb-6">
-                    <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight">Notifications</h2>
-                    <p className="text-[#5D2A42]/60 mt-1">Manage how you receive alerts and updates.</p>
+                    <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight">{t('profile.notificationsHeader')}</h2>
+                    <p className="text-[#5D2A42]/60 mt-1">{t('profile.notificationsDesc')}</p>
                   </div>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="email-notifications" className="text-[#5D2A42] font-semibold text-sm">
-                            Email Notifications
+                            {t('profile.emailNotifications')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Receive updates via email about your capsules
+                            {t('profile.emailNotificationsDesc')}
                           </p>
                         </div>
                         <Switch
@@ -824,10 +826,10 @@ const Profile = () => {
                       <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="push-notifications" className="text-[#5D2A42] font-semibold text-sm">
-                            Push Notifications
+                            {t('profile.pushNotifications')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Get instant notifications on your devices
+                            {t('profile.pushNotificationsDesc')}
                           </p>
                         </div>
                         <Switch
@@ -843,10 +845,10 @@ const Profile = () => {
                       <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="capsule-reminders" className="text-[#5D2A42] font-semibold text-sm">
-                            Capsule Reminders
+                            {t('profile.capsuleReminders')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Get reminded before your capsules unlock
+                            {t('profile.capsuleRemindersDesc')}
                           </p>
                         </div>
                         <Switch
@@ -862,10 +864,10 @@ const Profile = () => {
                       <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="connection-requests" className="text-[#5D2A42] font-semibold text-sm">
-                            Connection Requests
+                            {t('profile.connectionRequests')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Notify when someone wants to connect
+                            {t('profile.connectionRequestsDesc')}
                           </p>
                         </div>
                         <Switch
@@ -881,10 +883,10 @@ const Profile = () => {
                       <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="weekly-digest" className="text-[#5D2A42] font-semibold text-sm">
-                            Weekly Digest
+                            {t('profile.weeklyDigest')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Weekly summary of your time capsule activity
+                            {t('profile.weeklyDigestDesc')}
                           </p>
                         </div>
                         <Switch
@@ -900,7 +902,7 @@ const Profile = () => {
                     
                     <div className="mt-10 pt-6 border-t border-[#5D2A42]/10 flex justify-end">
                       <Button onClick={handleSaveSettings} disabled={saving} className="bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white px-8 py-2 h-11 rounded-xl shadow-none font-medium transition-colors">
-                        {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : "Save Settings"}
+                        {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('profile.btnSaving')}</> : t('profile.saveSettings')}
                       </Button>
                     </div>
 
@@ -979,16 +981,16 @@ const Profile = () => {
               <div className="animate-in fade-in duration-300 min-h-[500px]">
                 <div className="p-6 md:p-10 max-w-3xl">
                   <div className="mb-8 border-b border-[#5D2A42]/10 pb-6">
-                    <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight">Privacy and safety</h2>
-                    <p className="text-[#5D2A42]/60 mt-1">Control who can see your profile and activity.</p>
+                    <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight">{t('profile.privacyHeader')}</h2>
+                    <p className="text-[#5D2A42]/60 mt-1">{t('profile.privacyDesc')}</p>
                   </div>
                   <div className="space-y-4">
 
                       <div className="p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="mb-4">
-                          <Label className="text-[#5D2A42] font-semibold text-sm">Profile Visibility</Label>
+                          <Label className="text-[#5D2A42] font-semibold text-sm">{t('profile.profileVisibility')}</Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Who can view your profile information
+                            {t('profile.profileVisibilityDesc')}
                           </p>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -1001,8 +1003,8 @@ const Profile = () => {
                                 : "border-[#5D2A42]/20 text-[#5D2A42] hover:bg-white bg-transparent"
                             }`}
                           >
-                            <span className="flex items-center mb-1"><Globe className="w-4 h-4 mr-2" /> Public</span>
-                            <span className="text-xs opacity-70 font-normal">Anyone can view your profile</span>
+                            <span className="flex items-center mb-1"><Globe className="w-4 h-4 mr-2" /> {t('profile.visibilityPublic')}</span>
+                            <span className="text-xs opacity-70 font-normal">{t('profile.visibilityPublicDesc')}</span>
                           </Button>
                           <Button
                             variant={settings.profileVisibility === "connections" ? "default" : "outline"}
@@ -1013,8 +1015,8 @@ const Profile = () => {
                                 : "border-[#5D2A42]/20 text-[#5D2A42] hover:bg-white bg-transparent"
                             }`}
                           >
-                            <span className="flex items-center mb-1"><User className="w-4 h-4 mr-2" /> Connections Only</span>
-                            <span className="text-xs opacity-70 font-normal">Only your connections can view</span>
+                            <span className="flex items-center mb-1"><User className="w-4 h-4 mr-2" /> {t('profile.visibilityConnections')}</span>
+                            <span className="text-xs opacity-70 font-normal">{t('profile.visibilityConnectionsDesc')}</span>
                           </Button>
                           <Button
                             variant={settings.profileVisibility === "private" ? "default" : "outline"}
@@ -1025,8 +1027,8 @@ const Profile = () => {
                                 : "border-[#5D2A42]/20 text-[#5D2A42] hover:bg-white bg-transparent"
                             }`}
                           >
-                            <span className="flex items-center mb-1"><Lock className="w-4 h-4 mr-2" /> Private</span>
-                            <span className="text-xs opacity-70 font-normal">Only you can view your profile</span>
+                            <span className="flex items-center mb-1"><Lock className="w-4 h-4 mr-2" /> {t('profile.visibilityPrivate')}</span>
+                            <span className="text-xs opacity-70 font-normal">{t('profile.visibilityPrivateDesc')}</span>
                           </Button>
                         </div>
                       </div>
@@ -1034,10 +1036,10 @@ const Profile = () => {
                       <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="allow-search" className="text-[#5D2A42] font-semibold text-sm">
-                            Allow Search
+                            {t('profile.allowSearch')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Let others find you by email or username
+                            {t('profile.allowSearchDesc')}
                           </p>
                         </div>
                         <Switch
@@ -1053,10 +1055,10 @@ const Profile = () => {
                       <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="online-status" className="text-[#5D2A42] font-semibold text-sm">
-                            Show Online Status
+                            {t('profile.showOnlineStatus')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Display when you're active on Forá
+                            {t('profile.showOnlineStatusDesc')}
                           </p>
                         </div>
                         <Switch
@@ -1072,10 +1074,10 @@ const Profile = () => {
                       <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="capsule-preview" className="text-[#5D2A42] font-semibold text-sm">
-                            Capsule Preview
+                            {t('profile.capsulePreview')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Show capsule previews to recipients before unlock
+                            {t('profile.capsulePreviewDesc')}
                           </p>
                         </div>
                         <Switch
@@ -1091,7 +1093,7 @@ const Profile = () => {
                     
                     <div className="mt-10 pt-6 border-t border-[#5D2A42]/10 flex justify-end">
                       <Button onClick={handleSaveSettings} disabled={saving} className="bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white px-8 py-2 h-11 rounded-xl shadow-none font-medium transition-colors">
-                        {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : "Save Settings"}
+                        {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('profile.btnSaving')}</> : t('profile.saveSettings')}
                       </Button>
                     </div>
                   </div>
@@ -1102,18 +1104,18 @@ const Profile = () => {
               <div className="animate-in fade-in duration-300 min-h-[500px]">
                 <div className="p-6 md:p-10 max-w-3xl">
                   <div className="mb-8 border-b border-[#5D2A42]/10 pb-6">
-                    <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight">Security and access</h2>
-                    <p className="text-[#5D2A42]/60 mt-1">Protect your account with additional security measures.</p>
+                    <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight">{t('profile.securityHeader')}</h2>
+                    <p className="text-[#5D2A42]/60 mt-1">{t('profile.securityDesc')}</p>
                   </div>
                   <div className="space-y-4">
 
                       <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="two-factor" className="text-[#5D2A42] font-semibold text-sm">
-                            Two-Factor Authentication
+                            {t('profile.twoFactor')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Add an extra layer of security to your account
+                            {t('profile.twoFactorDesc')}
                           </p>
                         </div>
                         <Switch
@@ -1129,10 +1131,10 @@ const Profile = () => {
                       <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="login-alerts" className="text-[#5D2A42] font-semibold text-sm">
-                            Login Alerts
+                            {t('profile.loginAlerts')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Get notified of new login attempts
+                            {t('profile.loginAlertsDesc')}
                           </p>
                         </div>
                         <Switch
@@ -1148,10 +1150,10 @@ const Profile = () => {
                       <div className="flex items-center justify-between p-4 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-xl">
                         <div className="pr-6">
                           <Label htmlFor="session-timeout" className="text-[#5D2A42] font-semibold text-sm">
-                            Session Timeout
+                            {t('profile.sessionTimeout')}
                           </Label>
                           <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                            Automatically log out after period of inactivity
+                            {t('profile.sessionTimeoutDesc')}
                           </p>
                         </div>
                         <select
@@ -1160,17 +1162,17 @@ const Profile = () => {
                           onChange={(e) => setSettings({ ...settings, sessionTimeout: e.target.value })}
                           className="h-10 px-3 py-1 rounded-xl bg-white border border-[#5D2A42]/20 text-[#5D2A42] focus:outline-none focus:border-[#FB6376] focus:ring-1 focus:ring-[#FB6376]"
                         >
-                          <option value="15">15 minutes</option>
-                          <option value="30">30 minutes</option>
-                          <option value="60">1 hour</option>
-                          <option value="0">Never</option>
+                          <option value="15">{t('profile.timeout15')}</option>
+                          <option value="30">{t('profile.timeout30')}</option>
+                          <option value="60">{t('profile.timeout60')}</option>
+                          <option value="0">{t('profile.timeoutNever')}</option>
                         </select>
                       </div>
                     </div>
                     
                     <div className="mt-10 pt-6 border-t border-[#5D2A42]/10 flex justify-end">
                       <Button onClick={handleSaveSettings} disabled={saving} className="bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white px-8 py-2 h-11 rounded-xl shadow-none font-medium transition-colors">
-                        {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</> : "Save Settings"}
+                        {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('profile.btnSaving')}</> : t('profile.saveSettings')}
                       </Button>
                     </div>
                   </div>
@@ -1181,38 +1183,38 @@ const Profile = () => {
               <div className="animate-in fade-in duration-300 min-h-[500px]">
                 <div className="p-6 md:p-10 max-w-3xl">
                   <div className="mb-8 border-b border-[#5D2A42]/10 pb-6">
-                    <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight">Your Account</h2>
-                    <p className="text-[#5D2A42]/60 mt-1">See information about your account, change your password, or learn about account deactivation options.</p>
+                    <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight">{t('profile.yourAccountHeader')}</h2>
+                    <p className="text-[#5D2A42]/60 mt-1">{t('profile.yourAccountDesc')}</p>
                   </div>
                   
                   <div className="space-y-8">
                     {/* CHANGE PASSWORD */}
                     <div className="p-6 bg-[#FFF9EC]/50 border border-[#5D2A42]/5 rounded-2xl space-y-4">
                       <div className="mb-2">
-                        <Label className="text-[#5D2A42] font-semibold text-base">Change Password</Label>
+                        <Label className="text-[#5D2A42] font-semibold text-base">{t('profile.changePassword')}</Label>
                         <p className="text-sm text-[#5D2A42]/60 mt-0.5">
-                          Update your account password
+                          {t('profile.changePasswordDesc')}
                         </p>
                       </div>
                       
                       <div className="space-y-3">
                         <div className="space-y-1.5">
-                          <Label className="text-xs text-[#5D2A42] font-medium">Current Password</Label>
+                          <Label className="text-xs text-[#5D2A42] font-medium">{t('profile.currentPassword')}</Label>
                           <Input type="password" placeholder="••••••••" className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-white h-10 rounded-xl" />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div className="space-y-1.5">
-                            <Label className="text-xs text-[#5D2A42] font-medium">New Password</Label>
+                            <Label className="text-xs text-[#5D2A42] font-medium">{t('profile.newPassword')}</Label>
                             <Input type="password" placeholder="••••••••" className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-white h-10 rounded-xl" />
                           </div>
                           <div className="space-y-1.5">
-                            <Label className="text-xs text-[#5D2A42] font-medium">Confirm New Password</Label>
+                            <Label className="text-xs text-[#5D2A42] font-medium">{t('profile.confirmNewPassword')}</Label>
                             <Input type="password" placeholder="••••••••" className="border-[#5D2A42]/20 focus:border-[#FB6376] bg-white h-10 rounded-xl" />
                           </div>
                         </div>
                         <div className="pt-2">
                           <Button variant="outline" className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-white rounded-xl">
-                            Update Password
+                            {t('profile.updatePassword')}
                           </Button>
                         </div>
                       </div>
@@ -1223,19 +1225,19 @@ const Profile = () => {
                       <div className="mb-4">
                         <h3 className="text-red-600 font-semibold text-lg flex items-center">
                           <AlertTriangle className="w-5 h-5 mr-2 opacity-80" />
-                          Danger Zone
+                          {t('profile.dangerZone')}
                         </h3>
                         <p className="text-sm text-red-600/60 mt-1">
-                          Irreversible and destructive actions
+                          {t('profile.dangerZoneDesc')}
                         </p>
                       </div>
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-red-50/50 border border-red-100 rounded-xl gap-4">
                         <div className="pr-6">
                           <Label className="text-red-700 font-semibold text-sm">
-                            Delete Account
+                            {t('profile.deleteAccount')}
                           </Label>
                           <p className="text-sm text-red-600/70 mt-0.5">
-                            Once you delete your account, there is no going back. All your time capsules, connections, and data will be permanently removed.
+                            {t('profile.deleteAccountDesc')}
                           </p>
                         </div>
                         <Button
@@ -1243,7 +1245,7 @@ const Profile = () => {
                           className="shrink-0 rounded-xl bg-red-500 hover:bg-red-600 shadow-none border border-red-600"
                         >
                           <Trash2 className="w-4 h-4 mr-2" />
-                          Delete Account
+                          {t('profile.deleteAccount')}
                         </Button>
                       </div>
                     </div>

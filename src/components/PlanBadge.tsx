@@ -2,6 +2,7 @@
 
 import { Crown, Sparkles, User, Database, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 export interface PlanBadgeProps {
   tier: string;
@@ -16,6 +17,7 @@ export function PlanBadge({
   capsuleLimit,
   className,
 }: PlanBadgeProps) {
+  const { t } = useTranslation();
   const isUnlimited = capsuleLimit === null;
   const usagePercentage = !isUnlimited ? Math.min((usedCapsules / capsuleLimit!) * 100, 100) : 0;
   
@@ -46,7 +48,7 @@ export function PlanBadge({
       {/* Label & Tier */}
       <div className="flex flex-col">
         <span className="text-[11px] font-bold text-white/50 uppercase tracking-[0.1em] leading-none mb-1">
-          {tier} active
+          {tier} {t('planBadge.active')}
         </span>
         <span className="text-sm font-bold text-white leading-none">
           {config.label}
@@ -60,7 +62,7 @@ export function PlanBadge({
       <div className="flex flex-col min-w-[60px]">
         <div className="flex justify-between items-end mb-1.5">
           <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">
-            STORAGE
+            {t('planBadge.storage')}
           </span>
           <span className="text-[10px] font-mono font-bold text-[#FB6376]">
             {isUnlimited ? "∞" : `${usedCapsules}/${capsuleLimit}`}

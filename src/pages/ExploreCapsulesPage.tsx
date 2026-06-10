@@ -25,10 +25,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { getAuth } from "firebase/auth";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 const ExploreCapsulesPage = () => {
   const navigate = useNavigate();
   const auth = getAuth();
+  const { t } = useTranslation();
   const [capsules, setCapsules] = useState<PublicCapsule[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -155,7 +157,7 @@ const ExploreCapsulesPage = () => {
     const currentUser = auth.currentUser;
 
     if (!currentUser) {
-      alert("Please log in to like capsules");
+      alert(t('explore.loginToLike'));
       return;
     }
 
@@ -189,7 +191,7 @@ const ExploreCapsulesPage = () => {
       }
     } catch (error) {
       console.error("Error toggling like:", error);
-      alert("Failed to update like");
+      alert(t('explore.likeFailed'));
     }
   };
 
@@ -202,10 +204,10 @@ const ExploreCapsulesPage = () => {
         <div className="mb-8">
           <div className="flex items-center space-x-3 mb-2">
             <Archive className="w-6 h-6 text-[#5D2A42]" />
-            <h1 className="text-3xl font-bold text-[#5D2A42]">Community</h1>
+            <h1 className="text-3xl font-bold text-[#5D2A42]">{t('explore.title')}</h1>
           </div>
           <p className="text-[#5D2A42]/70">
-            Browse shared memories and moments from our community
+            {t('explore.subtitle')}
           </p>
         </div>
 
@@ -213,17 +215,17 @@ const ExploreCapsulesPage = () => {
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="flex-1">
             <label className="text-sm font-medium text-[#5D2A42] block mb-2">
-              Category
+              {t('explore.categoryLabel')}
             </label>
             <Select
               value={selectedCategory}
               onValueChange={setSelectedCategory}
             >
               <SelectTrigger className="border-[#5D2A42]/20 bg-white text-[#5D2A42]">
-                <SelectValue placeholder="All Categories" />
+                <SelectValue placeholder={t('explore.allCategories')} />
               </SelectTrigger>
               <SelectContent className="bg-white border-[#5D2A42]/20">
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="all">{t('explore.allCategories')}</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
@@ -235,15 +237,15 @@ const ExploreCapsulesPage = () => {
 
           <div className="flex-1">
             <label className="text-sm font-medium text-[#5D2A42] block mb-2">
-              Sort By
+              {t('explore.sortByLabel')}
             </label>
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
               <SelectTrigger className="border-[#5D2A42]/20 bg-white text-[#5D2A42]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-white border-[#5D2A42]/20">
-                <SelectItem value="newest">Newest</SelectItem>
-                <SelectItem value="mostReshared">Most Reshared</SelectItem>
+                <SelectItem value="newest">{t('explore.sortNewest')}</SelectItem>
+                <SelectItem value="mostReshared">{t('explore.sortMostReshared')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -258,17 +260,16 @@ const ExploreCapsulesPage = () => {
           <div className="text-center py-16">
             <Archive className="w-16 h-16 mx-auto mb-4 text-[#5D2A42]/30" />
             <h3 className="text-lg font-semibold text-[#5D2A42] mb-2">
-              No capsules yet
+              {t('explore.noCapsules')}
             </h3>
             <p className="text-[#5D2A42]/70 mb-6">
-              Start exploring or create your own capsule to share with the
-              community
+              {t('explore.noCapsulesDesc')}
             </p>
             <Button
               onClick={() => navigate("/create")}
               className="bg-[#FB6376] hover:bg-[#F04860] text-white"
             >
-              Create a Capsule
+              {t('explore.createCapsule')}
             </Button>
           </div>
         ) : (
@@ -345,9 +346,9 @@ const ExploreCapsulesPage = () => {
                         </Badge>
                       )}
                       <div className="text-xs text-[#5D2A42]/60">
-                        {capsule.isReshare && <span>Reshared • </span>}
+                        {capsule.isReshare && <span>{t('explore.reshared')} • </span>}
                         {capsule.reshareCount > 0 && (
-                          <span>{capsule.reshareCount} reshares</span>
+                          <span>{capsule.reshareCount} {t('capsuleDetail.resharesPlural')}</span>
                         )}
                       </div>
                     </div>
@@ -368,10 +369,10 @@ const ExploreCapsulesPage = () => {
                   {loadingMore ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Loading...
+                      {t('explore.loading')}
                     </>
                   ) : (
-                    "Load More"
+                    t('explore.loadMore')
                   )}
                 </Button>
               </div>

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { startPayment } from "@/lib/razorpay";
 import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 interface InvoiceState {
   planTier: "starter" | "pro";
@@ -15,6 +16,7 @@ export default function InvoicePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [isProcessing, setIsProcessing] = useState(false);
 
   const state = location.state as InvoiceState;
@@ -61,9 +63,9 @@ export default function InvoicePage() {
           className="text-center mb-8"
         >
           <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-2">
-            Invoice
+            {t('invoice.title')}
           </h1>
-          <p className="text-slate-600">Please review your order details</p>
+          <p className="text-slate-600">{t('invoice.subtitle')}</p>
         </motion.div>
 
         {/* Invoice Card */}
@@ -78,12 +80,12 @@ export default function InvoicePage() {
             <div className="flex justify-between items-start">
               <div>
                 <h2 className="text-3xl font-black mb-1">Forá</h2>
-                <p className="text-slate-300 text-sm">Time Capsule Service</p>
+                <p className="text-slate-300 text-sm">{t('invoice.timeCapsuleService')}</p>
               </div>
               <div className="text-right">
                 <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 border border-white/30">
                   <p className="text-xs uppercase tracking-wider text-slate-300">
-                    Invoice Number
+                    {t('invoice.invoiceNumber')}
                   </p>
                   <p className="text-lg font-bold">{invoiceNumber}</p>
                 </div>
@@ -96,12 +98,12 @@ export default function InvoicePage() {
             {/* Bill To */}
             <div className="mb-8">
               <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-3">
-                Bill To
+                {t('invoice.billTo')}
               </h3>
               <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                 <p className="font-semibold text-slate-900">{user?.email}</p>
                 <p className="text-sm text-slate-600 mt-1">
-                  Invoice Date: {currentDate}
+                  {t('invoice.invoiceDate')} {currentDate}
                 </p>
               </div>
             </div>
@@ -112,15 +114,15 @@ export default function InvoicePage() {
             {/* Items Table */}
             <div className="mb-8">
               <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-4">
-                Order Details
+                {t('invoice.orderDetails')}
               </h3>
 
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 {/* Table Header */}
                 <div className="bg-slate-50 grid grid-cols-12 gap-4 p-4 text-sm font-semibold text-slate-700 border-b border-slate-200">
-                  <div className="col-span-6">Description</div>
-                  <div className="col-span-3 text-center">Duration</div>
-                  <div className="col-span-3 text-right">Amount</div>
+                  <div className="col-span-6">{t('invoice.colDescription')}</div>
+                  <div className="col-span-3 text-center">{t('invoice.colDuration')}</div>
+                  <div className="col-span-3 text-right">{t('invoice.colAmount')}</div>
                 </div>
 
                 {/* Table Row */}
@@ -132,18 +134,18 @@ export default function InvoicePage() {
                       </p>
                       <p className="text-sm text-slate-600 mt-1">
                         {planTier === "starter"
-                          ? "50 capsules per month"
-                          : "Unlimited capsules"}
+                          ? t('invoice.capsules50')
+                          : t('invoice.capsulesUnlimited')}
                       </p>
                       <div className="flex gap-2 mt-2">
                         <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded font-semibold">
                           {billingCycle === "monthly"
-                            ? "Monthly"
-                            : "Yearly"}
+                            ? t('invoice.monthly')
+                            : t('invoice.yearly')}
                         </span>
                         {billingCycle === "yearly" && (
                           <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-semibold">
-                            Save 58%
+                            {t('invoice.save58')}
                           </span>
                         )}
                       </div>
@@ -151,7 +153,7 @@ export default function InvoicePage() {
                   </div>
                   <div className="col-span-3 text-center">
                     <p className="font-semibold text-slate-900">
-                      {billingCycle === "monthly" ? "1 Month" : "1 Year"}
+                      {billingCycle === "monthly" ? t('invoice.month1') : t('invoice.year1')}
                     </p>
                   </div>
                   <div className="col-span-3 text-right">
@@ -167,17 +169,17 @@ export default function InvoicePage() {
             <div className="bg-slate-50 rounded-lg p-6 border border-slate-200">
               <div className="space-y-3">
                 <div className="flex justify-between text-slate-700">
-                  <span>Subtotal</span>
+                  <span>{t('invoice.subtotal')}</span>
                   <span className="font-semibold">₹{subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-slate-700">
-                  <span>GST (18%)</span>
+                  <span>{t('invoice.gst')}</span>
                   <span className="font-semibold">₹{gst.toFixed(2)}</span>
                 </div>
                 <div className="border-t border-slate-300 pt-3">
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-bold text-slate-900">
-                      Total Amount
+                      {t('invoice.totalAmount')}
                     </span>
                     <span className="text-2xl font-black text-slate-900">
                       ₹{total.toFixed(2)}
@@ -190,14 +192,14 @@ export default function InvoicePage() {
             {/* Features Included */}
             <div className="mt-8">
               <h3 className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-4">
-                What's Included
+                {t('invoice.whatsIncluded')}
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  "Secure encryption",
-                  "Priority support",
-                  "Custom categories",
-                  "Advanced features",
+                  t('invoice.featureEncryption'),
+                  t('invoice.featureSupport'),
+                  t('invoice.featureCategories'),
+                  t('invoice.featureAdvanced'),
                 ].map((feature, i) => (
                   <div
                     key={i}
@@ -230,7 +232,7 @@ export default function InvoicePage() {
                 onClick={() => navigate("/pricing")}
                 className="flex-1 py-3 px-6 rounded-lg border-2 border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 transition-colors"
               >
-                Back to Pricing
+                {t('invoice.backToPricing')}
               </button>
               <motion.button
                 onClick={handlePayNow}
@@ -260,7 +262,7 @@ export default function InvoicePage() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    Processing...
+                    {t('invoice.processing')}
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
@@ -277,7 +279,7 @@ export default function InvoicePage() {
                         d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
                       />
                     </svg>
-                    Pay Now - ₹{total.toFixed(2)}
+                    {t('invoice.payNow')} - ₹{total.toFixed(2)}
                   </span>
                 )}
               </motion.button>
@@ -298,7 +300,7 @@ export default function InvoicePage() {
                   d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
                 />
               </svg>
-              <span>Secure payment powered by Razorpay</span>
+              <span>{t('invoice.securePayment')}</span>
             </div>
           </div>
         </motion.div>
@@ -310,7 +312,7 @@ export default function InvoicePage() {
           transition={{ delay: 0.4 }}
           className="text-center mt-8 text-sm text-slate-600"
         >
-          <p>Questions about billing? Contact us at support@fora.com</p>
+          <p>{t('invoice.billingQuestion')}</p>
         </motion.div>
       </div>
     </div>

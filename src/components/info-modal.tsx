@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 
 import { Info, X } from "lucide-react";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 export function InfoModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -69,24 +71,22 @@ export function InfoModal() {
                 {/* Description */}
                 <div className="flex-1 space-y-4">
                   <h2 className="text-3xl font-bold text-gray-900">
-                    DigiGarden
+                    {t('garden.tutorialTitle')}
                   </h2>
 
                   <p className="text-gray-700 leading-relaxed">
-                    Welcome to DigiGarden, a digital sanctuary of peace and
-                    positivity! Our goal is to spread happiness and kindness
-                    throughout the world.
+                    {t('garden.tutorialDesc')}
                   </p>
 
                   <div className="space-y-2">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      How to Use:
+                      {t('garden.tutorialHowTo')}
                     </h3>
                     <ul className="list-disc list-inside space-y-1 text-gray-700">
-                      <li>Click anywhere on the garden to plant a flower</li>
-                      <li>Choose a flower type and write a positive message</li>
-                      <li>Click on any flower to read its message</li>
-                      <li>Share flowers with friends via the share buttons</li>
+                      <li>{t('garden.tutorialStep1')}</li>
+                      <li>{t('garden.tutorialStep2')}</li>
+                      <li>{t('garden.tutorialStep3')}</li>
+                      <li>{t('garden.tutorialStep4')}</li>
                     </ul>
                   </div>
                 </div>

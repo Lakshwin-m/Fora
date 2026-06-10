@@ -17,10 +17,12 @@ import {
 } from "lucide-react";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { apiGetFriends, apiSendFriendRequest } from "@/services/friendServices";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 const UserProfile = () => {
   const { uid } = useParams<{ uid: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [targetUser, setTargetUser] = useState<any>(null);
   const [isFriend, setIsFriend] = useState(false);
@@ -45,8 +47,8 @@ const UserProfile = () => {
 
       if (!userSnap.exists()) {
         toast({
-          title: "Error",
-          description: "User not found.",
+          title: t('common.error'),
+          description: t('userProfile.toastUserNotFound'),
           variant: "destructive",
         });
         navigate("/connections");
@@ -66,8 +68,8 @@ const UserProfile = () => {
     } catch (error) {
       console.error("Error fetching user profile:", error);
       toast({
-        title: "Error",
-        description: "Failed to load profile.",
+        title: t('common.error'),
+        description: t('userProfile.toastLoadFailed'),
         variant: "destructive",
       });
     } finally {
@@ -81,11 +83,11 @@ const UserProfile = () => {
     try {
       await apiSendFriendRequest(uid);
       setHasSentRequest(true);
-      toast({ title: "Follow request sent!" });
+      toast({ title: t('userProfile.toastRequestSent') });
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to send request.",
+        title: t('common.error'),
+        description: t('userProfile.toastRequestFailed'),
         variant: "destructive",
       });
     } finally {
@@ -129,7 +131,7 @@ const UserProfile = () => {
           className="mb-6 text-[#5D2A42]/60 hover:text-[#5D2A42] hover:bg-[#FFDCCC]/30 rounded-full pl-2 pr-4"
         >
           <ChevronLeft className="w-5 h-5 mr-1" />
-          Back
+          {t('userProfile.back')}
         </Button>
 
         <div className="bg-white rounded-3xl shadow-sm border border-[#5D2A42]/10 overflow-hidden">
@@ -162,7 +164,7 @@ const UserProfile = () => {
                     ) : (
                       <UserPlus className="w-4 h-4 mr-2" />
                     )}
-                    Follow
+                    {t('userProfile.follow')}
                   </Button>
                 )}
                 {hasSentRequest && (
@@ -171,7 +173,7 @@ const UserProfile = () => {
                     className="bg-[#5D2A42]/10 text-[#5D2A42]/60 rounded-full font-bold px-8 h-10 border border-[#5D2A42]/10 transition-colors"
                   >
                     <UserCheck className="w-4 h-4 mr-2" />
-                    Requested
+                    {t('userProfile.requested')}
                   </Button>
                 )}
                 {isFriend && (
@@ -179,7 +181,7 @@ const UserProfile = () => {
                     variant="outline"
                     className="border-[#5D2A42]/20 text-[#5D2A42] rounded-full font-bold px-8 h-10 hover:bg-[#FFF9EC]"
                   >
-                    Following
+                    {t('userProfile.following')}
                   </Button>
                 )}
               </div>
@@ -218,7 +220,7 @@ const UserProfile = () => {
                   {targetUser?.createdAt && (
                     <span className="flex items-center gap-2">
                       <Calendar className="w-5 h-5 opacity-70" />
-                      Joined {new Date(targetUser.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                      {t('userProfile.joined')} {new Date(targetUser.createdAt).toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                     </span>
                   )}
                 </div>
@@ -229,7 +231,7 @@ const UserProfile = () => {
                       {targetUser?.connections || 0}
                     </span>
                     <span className="text-sm font-semibold text-[#5D2A42]/50 uppercase tracking-wider">
-                      Following
+                      {t('userProfile.statsFollowing')}
                     </span>
                   </div>
                   <div className="flex flex-col">
@@ -237,7 +239,7 @@ const UserProfile = () => {
                       {targetUser?.connections || 0}
                     </span>
                     <span className="text-sm font-semibold text-[#5D2A42]/50 uppercase tracking-wider">
-                      Followers
+                      {t('userProfile.statsFollowers')}
                     </span>
                   </div>
                 </div>
@@ -248,12 +250,12 @@ const UserProfile = () => {
                   <Lock className="w-10 h-10 text-[#5D2A42]/40" />
                 </div>
                 <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">
-                  This profile is protected
+                  {t('userProfile.protectedTitle')}
                 </h3>
                 <p className="text-[#5D2A42]/60 max-w-sm text-lg">
                   {visibility === "private" 
-                    ? "This user has set their profile to private. Only they can view it."
-                    : "Only connections can view this profile. Follow them to see their full details."}
+                    ? t('userProfile.protectedPrivate')
+                    : t('userProfile.protectedConnections')}
                 </p>
               </div>
             )}

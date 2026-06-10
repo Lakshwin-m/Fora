@@ -10,8 +10,10 @@ import {
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { IconCheck, IconX, IconAlertCircle } from "@tabler/icons-react";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 export function SignUpLoginForm() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLogin, setIsLogin] = useState(true);
@@ -59,7 +61,7 @@ export function SignUpLoginForm() {
 
     // Additional validation for signup
     if (!isLogin && !isPasswordValid) {
-      setError("Please meet all password requirements");
+      setError(t("auth.errorPasswordReqs"));
       setLoading(false);
       return;
     }
@@ -80,37 +82,36 @@ export function SignUpLoginForm() {
         navigate("/onboarding");
       }
     } catch (error: any) {
-      let errorMessage = "An error occurred during authentication";
+      let errorMessage = t("auth.errGeneric");
 
       // Handle specific Firebase auth errors
       switch (error.code) {
         case "auth/invalid-credential":
-          errorMessage = "Invalid email or password. Please try again.";
+          errorMessage = t("auth.errInvalidCred");
           break;
         case "auth/user-not-found":
-          errorMessage = "No account found with this email address.";
+          errorMessage = t("auth.errUserNotFound");
           break;
         case "auth/wrong-password":
-          errorMessage = "Incorrect password. Please try again.";
+          errorMessage = t("auth.errWrongPassword");
           break;
         case "auth/email-already-in-use":
-          errorMessage = "An account with this email already exists.";
+          errorMessage = t("auth.errEmailInUse");
           break;
         case "auth/weak-password":
-          errorMessage =
-            "Password is too weak. Please use a stronger password.";
+          errorMessage = t("auth.errWeakPassword");
           break;
         case "auth/invalid-email":
-          errorMessage = "Please enter a valid email address.";
+          errorMessage = t("auth.errInvalidEmail");
           break;
         case "auth/network-request-failed":
-          errorMessage = "Network error. Please check your connection.";
+          errorMessage = t("auth.errNetwork");
           break;
         case "auth/too-many-requests":
-          errorMessage = "Too many attempts. Please try again later.";
+          errorMessage = t("auth.errTooManyReqs");
           break;
         default:
-          errorMessage = error.message || "Authentication failed";
+          errorMessage = error.message || t("auth.errGeneric");
       }
 
       setError(errorMessage);
@@ -140,11 +141,11 @@ export function SignUpLoginForm() {
       let errorMessage = "Google sign-in failed";
 
       if (error.code === "auth/popup-closed-by-user") {
-        errorMessage = "Sign-in was cancelled";
+        errorMessage = t("auth.errPopupClosed");
       } else if (error.code === "auth/popup-blocked") {
-        errorMessage = "Popup was blocked. Please allow popups for this site.";
+        errorMessage = t("auth.errPopupBlocked");
       } else if (error.code === "auth/network-request-failed") {
-        errorMessage = "Network error. Please check your connection.";
+        errorMessage = t("auth.errNetwork");
       }
 
       setError(errorMessage);
@@ -156,28 +157,28 @@ export function SignUpLoginForm() {
   const PasswordValidation = () => (
     <div className="mt-4 space-y-2">
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-        Password must contain:
+        {t("auth.pwMustContain")}
       </p>
       <div className="grid grid-cols-1 gap-2">
         <ValidationItem
           isValid={passwordValidation.minLength}
-          text="At least 8 characters"
+          text={t("auth.reqMinLength")}
         />
         <ValidationItem
           isValid={passwordValidation.hasUppercase}
-          text="One uppercase letter"
+          text={t("auth.reqUppercase")}
         />
         <ValidationItem
           isValid={passwordValidation.hasLowercase}
-          text="One lowercase letter"
+          text={t("auth.reqLowercase")}
         />
         <ValidationItem
           isValid={passwordValidation.hasNumber}
-          text="One number"
+          text={t("auth.reqNumber")}
         />
         <ValidationItem
           isValid={passwordValidation.hasSpecialChar}
-          text="One special character"
+          text={t("auth.reqSpecial")}
         />
       </div>
     </div>
@@ -204,13 +205,13 @@ export function SignUpLoginForm() {
           {/* Content */}
           <div className="absolute inset-0 flex flex-col justify-end p-8 md:p-12 z-10 pb-16">
             <h1 className="text-3xl md:text-5xl font-heading font-bold leading-tight text-foreground tracking-tight drop-shadow-md">
-              Messages for<br/>
-              <span className="bg-gradient-primary bg-clip-text text-transparent">moments that matter.</span>
+              {t("auth.heroTitle")}<br/>
+              <span className="bg-gradient-primary bg-clip-text text-transparent">{t("auth.heroTitleSpan")}</span>
             </h1>
             <p className="mt-4 text-gray-300 text-lg max-w-md drop-shadow-sm font-medium">
               {isLogin
-                ? "There you are. Shall we make more moments worth saving?"
-                : "Join our community to create and share memories that last forever."}
+                ? t("auth.heroSubtitleLogin")
+                : t("auth.heroSubtitleSignup")}
             </p>
           </div>
         </div>
@@ -219,12 +220,12 @@ export function SignUpLoginForm() {
         <div className="md:w-1/2 p-8 md:p-12 flex flex-col justify-center bg-surface/40 backdrop-blur-md">
           <div className="flex flex-col mb-8">
             <h2 className="text-3xl md:text-4xl font-heading font-bold mb-2 tracking-tight text-foreground">
-              {isLogin ? "Welcome Back" : "Get Started"}
+              {isLogin ? t("auth.welcomeBack") : t("auth.getStarted")}
             </h2>
             <p className="text-muted-foreground text-lg">
               {isLogin
-                ? "Sign in to continue your journey"
-                : "Create an account to start your journey"}
+                ? t("auth.signinSub")
+                : t("auth.signupSub")}
             </p>
           </div>
 
@@ -249,7 +250,7 @@ export function SignUpLoginForm() {
                     alt="Google logo"
                     className="w-5 h-5"
                   />
-                  Continue with Google
+                  {t("auth.googleSignIn")}
                 </button>
 
                 <div className="relative my-4">
@@ -258,7 +259,7 @@ export function SignUpLoginForm() {
                   </div>
                   <div className="relative flex justify-center text-xs">
                     <span className="bg-surface px-4 text-muted-foreground uppercase font-medium tracking-wider">
-                      OR
+                      {t("auth.or")}
                     </span>
                   </div>
                 </div>
@@ -270,12 +271,12 @@ export function SignUpLoginForm() {
                 htmlFor="email"
                 className="block text-sm font-medium text-foreground"
               >
-                Email *
+                {t("auth.emailLabel")}
               </label>
               <input
                 type="email"
                 id="email"
-                placeholder="you@example.com"
+                placeholder={t("auth.emailPlaceholder")}
                 className={`w-full py-3 px-4 bg-input border text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-smooth placeholder:text-muted-foreground ${
                   error.toLowerCase().includes("email") ? "border-destructive" : "border-border"
                 }`}
@@ -290,13 +291,13 @@ export function SignUpLoginForm() {
                 htmlFor="password"
                 className="block text-sm font-medium text-foreground"
               >
-                {isLogin ? "Password *" : "Create Password *"}
+                {isLogin ? t("auth.passwordLabel") : t("auth.createPasswordLabel")}
               </label>
               <input
                 type="password"
                 id="password"
                 placeholder={
-                  isLogin ? "Your password" : "At least 8 characters"
+                  isLogin ? t("auth.passwordPlaceholder") : t("auth.createPasswordPlaceholder")
                 }
                 className={`w-full py-3 px-4 bg-input border text-foreground rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-smooth placeholder:text-muted-foreground ${
                   error.toLowerCase().includes("password")
@@ -316,7 +317,7 @@ export function SignUpLoginForm() {
                   type="button"
                   className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium"
                 >
-                  Forgot password?
+                  {t("auth.forgotPassword")}
                 </button>
               </div>
             )}
@@ -328,15 +329,15 @@ export function SignUpLoginForm() {
             >
               {loading
                 ? isLogin
-                  ? "Signing in..."
-                  : "Creating account..."
+                  ? t("auth.signingIn")
+                  : t("auth.signingUp")
                 : isLogin
-                ? "Sign In"
-                : "Create Account"}
+                ? t("auth.signinBtn")
+                : t("auth.signupBtn")}
             </button>
 
             <div className="text-center text-xs text-muted-foreground py-2 mt-2">
-              By continuing, you agree to our{" "}
+              {t("auth.agreeText")}{" "}
               <button
                 type="button"
                 className="text-foreground hover:text-primary underline transition-colors"
@@ -344,9 +345,9 @@ export function SignUpLoginForm() {
                   /* Add terms modal */
                 }}
               >
-                Terms of Service
+                {t("auth.termsOfService")}
               </button>{" "}
-              and{" "}
+              {t("auth.and")}{" "}
               <button
                 type="button"
                 className="text-foreground hover:text-primary underline transition-colors"
@@ -354,12 +355,12 @@ export function SignUpLoginForm() {
                   /* Add privacy modal */
                 }}
               >
-                Privacy Policy
+                {t("auth.privacyPolicy")}
               </button>
             </div>
 
             <div className="text-center text-sm text-muted-foreground mt-2">
-              {isLogin ? "Don't have an account?" : "Already have an account?"}{" "}
+              {isLogin ? t("auth.noAccount") : t("auth.haveAccount")}{" "}
               <button
                 type="button"
                 onClick={() => {
@@ -378,7 +379,7 @@ export function SignUpLoginForm() {
                 }}
                 className="font-semibold text-primary hover:text-primary/80 transition-colors ml-1"
               >
-                {isLogin ? "Sign up" : "Sign in"}
+                {isLogin ? t("auth.signupLink") : t("auth.signinLink")}
               </button>
             </div>
           </form>
@@ -388,7 +389,7 @@ export function SignUpLoginForm() {
       {/* Product By */}
       <div className="absolute bottom-6 left-0 right-0 text-center z-10">
         <p className="text-xs text-muted-foreground font-medium">
-          A Product by <span style={{ fontFamily: '"JetBrains Mono", monospace' }} className="text-foreground/80 font-semibold tracking-tight">./localhost</span>
+          {t("auth.productBy")} <span style={{ fontFamily: '"JetBrains Mono", monospace' }} className="text-foreground/80 font-semibold tracking-tight">./localhost</span>
         </p>
       </div>
     </div>

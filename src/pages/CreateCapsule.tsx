@@ -19,6 +19,7 @@ import {
 } from "@/utils/cryptoUtils";
 import { getRecipientPublicKeys } from "@/encryption/keyManager";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
@@ -41,6 +42,7 @@ interface Friend {
 const CreateCapsule = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
   const { refreshCapsules } = useCapsules();
   const { privateKey } = useAuth();
   const auth = getAuth();
@@ -331,10 +333,30 @@ const CreateCapsule = () => {
         <div className="flex justify-between items-center mb-8">
           <Button variant="ghost" onClick={() => navigate("/dashboard")} className="text-[#1A1A1A] hover:bg-[#1A1A1A]/5 hover:text-[#1A1A1A]">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
+            {t('create.headerBack')}
           </Button>
           <h1 className="text-3xl font-bold text-[#1A1A1A]">
-            Create a <span className="text-[#FB6376]">Forá</span> Capsule
+            {t('create.headerTitle').includes('Forá') ? (
+              <>
+                {t('create.headerTitle').split('Forá')[0]}
+                <span className="text-[#FB6376]">Forá</span>
+                {t('create.headerTitle').split('Forá')[1]}
+              </>
+            ) : t('create.headerTitle').includes('ஃபோரா') ? (
+              <>
+                {t('create.headerTitle').split('ஃபோரா')[0]}
+                <span className="text-[#FB6376]">ஃபோரா</span>
+                {t('create.headerTitle').split('ஃபோரா')[1]}
+              </>
+            ) : t('create.headerTitle').includes('फ़ोरा') ? (
+              <>
+                {t('create.headerTitle').split('फ़ोरा')[0]}
+                <span className="text-[#FB6376]">फ़ोरा</span>
+                {t('create.headerTitle').split('फ़ोरा')[1]}
+              </>
+            ) : (
+              t('create.headerTitle')
+            )}
           </h1>
         </div>
 

@@ -1,8 +1,10 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 const NotFound = () => {
   const location = useLocation();
+  const { t } = useTranslation();
 
   useEffect(() => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
@@ -14,13 +16,13 @@ const NotFound = () => {
         <div className="w-16 h-16 bg-gradient-primary rounded-xl flex items-center justify-center mx-auto mb-6">
           <div className="w-8 h-8 text-white">❌</div>
         </div>
-        <h1 className="mb-4 text-4xl font-bold text-foreground">404</h1>
-        <p className="mb-4 text-xl text-muted-foreground">Oops! Page not found</p>
+        <h1 className="mb-4 text-4xl font-bold text-foreground">{t('notFound.title')}</h1>
+        <p className="mb-4 text-xl text-muted-foreground">{t('notFound.subtitle')}</p>
         <a 
           href="/dashboard" 
           className="inline-flex items-center text-primary hover:text-primary-glow transition-smooth underline"
         >
-          Return to Dashboard
+          {t('notFound.returnBtn')}
         </a>
       </div>
     </div>
