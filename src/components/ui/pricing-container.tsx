@@ -11,6 +11,7 @@ import { startPayment } from "@/lib/razorpay";
 import { useAuth } from "@/hooks/useAuth"; // Make sure you have this hook
 import { useNavigate } from "react-router-dom"; // If using React Router
 import { useTranslation } from "@/contexts/LanguageContext";
+import { usePlan } from "@/hooks/usePlan";
 
 export interface PricingPlan {
   name: string;
@@ -159,12 +160,14 @@ const PricingCard = ({
   isYearly,
   index,
   isProcessing,
+  isCurrentPlan,
   onGetStarted,
 }: {
   plan: PricingPlan;
   isYearly: boolean;
   index: number;
   isProcessing: boolean;
+  isCurrentPlan: boolean;
   onGetStarted: () => void;
 }) => {
   const { t } = useTranslation();
@@ -327,12 +330,12 @@ const PricingCard = ({
            hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,0.9)]
            hover:translate-x-[2px] hover:translate-y-[2px]
            transition-all duration-200`,
-          isFree ? "bg-gray-400" : plan.accent
+          isCurrentPlan ? "bg-gray-400 border-gray-400 text-black shadow-none hover:shadow-none hover:translate-x-0 hover:translate-y-0" : plan.accent
         )}
         onClick={onGetStarted}
-        disabled={isFree || isProcessing}
-        whileHover={!isFree && !isProcessing ? { scale: 1.02 } : {}}
-        whileTap={!isFree && !isProcessing ? { scale: 0.98 } : {}}
+        disabled={isCurrentPlan || isProcessing}
+        whileHover={!isCurrentPlan && !isProcessing ? { scale: 1.02 } : {}}
+        whileTap={!isCurrentPlan && !isProcessing ? { scale: 0.98 } : {}}
       >
         {isProcessing ? (
           <span className="flex items-center justify-center gap-2">
@@ -357,7 +360,7 @@ const PricingCard = ({
             </svg>
             {t('pricing.btnProcessing')}
           </span>
-        ) : isFree ? (
+        ) : isCurrentPlan ? (
           t('pricing.btnCurrent')
         ) : (
           t('pricing.btnGetStarted')
@@ -375,6 +378,16 @@ export const PricingContainer = ({
 }: PricingProps) => {
   const [isYearly, setIsYearly] = useState(false);
   const [processingPlan, setProcessingPlan] = useState<string | null>(null);
+  const { t } = useTranslation();
+  const { plan: userPlan } = usePlan();
+
+  const getPlanTier = (planName: string) => {
+    const lower = planName.toLowerCase();
+    if (lower.includes("free") || lower.includes("arki")) return "free";
+    if (lower.includes("starter") || lower.includes("kyklos")) return "starter";
+    if (lower.includes("pro") || lower.includes("aion")) return "pro";
+    return "free";
+  };
 
   // If you're using authentication, uncomment these:
   // const { user } = useAuth();
@@ -459,16 +472,23 @@ export const PricingContainer = ({
       <BackgroundEffects />
 
       <div className="w-[100%] max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
-        {plans.map((plan, index) => (
-          <PricingCard
-            key={plan.name}
-            plan={plan}
-            isYearly={isYearly}
-            index={index}
-            isProcessing={isPlanProcessing(plan)}
-            onGetStarted={() => handleGetStarted(plan)}
-          />
-        ))}
+        {plans.map((plan, index) => {
+          const planTier = getPlanTier(plan.name);
+          // Only true if the user's current tier matches this plan's tier
+          const isCurrentPlan = userPlan ? userPlan.tier === planTier : planTier === "free";
+          
+          return (
+            <PricingCard
+              key={plan.name}
+              plan={plan}
+              isYearly={isYearly}
+              index={index}
+              isProcessing={isPlanProcessing(plan)}
+              isCurrentPlan={isCurrentPlan}
+              onGetStarted={() => handleGetStarted(plan)}
+            />
+          );
+        })}
       </div>
 
       {/* Optional: Add a note at the bottom */}

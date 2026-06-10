@@ -35,8 +35,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ capsuleId }) => {
   useEffect(() => {
     // Subscribe to real-time comment updates
     unsubscribeRef.current = subscribeToComments(capsuleId, (newComments) => {
-      console.log("Comments loaded:", newComments);
-      setComments(newComments);
+            setComments(newComments);
       setLoading(false);
     });
 

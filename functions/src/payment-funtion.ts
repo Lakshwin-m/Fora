@@ -84,10 +84,7 @@ export const createRazorpayOrder = onRequest(
         const RAZORPAY_KEY_ID = razorpayKeyId.value()?.trim();
         const RAZORPAY_KEY_SECRET = razorpayKeySecret.value()?.trim();
 
-        console.log("Has KEY_ID:", !!RAZORPAY_KEY_ID);
-        console.log("Has KEY_SECRET:", !!RAZORPAY_KEY_SECRET);
-        console.log("KEY_ID prefix:", RAZORPAY_KEY_ID?.substring(0, 10));
-
+                        
         if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
           console.error("❌ Razorpay keys not configured!");
           res.status(500).json({
@@ -99,12 +96,7 @@ export const createRazorpayOrder = onRequest(
         const user = await verifyAuth(req);
         const { planTier, billingCycle } = req.body;
 
-        console.log("Creating order for:", {
-          planTier,
-          billingCycle,
-          userId: user.uid,
-        });
-
+        
         if (!planTier || !billingCycle) {
           res.status(400).json({ error: "Missing planTier or billingCycle" });
           return;
@@ -138,8 +130,7 @@ export const createRazorpayOrder = onRequest(
           return;
         }
 
-        console.log("Order amount:", amount);
-
+        
         const orderData = {
           amount,
           currency: "INR",
@@ -179,8 +170,7 @@ export const createRazorpayOrder = onRequest(
         }
 
         const order = await razorpayResponse.json();
-        console.log("Razorpay order created:", order.id);
-
+        
         await db.collection("payments").add({
           userId: user.uid,
           orderId: order.id,
@@ -236,12 +226,7 @@ export const verifyRazorpayPayment = onRequest(
           billingCycle,
         } = req.body;
 
-        console.log("Verifying payment for:", {
-          orderId: razorpay_order_id,
-          paymentId: razorpay_payment_id,
-          userId: user.uid,
-        });
-
+        
         if (
           !razorpay_order_id ||
           !razorpay_payment_id ||
@@ -265,8 +250,7 @@ export const verifyRazorpayPayment = onRequest(
           return;
         }
 
-        console.log("Signature verified successfully");
-
+        
         const paymentDetailsResponse = await fetch(
           `https://api.razorpay.com/v1/payments/${razorpay_payment_id}`,
           {
@@ -288,8 +272,7 @@ export const verifyRazorpayPayment = onRequest(
         }
 
         const paymentDetails = await paymentDetailsResponse.json();
-        console.log("Payment details fetched:", paymentDetails.id);
-
+        
         const now = admin.firestore.Timestamp.now();
         const startDate = now.toDate();
         const nextDueDate = new Date(startDate);
@@ -325,8 +308,7 @@ export const verifyRazorpayPayment = onRequest(
             plan: admin.firestore.FieldValue.delete()
           }, { merge: true });
 
-          console.log("Subscription record created/updated securely");
-
+          
           const paymentsSnap = await db
             .collection("payments")
             .where("orderId", "==", razorpay_order_id)
@@ -373,8 +355,7 @@ export const verifyRazorpayPayment = onRequest(
             });
           }
 
-          console.log("Payment record updated");
-        });
+                  });
 
         res.json({
           success: true,
@@ -492,8 +473,7 @@ export const checkExpiredSubscriptions = onSchedule(
         .get();
 
       if (subsSnap.empty) {
-        console.log("No expired subscriptions found");
-        return;
+                return;
       }
 
       const batch = db.batch();
@@ -514,8 +494,7 @@ export const checkExpiredSubscriptions = onSchedule(
       });
 
       await batch.commit();
-      console.log(`Downgraded ${subsSnap.size} expired subscriptions`);
-    } catch (error) {
+          } catch (error) {
       console.error("checkExpiredSubscriptions error:", error);
     }
   }
@@ -541,17 +520,13 @@ export const razorpayWebhook = onRequest({ invoker: "public" }, (req, res) => {
 
     switch (event) {
       case "payment.captured":
-        console.log("Payment captured:", payload.payment.entity.id);
-        break;
+                break;
       case "payment.failed":
-        console.log("Payment failed:", payload.payment.entity.id);
-        break;
+                break;
       case "order.paid":
-        console.log("Order paid:", payload.order.entity.id);
-        break;
+                break;
       default:
-        console.log("Unhandled webhook event:", event);
-    }
+            }
 
     res.status(200).send("Webhook received");
   } catch (error) {

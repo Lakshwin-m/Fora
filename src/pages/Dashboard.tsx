@@ -303,8 +303,8 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
             </div>
             {/* Status Indicator */}
             <div className="absolute bottom-[20%] left-0 right-0 flex justify-center z-10">
-              <Badge variant="outline" className="bg-[#FFF9EC]/90 backdrop-blur-md border-[#E8E8E8] text-[#5D2A42] text-[10px] px-2 py-0.5 rounded-full shadow-sm">
-                {t('dashboard.openedOn')} {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
+              <Badge variant="outline" className="bg-[#FFF9EC]/90 backdrop-blur-md border-[#E8E8E8] text-[#5D2A42] text-[10px] px-3 py-1 rounded-full shadow-sm font-bold tracking-widest">
+                OPENED
               </Badge>
             </div>
           </>
@@ -336,7 +336,9 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                {isUnlocked ? (
                  <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md animate-pulse">
                    <Unlock className="w-3.5 h-3.5" />
-                   <span className="font-semibold tracking-wide">Ready to Open</span>
+                   <span className="font-semibold tracking-wide">
+                     {(capsule as any).isReminderCapsule || (capsule as any).isReminder ? "Ready to Open" : "Unlocked"}
+                   </span>
                  </Badge>
                ) : (
                  <Badge className="bg-[#1A1A1A]/80 hover:bg-[#1A1A1A] text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md">

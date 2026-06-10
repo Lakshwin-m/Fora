@@ -76,17 +76,24 @@ export const verifyAuth = async (req: any) => {
 
 function getNextUnlockDate(currentUnlockDate: Date, pattern: "minutely" | "daily" | "weekly" | "monthly" | "yearly" | string): Date {
   const next = new Date(currentUnlockDate);
-  if (pattern === "minutely") {
-    next.setMinutes(next.getMinutes() + 1);
-  } else if (pattern === "daily") {
-    next.setDate(next.getDate() + 1);
-  } else if (pattern === "weekly") {
-    next.setDate(next.getDate() + 7);
-  } else if (pattern === "monthly") {
-    next.setMonth(next.getMonth() + 1);
-  } else if (pattern === "yearly") {
-    next.setFullYear(next.getFullYear() + 1);
-  }
+  const now = new Date();
+  
+  do {
+    if (pattern === "minutely") {
+      next.setMinutes(next.getMinutes() + 1);
+    } else if (pattern === "daily") {
+      next.setDate(next.getDate() + 1);
+    } else if (pattern === "weekly") {
+      next.setDate(next.getDate() + 7);
+    } else if (pattern === "monthly") {
+      next.setMonth(next.getMonth() + 1);
+    } else if (pattern === "yearly") {
+      next.setFullYear(next.getFullYear() + 1);
+    } else {
+      break;
+    }
+  } while (next <= now);
+  
   return next;
 }
 
@@ -123,7 +130,9 @@ function handleCapsuleUnlock(doc: admin.firestore.DocumentSnapshot, batch: admin
     });
   }
 
-  if (data.recurrencePattern && data.recurrencePattern !== "none") {
+  if (data.recurrencePattern && data.recurrencePattern !== "none" && !data.nextInstanceCreated) {
+    batch.update(doc.ref, { nextInstanceCreated: true });
+
     const currentUnlockDate = data.unlockDate.toDate();
     const nextUnlockDate = getNextUnlockDate(currentUnlockDate, data.recurrencePattern);
     const nextVisibleFrom = new Date(nextUnlockDate);
@@ -141,6 +150,7 @@ function handleCapsuleUnlock(doc: admin.firestore.DocumentSnapshot, batch: admin
       openedBy: [],
       nextUnlockAt: nextUnlockDate.toISOString(),
       visibleFrom: nextVisibleFrom.toISOString(),
+      nextInstanceCreated: false,
     });
   }
 }
@@ -182,7 +192,7 @@ export const checkAndUnlockCapsules = onSchedule(
     }
 
     // 2. Processing Prior Reminders
-    const reminderSnapshot = await db
+    const timeReminderSnapshot = await db
       .collection("capsules")
       .where("isUnlocked", "==", false)
       .where("status", "==", "scheduled")
@@ -191,11 +201,27 @@ export const checkAndUnlockCapsules = onSchedule(
       .where("priorReminderSent", "==", false)
       .get();
 
-    if (!reminderSnapshot.empty) {
+    const eventReminderSnapshot = await db
+      .collection("capsules")
+      .where("isUnlocked", "==", false)
+      .where("status", "==", "scheduled")
+      .where("triggerType", "==", "event")
+      .where("priorReminderEnabled", "==", true)
+      .where("priorReminderSent", "==", false)
+      .get();
+
+    let docsForReminder = [...timeReminderSnapshot.docs];
+    eventReminderSnapshot.docs.forEach((doc) => {
+      if (doc.data().isReminderCapsule) {
+        docsForReminder.push(doc);
+      }
+    });
+
+    if (docsForReminder.length > 0) {
       const reminderBatch = db.batch();
       const nowMs = Date.now();
 
-      for (const doc of reminderSnapshot.docs) {
+      for (const doc of docsForReminder) {
         const data = doc.data();
         const unlockDateMs = data.unlockDate.toMillis();
         const reminderDaysMs = data.priorReminderDays * 24 * 60 * 60 * 1000;
@@ -532,9 +558,39 @@ export const openCapsule = onRequest((req, res) => {
         return;
       }
 
-      await ref.update({
+      const batch = db.batch();
+      batch.update(ref, {
         openedBy: admin.firestore.FieldValue.arrayUnion(user.uid),
+        isUnlocked: true,
+        status: "unlocked",
       });
+
+      if (data?.userId === user.uid && data?.recurrencePattern && data?.recurrencePattern !== "none" && !data?.nextInstanceCreated) {
+        batch.update(ref, { nextInstanceCreated: true });
+
+        const currentUnlockDate = data.unlockDate ? data.unlockDate.toDate() : new Date();
+        const nextUnlockDate = getNextUnlockDate(currentUnlockDate, data.recurrencePattern);
+        const nextVisibleFrom = new Date(nextUnlockDate);
+        nextVisibleFrom.setHours(nextVisibleFrom.getHours() - 1);
+
+        const nextRef = db.collection("capsules").doc();
+        batch.set(nextRef, {
+          ...data,
+          id: nextRef.id,
+          unlockDate: admin.firestore.Timestamp.fromDate(nextUnlockDate),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          status: "scheduled",
+          isUnlocked: false,
+          unlockedAt: null,
+          priorReminderSent: false,
+          openedBy: [],
+          nextUnlockAt: nextUnlockDate.toISOString(),
+          visibleFrom: nextVisibleFrom.toISOString(),
+          nextInstanceCreated: false,
+        });
+      }
+
+      await batch.commit();
       res.json({ success: true });
     } catch (e: any) {
       res.status(401).json({ error: e.message });
@@ -578,10 +634,7 @@ export const deleteCapsule = onRequest((req, res) => {
         });
         if (files.length > 0) {
           await Promise.all(files.map((file) => file.delete()));
-          console.log(
-            `Deleted ${files.length} storage files for capsule ${capsuleId}`
-          );
-        }
+                  }
       } catch (storageErr) {
         console.error("Storage cleanup error (non-fatal):", storageErr);
         // Continue even if storage cleanup fails
@@ -1129,8 +1182,7 @@ export const getKeyMaterial = onCall(
 
     const uid = request.auth.uid;
     // DO NOT log uid + pepper together — log uid only
-    console.log(`[getKeyMaterial] uid=${uid}`);
-
+    
     return {
       keyMaterial: uid + FORA_PEPPER.value(),
     };

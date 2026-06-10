@@ -113,8 +113,7 @@ const CapsuleDetailPage = () => {
       if (!id) return;
 
       try {
-        console.log("📦 Loading capsule:", id);
-        const data = await getCapsuleDetail(id);
+                const data = await getCapsuleDetail(id);
         
         if (!data) {
           console.error("❌ Capsule not found");

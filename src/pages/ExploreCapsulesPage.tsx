@@ -66,8 +66,7 @@ const ExploreCapsulesPage = () => {
           selectedCategory === "all" ? undefined : selectedCategory,
           sortBy
         );
-        console.log("Loaded public capsules:", data);
-        setCapsules(data);
+                setCapsules(data);
         setLastCapsule(data.length > 0 ? data[data.length - 1] : null);
         setHasMore(data.length === 12);
 

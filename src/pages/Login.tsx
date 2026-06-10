@@ -57,13 +57,11 @@ export default function SignupPage() {
 
   // 🔹 Google login → onboarding if new user, dashboard if existing
   const handleGoogleLogin = async () => {
-    console.log("🚀 Starting Google login...");
-    setLoading(true);
+        setLoading(true);
     setError("");
     try {
       const result = await loginWithGoogle();
-      console.log("✅ Google login successful:", result.user.uid);
-
+      
       const userRef = doc(db, "users", result.user.uid);
       const snap = await getDoc(userRef);
 

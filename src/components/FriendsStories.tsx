@@ -100,15 +100,12 @@ export default function FriendsStories() {
       try {
         const friendsData = await apiGetFriends();
         
-        console.log("🔍 Friends data received:", friendsData);
-        console.log("🔍 First friend profile:", friendsData[0]?.profile);
-        
+                        
         // Filter friends and add mock stories (only friends with stories)
         const friendsWithStories: FriendWithStories[] = friendsData
           .filter(() => Math.random() > 0.3) // 70% chance a friend has stories
           .map((friend) => {
-            console.log(`📸 Friend ${friend.profile?.name} photoURL:`, friend.profile?.photoURL);
-            return {
+                        return {
               ...friend,
               stories: generateMockStories(friend.id),
               timestamp: new Date(
@@ -120,8 +117,7 @@ export default function FriendsStories() {
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
 
-        console.log("✅ Friends with stories:", friendsWithStories);
-        setFriends(friendsWithStories);
+                setFriends(friendsWithStories);
       } catch (error) {
         console.error("❌ Failed to load friends stories:", error);
       } finally {
@@ -165,13 +161,7 @@ export default function FriendsStories() {
             ? friend.profile.photoURL 
             : `https://api.dicebear.com/6.x/adventurer-neutral/svg?seed=${encodeURIComponent(friend.profile?.name || friend.id)}`;
           
-          console.log(`🖼️ Rendering story for ${friend.profile?.name}:`, {
-            hasPhotoURL: !!friend.profile?.photoURL,
-            photoURL: friend.profile?.photoURL,
-            hasValidPhotoURL,
-            finalAvatarUrl: avatarUrl
-          });
-          
+                    
           return (
             <StoryViewer
               key={friend.id}
@@ -180,11 +170,9 @@ export default function FriendsStories() {
               avatar={avatarUrl}
               timestamp={friend.timestamp}
               onStoryView={(storyId) => {
-                console.log("Viewed story:", storyId);
-              }}
+                              }}
             onAllStoriesViewed={() => {
-              console.log("All stories viewed for:", friend.profile?.name);
-            }}
+                          }}
           />
           );
         })}

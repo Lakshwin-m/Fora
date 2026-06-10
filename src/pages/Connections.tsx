@@ -249,8 +249,7 @@ const Connections = () => {
       setSuggestions(filtered.slice(0, 12));
     } catch {
       // Silently fail — suggestions are non-critical
-      console.log("Suggestions unavailable");
-    } finally {
+          } finally {
       setSuggestionsLoading(false);
     }
   };

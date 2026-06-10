@@ -253,8 +253,7 @@ const Profile = () => {
             },
           }, { merge: true });
         } catch (error) {
-          console.log("User document will be created on first update");
-        }
+                  }
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -303,8 +302,7 @@ const Profile = () => {
         dataToUpdate.username = cleanUsername;
       }
 
-      console.log("Attempting Firestore update with:", dataToUpdate);
-
+      
       // Using updateDoc is often safer for existing documents with strict rules
       // than setDoc(..., {merge: true}), especially for specific field permissions.
       try {

@@ -106,6 +106,10 @@ export const toDate = (value: any): Date | null => {
 
   try {
     if (value?.toDate) return value.toDate(); // Firestore Timestamp
+    if (typeof value === "object") {
+      if ("seconds" in value) return new Date(value.seconds * 1000);
+      if ("_seconds" in value) return new Date(value._seconds * 1000);
+    }
     const d = new Date(value);
     // Treat invalid or Unix epoch (0) as invalid for forá's logic
     if (isNaN(d.getTime()) || d.getTime() <= 0) return null;
@@ -216,14 +220,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       const receivedRaw = await receivedRes.json();
 
       // Debug: log raw capsule data to identify orphan/phantom capsules
-      console.log("[CapsuleContext] Raw capsules from API:", mineRaw?.map((c: any) => ({
-        id: c.id,
-        title: c.title?.substring(0, 30),
-        hasContent: !!c.content,
-        unlockDate: c.unlockDate,
-        createdAt: c.createdAt,
-      })));
-
+      
       // Filter out broken/phantom capsules that have no title at all
       const validMine = Array.isArray(mineRaw)
         ? mineRaw.filter((c: any) => c.title || c.content || c.encryptedTitle || c.encryptedContent)
