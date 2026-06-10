@@ -335,9 +335,11 @@ const CreateCapsule = () => {
         }
 
         const unlockDate =
-          capturedRecipientType === "public"
-            ? new Date().toISOString()
-            : new Date(`${format(capturedDeliveryDate!, "yyyy-MM-dd")}T${capturedDeliveryTime}:00`).toISOString();
+          capturedTriggerType === "event"
+            ? nextUnlockAt
+            : capturedRecipientType === "public"
+              ? new Date().toISOString()
+              : new Date(`${format(capturedDeliveryDate!, "yyyy-MM-dd")}T${capturedDeliveryTime}:00`).toISOString();
 
         const res = await fetch(`${API_BASE}/createCapsule`, {
           method: "POST",

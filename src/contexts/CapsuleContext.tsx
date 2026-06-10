@@ -64,6 +64,8 @@ export interface Capsule {
   visibility?: "public" | "private";
   isReceived?: boolean;
   version?: string;
+  isReminder?: boolean;
+  isReminderCapsule?: boolean;
 }
 
 /* ================= CONTEXT TYPE ================= */
