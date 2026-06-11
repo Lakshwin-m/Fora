@@ -547,6 +547,35 @@ export const CapsuleMultistepForm = ({
                                 )}
                               </div>
                             )}
+
+                            {recurrencePattern === "daily" && (
+                              <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
+                                <div className="flex flex-col gap-2">
+                                  <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
+                                    <span className="text-xl">📅</span> Daily Reminder
+                                  </h4>
+                                  <p className="text-sm text-[#5D2A42]/70 font-medium">
+                                    Choose the time when this capsule should unlock every day.
+                                  </p>
+                                </div>
+                                
+                                <div>
+                                  <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider mb-2 block">Time</Label>
+                                  <Input
+                                    type="time"
+                                    value={reminderTime}
+                                    onChange={(e) => onReminderTimeChange(e.target.value)}
+                                    className="h-12 border-[#E8E8E8] bg-white rounded-xl"
+                                  />
+                                </div>
+                                
+                                {reminderTime && (
+                                  <p className="text-sm font-medium text-[#FB6376]">
+                                    ✓ This capsule will appear every day at {reminderTime}
+                                  </p>
+                                )}
+                              </div>
+                            )}
                             
                             {recurrencePattern === "weekly" && (
                               <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">

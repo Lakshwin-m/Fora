@@ -186,7 +186,7 @@ const CreateCapsule = () => {
       return false;
     }
     if (triggerType === "event") {
-      if (!reminderTime) {
+      if (recurrencePattern !== "none" && recurrencePattern !== "minutely" && !reminderTime) {
         toast({ title: "Missing reminder time", description: "Please choose a time for the reminder", variant: "destructive" });
         return false;
       }

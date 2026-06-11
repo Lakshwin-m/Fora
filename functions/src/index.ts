@@ -75,9 +75,8 @@ export const verifyAuth = async (req: any) => {
    ============================================================ */
 
 function getNextUnlockDate(currentUnlockDate: Date, pattern: "minutely" | "daily" | "weekly" | "monthly" | "yearly" | string): Date {
-  const next = new Date(currentUnlockDate);
   const now = new Date();
-  
+  const next = new Date(currentUnlockDate);
   do {
     if (pattern === "minutely") {
       next.setMinutes(next.getMinutes() + 1);
@@ -90,10 +89,9 @@ function getNextUnlockDate(currentUnlockDate: Date, pattern: "minutely" | "daily
     } else if (pattern === "yearly") {
       next.setFullYear(next.getFullYear() + 1);
     } else {
-      break;
+      next.setDate(next.getDate() + 1); // fallback to daily if unknown
     }
   } while (next <= now);
-  
   return next;
 }
 
@@ -491,8 +489,7 @@ export const getMyCapsules = onRequest((req, res) => {
             isOpenedByMe,
             isReminder,
           };
-        })
-        .filter((c) => !(c.isReminder && c.isOpenedByMe));
+        });
 
       res.json(results);
     } catch (e: any) {
@@ -525,8 +522,7 @@ export const getReceivedCapsules = onRequest((req, res) => {
             isOpenedByMe,
             isReminder,
           };
-        })
-        .filter((c) => !(c.isReminder && c.isOpenedByMe));
+        });
 
       res.json(results);
     } catch (e: any) {
@@ -591,6 +587,59 @@ export const openCapsule = onRequest((req, res) => {
       }
 
       await batch.commit();
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(401).json({ error: e.message });
+    }
+  });
+});
+
+/**
+ * Seal recurring reminder capsule (advance date to next period and re-lock)
+ */
+export const sealReminder = onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    try {
+      const user = await verifyAuth(req);
+      const { capsuleId } = req.body;
+
+      if (!capsuleId) {
+        res.status(400).json({ error: "capsuleId is required" });
+        return;
+      }
+
+      const ref = db.collection("capsules").doc(capsuleId);
+      const snap = await ref.get();
+
+      if (!snap.exists) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
+
+      const data = snap.data();
+      if (data?.userId !== user.uid && !data?.recipients?.includes(user.uid)) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+
+      if (data?.isReminderCapsule === true && data?.recurrencePattern && data?.recurrencePattern !== "none") {
+        const currentUnlockDate = data.unlockDate.toDate();
+        const nextUnlockDate = getNextUnlockDate(currentUnlockDate, data.recurrencePattern);
+        const nextVisibleFrom = new Date(nextUnlockDate);
+        nextVisibleFrom.setHours(nextVisibleFrom.getHours() - 1);
+
+        await ref.update({
+          unlockDate: admin.firestore.Timestamp.fromDate(nextUnlockDate),
+          nextUnlockAt: nextUnlockDate.toISOString(),
+          visibleFrom: nextVisibleFrom.toISOString(),
+          isUnlocked: false,
+          status: "scheduled",
+          openedBy: [],
+          unlockedAt: null,
+          priorReminderSent: false,
+        });
+      }
+
       res.json({ success: true });
     } catch (e: any) {
       res.status(401).json({ error: e.message });
