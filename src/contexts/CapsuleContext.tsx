@@ -53,6 +53,8 @@ export interface Capsule {
 
   status?: "scheduled" | "delivered" | "opened";
   isUnlocked?: boolean;
+  isOpenedByMe?: boolean;
+  openedBy?: string[];
 
   userId?: string;
   username?: string;
@@ -62,6 +64,8 @@ export interface Capsule {
   visibility?: "public" | "private";
   isReceived?: boolean;
   version?: string;
+  isReminder?: boolean;
+  isReminderCapsule?: boolean;
 }
 
 /* ================= CONTEXT TYPE ================= */
@@ -73,6 +77,7 @@ interface CapsuleContextType {
   updateCapsule: (id: string, updates: Partial<Capsule>) => void;
   deleteCapsule: (id: string) => Promise<void>;
   markCapsuleAsOpened: (id: string) => Promise<void>;
+  sealReminder: (id: string) => Promise<void>;
   refreshCapsules: () => Promise<void>;
 
   /** Media-safe helpers */
@@ -270,9 +275,28 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         body: JSON.stringify({ capsuleId: id }),
       });
 
-      updateCapsule(id, { status: "opened", isUnlocked: true });
+      updateCapsule(id, { isOpenedByMe: true, isUnlocked: true });
+      await refreshCapsules();
     } catch (error) {
       console.error("markCapsuleAsOpened failed:", error);
+    }
+  };
+
+  const sealReminder = async (id: string) => {
+    try {
+      const headers = await getAuthHeaders();
+
+      const res = await fetch(`${API_BASE}/sealReminder`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ capsuleId: id }),
+      });
+
+      if (!res.ok) throw new Error("Failed to seal reminder");
+      await refreshCapsules();
+    } catch (error) {
+      console.error("sealReminder failed:", error);
+      throw error;
     }
   };
 
@@ -378,6 +402,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         updateCapsule,
         deleteCapsule,
         markCapsuleAsOpened,
+        sealReminder,
         refreshCapsules,
 
         capsuleHasMedia,

@@ -535,7 +535,7 @@ export const CapsuleMultistepForm = ({
                                   className="h-12 border-[#E8E8E8] bg-white rounded-xl"
                                 />
                                 {reminderTime && (
-                                  <p className="text-sm font-medium text-[#FB6376]">
+                                  <p className="text-sm font-medium text-[  #FB6376]">
                                     ✓ This capsule will appear every day at {reminderTime}
                                   </p>
                                 )}
