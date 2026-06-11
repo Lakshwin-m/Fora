@@ -230,28 +230,32 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
   const showAsOpen = isUnlocked && isOpened;
   const isSentToSelf = capsule.recipientType === "self";
   const countdown = getCountdown(capsule.unlockDate || capsule.deliveryDate, currentTime);
-
+  
   // Use decrypted content for icon selection
   const ContentIcon = getContentIcon(capsule, content);
   const TriggerIcon = getTriggerIcon(capsule.triggerType);
 
   const handleCapsuleClick = () => {
-    if (isDialogOpen) return;
+  if (isDialogOpen) return;
 
-    if (cardRef.current) {
-      gsap.to(cardRef.current, {
-        scale: 0.97,
-        duration: 0.15,
-        yoyo: true,
-        repeat: 1,
-        onComplete: () => {
-          navigate(`/capsule/${capsule.id}`);
-        },
-      });
-    } else {
-      navigate(`/capsule/${capsule.id}`);
-    }
-  };
+  if (!isUnlocked) {
+    return;
+  }
+
+  if (cardRef.current) {
+    gsap.to(cardRef.current, {
+      scale: 0.97,
+      duration: 0.15,
+      yoyo: true,
+      repeat: 1,
+      onComplete: () => {
+        navigate(`/capsule/${capsule.id}`);
+      },
+    });
+  } else {
+    navigate(`/capsule/${capsule.id}`);
+  }
+};
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -519,7 +523,7 @@ const Dashboard = () => {
   const sent = sortCapsules(capsules || []);
   const received = sortCapsules(receivedCapsules || []);
 
-  const isReminder = (c: Capsule) => c.isReminderCapsule === true;
+  const isReminder = (c: Capsule) => (c as any).isReminderCapsule === true;
 
   const sortedSentCapsules = sent.filter((c) => !isReminder(c));
   const sortedReceivedCapsules = received.filter((c) => !isReminder(c));

@@ -128,6 +128,21 @@ function handleCapsuleUnlock(doc: admin.firestore.DocumentSnapshot, batch: admin
     });
   }
 
+  if (!data.isReminderCapsule &&data.recurrencePattern &&data.recurrencePattern !== "none") {
+    const currentUnlockDate = data.unlockDate.toDate();
+    const nextUnlockDate = getNextUnlockDate(currentUnlockDate, data.recurrencePattern);
+    const nextRef = db.collection("capsules").doc();
+    batch.set(nextRef, {
+      ...data,
+      id: nextRef.id,
+      unlockDate: admin.firestore.Timestamp.fromDate(nextUnlockDate),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      status: "scheduled",
+      isUnlocked: false,
+      unlockedAt: null,
+      priorReminderSent: false,
+    });
+  }
 }
 
 /**
@@ -139,32 +154,32 @@ export const checkAndUnlockCapsules = onSchedule(
     const now = admin.firestore.Timestamp.now();
 
     // 1. Unlocking capsules (both "time" and "event" trigger types)
-    const [snapshotTime, snapshotEvent] = await Promise.all([
-      db
-        .collection("capsules")
-        .where("isUnlocked", "==", false)
-        .where("status", "==", "scheduled")
-        .where("triggerType", "==", "time")
-        .where("unlockDate", "<=", now)
-        .get(),
-      db
-        .collection("capsules")
-        .where("isUnlocked", "==", false)
-        .where("status", "==", "scheduled")
-        .where("triggerType", "==", "event")
-        .where("unlockDate", "<=", now)
-        .get()
-    ]);
+   const [snapshotTime, snapshotEvent] = await Promise.all([
+  db
+    .collection("capsules")
+    .where("isUnlocked", "==", false)
+    .where("status", "==", "scheduled")
+    .where("triggerType", "==", "time")
+    .where("unlockDate", "<=", now)
+    .get(),
+  db
+    .collection("capsules")
+    .where("isUnlocked", "==", false)
+    .where("status", "==", "scheduled")
+    .where("triggerType", "==", "event")
+    .where("unlockDate", "<=", now)
+    .get()
+  ]);
 
-    const docsToProcess = [...snapshotTime.docs, ...snapshotEvent.docs];
+  const docsToProcess = [...snapshotTime.docs, ...snapshotEvent.docs];
 
-    if (docsToProcess.length > 0) {
-      const batch = db.batch();
-      docsToProcess.forEach((doc) => {
-        handleCapsuleUnlock(doc, batch);
-      });
-      await batch.commit();
-    }
+  if (docsToProcess.length > 0) {
+    const batch = db.batch();
+    docsToProcess.forEach((doc) => {
+    handleCapsuleUnlock(doc, batch);
+  });
+    await batch.commit(); 
+ }  
 
     // 2. Processing Prior Reminders
     const reminderSnapshot = await db
@@ -218,35 +233,35 @@ export const checkCapsuleUnlockStatus = onCall(async (request) => {
   const now = admin.firestore.Timestamp.now();
 
   const [snapshotTime, snapshotEvent] = await Promise.all([
-    db
-      .collection("capsules")
-      .where("userId", "==", request.auth.uid)
-      .where("isUnlocked", "==", false)
-      .where("status", "==", "scheduled")
-      .where("triggerType", "==", "time")
-      .where("unlockDate", "<=", now)
-      .get(),
-    db
-      .collection("capsules")
-      .where("userId", "==", request.auth.uid)
-      .where("isUnlocked", "==", false)
-      .where("status", "==", "scheduled")
-      .where("triggerType", "==", "event")
-      .where("unlockDate", "<=", now)
-      .get()
-  ]);
+  db
+  .collection("capsules")
+    .where("userId", "==", request.auth.uid)
+    .where("isUnlocked", "==", false)
+    .where("status", "==", "scheduled")
+    .where("triggerType", "==", "time")
+    .where("unlockDate", "<=", now)
+    .get(),
+  db
+    .collection("capsules")
+    .where("userId", "==", request.auth.uid)
+    .where("isUnlocked", "==", false)
+    .where("status", "==", "scheduled")
+    .where("triggerType", "==", "event")
+    .where("unlockDate", "<=", now)
+    .get()
+]);
 
-  const docsToProcess = [...snapshotTime.docs, ...snapshotEvent.docs];
+const docsToProcess = [...snapshotTime.docs, ...snapshotEvent.docs];
 
-  if (docsToProcess.length === 0) return { count: 0 };
+if (docsToProcess.length === 0) return { count: 0 };
 
-  const batch = db.batch();
-  docsToProcess.forEach((doc) => {
-    handleCapsuleUnlock(doc, batch);
-  });
+const batch = db.batch();
+docsToProcess.forEach((doc) => {
+  handleCapsuleUnlock(doc, batch);
+});
 
-  await batch.commit();
-  return { count: docsToProcess.length };
+await batch.commit();
+return { count: docsToProcess.length };
 });
 
 /**
@@ -380,7 +395,7 @@ export const createCapsule = onRequest((req, res) => {
           version:          "v2",
           // unencrypted metadata
           triggerType:      req.body.triggerType,
-          unlockDate:       req.body.unlockDate ? admin.firestore.Timestamp.fromDate(new Date(req.body.unlockDate)) : null,
+          unlockDate:       req.body.unlockDate,
           recipientType:    req.body.recipientType,
           recipients:       req.body.recipients,
           attachments:      req.body.attachments || [],
@@ -390,16 +405,17 @@ export const createCapsule = onRequest((req, res) => {
           createdAt:        admin.firestore.FieldValue.serverTimestamp(),
           status:           "scheduled",
           isUnlocked:       false,
-          autoRecurYearly:   req.body.triggerType === "event" ? (req.body.autoRecurYearly || false) : false,
-          recurrencePattern: req.body.triggerType === "event" ? (req.body.recurrencePattern || "none") : "none",
+          autoRecurYearly:   req.body.autoRecurYearly || false,
+          recurrencePattern: req.body.recurrencePattern || "none",
+          isReminderCapsule: req.body.isReminderCapsule || false,
+          reminderConfig: req.body.reminderConfig || null,
+          nextUnlockAt: req.body.nextUnlockAt || null,
+          visibleFrom: req.body.visibleFrom || null,
+          lastOpenedAt: null,
           priorReminderEnabled: req.body.priorReminderEnabled || false,
           priorReminderDays: req.body.priorReminderDays || 0,
           priorReminderSent: false,
-          reminderConfig:   req.body.reminderConfig || null,
-          isReminderCapsule: req.body.isReminderCapsule || false,
-          nextUnlockAt:     req.body.nextUnlockAt || null,
-          visibleFrom:      req.body.visibleFrom || null,
-          openedBy:         [],
+           openedBy:         [],
         });
 
         // 🔢 Increment usage (single source of truth)
@@ -439,20 +455,7 @@ export const getMyCapsules = onRequest((req, res) => {
         .orderBy("createdAt", "desc")
         .get();
 
-      const results = snap.docs
-        .map((d) => {
-          const data = d.data();
-          const isOpenedByMe = Array.isArray(data.openedBy) && data.openedBy.includes(user.uid);
-          const isReminder = data.isReminderCapsule === true;
-          return {
-            id: d.id,
-            ...data,
-            isOpenedByMe,
-            isReminder,
-          };
-        });
-
-      res.json(results);
+      res.json(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e: any) {
       res.status(401).json({ error: e.message });
     }
@@ -472,20 +475,7 @@ export const getReceivedCapsules = onRequest((req, res) => {
         .where("recipients", "array-contains", user.uid)
         .get();
 
-      const results = snap.docs
-        .map((d) => {
-          const data = d.data();
-          const isOpenedByMe = Array.isArray(data.openedBy) && data.openedBy.includes(user.uid);
-          const isReminder = data.isReminderCapsule === true;
-          return {
-            id: d.id,
-            ...data,
-            isOpenedByMe,
-            isReminder,
-          };
-        });
-
-      res.json(results);
+      res.json(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e: any) {
       res.status(401).json({ error: e.message });
     }
