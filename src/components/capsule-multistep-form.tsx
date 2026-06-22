@@ -60,6 +60,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AudioVisualizer } from "./AudioVisualizer";
+import { format } from "date-fns";
+import { Calendar as CalendarUI } from "@/components/ui/calendar";
 
 const steps = [
   { id: "basic", title: "Message", description: "Write your capsule", icon: MessageSquare },
@@ -99,15 +101,15 @@ interface CapsuleMultistepFormProps {
   attachments: Attachment[];
   friends: Friend[];
   username: string;
-  recurrencePattern: "daily" | "weekly" | "monthly" | "yearly";
-  onRecurrencePatternChange: (value: "daily" | "weekly" | "monthly" | "yearly") => void;
+  recurrencePattern: "none" | "minutely" | "daily" | "weekly" | "monthly" | "yearly";
+  onRecurrencePatternChange: (value: "none" | "minutely" | "daily" | "weekly" | "monthly" | "yearly") => void;
   priorReminderEnabled: boolean;
   onPriorReminderEnabledChange: (value: boolean) => void;
   priorReminderDays: number;
   onPriorReminderDaysChange: (value: number) => void;
 
-  reminderFrequency: "daily" | "weekly" | "monthly" | "yearly";
-  onReminderFrequencyChange: (value: "daily" | "weekly" | "monthly" | "yearly") => void;
+  reminderFrequency?: "daily" | "weekly" | "monthly" | "yearly";
+  onReminderFrequencyChange?: (value: "daily" | "weekly" | "monthly" | "yearly") => void;
   reminderTime: string;
   onReminderTimeChange: (value: string) => void;
   reminderDayOfWeek: string;
@@ -116,6 +118,8 @@ interface CapsuleMultistepFormProps {
   onReminderDayOfMonthChange: (value: number | null) => void;
   reminderYearlyDate: Date | null;
   onReminderYearlyDateChange: (value: Date | null) => void;
+  reminderPreset: string;
+  onReminderPresetChange: (value: string) => void;
 
   onTitleChange: (value: string) => void;
   onContentChange: (value: string) => void;
@@ -199,6 +203,8 @@ export const CapsuleMultistepForm = ({
   onReminderDayOfMonthChange,
   reminderYearlyDate,
   onReminderYearlyDateChange,
+  reminderPreset,
+  onReminderPresetChange,
 
   onTitleChange,
   onContentChange,
@@ -290,6 +296,38 @@ export const CapsuleMultistepForm = ({
       description: "Set automatic reminders to unlock",
     },
   ];
+
+  const getSummarySentence = () => {
+    if (recurrencePattern === "none") {
+      return "This capsule will unlock once on the selected date and time.";
+    }
+    const timeStr = reminderTime ? ` at ${reminderTime}` : "";
+    if (recurrencePattern === "daily") {
+      return `Unlocks daily${timeStr}.`;
+    }
+    if (recurrencePattern === "weekly") {
+      return `Unlocks weekly on ${reminderDayOfWeek || "selected day"}${timeStr}.`;
+    }
+    if (recurrencePattern === "monthly") {
+      const daySuffix = (day: number) => {
+        if (day > 3 && day < 21) return "th";
+        switch (day % 10) {
+          case 1:  return "st";
+          case 2:  return "nd";
+          case 3:  return "rd";
+          default: return "th";
+        }
+      };
+      return `Unlocks monthly on the ${reminderDayOfMonth ? `${reminderDayOfMonth}${daySuffix(reminderDayOfMonth)}` : "selected day"}${timeStr}.`;
+    }
+    if (recurrencePattern === "yearly") {
+      const dateStr = reminderYearlyDate 
+        ? format(reminderYearlyDate, "MMMM d")
+        : "selected date";
+      return `Unlocks yearly on ${dateStr}${timeStr}.`;
+    }
+    return "";
+  };
 
   const isStepValid = () => {
     switch (currentStep) {
@@ -472,76 +510,175 @@ export const CapsuleMultistepForm = ({
                           />
                         </TabsContent>
                         <TabsContent value="event" className="mt-0 space-y-6 outline-none">
-                          <div className="flex flex-col gap-3">
-                            <Label htmlFor="eventTrigger" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                              Reminder Schedule
+                          {/* Section 1: Predefined Presets */}
+                          <div className="space-y-3">
+                            <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                              Occasion Preset
                             </Label>
-                            <Input
-                              id="eventTrigger"
-                              placeholder="e.g., Every year on my birthday"
-                              className="h-14 border-[#E8E8E8] bg-[#FFF9EC] hover:bg-white text-[#1A1A1A] placeholder:text-[#999] rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#5D2A42] transition-all px-5"
-                            />
-                            <p className="text-xs font-medium text-[#FB6376] mt-2">
-                              We'll send automatic reminders based on your schedule to ensure the capsule gets unlocked.
-                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                              {[
+                                { id: "birthday", name: "Birthday", emoji: "🎂", description: "Yearly at 9:00 AM" },
+                                { id: "anniversary", name: "Anniversary", emoji: "💍", description: "Yearly at 9:00 AM" },
+                                { id: "christmas", name: "Christmas", emoji: "🎄", description: "Every Dec 25 at 9:00 AM" },
+                                { id: "newyear", name: "New Year", emoji: "🎆", description: "Every Jan 1 at 12:00 AM" },
+                                { id: "custom", name: "Custom", emoji: "📅", description: "Define from scratch" },
+                              ].map((preset) => {
+                                const isSelected = reminderPreset === preset.id;
+                                return (
+                                  <button
+                                    key={preset.id}
+                                    type="button"
+                                    onClick={() => onReminderPresetChange(preset.id)}
+                                    className={cn(
+                                      "flex flex-col items-center justify-between p-4 rounded-3xl border transition-all text-center h-32 focus:outline-none",
+                                      isSelected
+                                        ? "border-[#FB6376] bg-[#FFF9EC] shadow-sm scale-[1.02]"
+                                        : "border-[#E8E8E8] bg-white hover:border-[#FB6376] hover:bg-[#FFF9EC]/40"
+                                    )}
+                                  >
+                                    <span className="text-2xl mb-1">{preset.emoji}</span>
+                                    <div className="flex flex-col">
+                                      <span className={cn("text-xs font-extrabold", isSelected ? "text-[#5D2A42]" : "text-[#1A1A1A]")}>
+                                        {preset.name}
+                                      </span>
+                                      <span className="text-[10px] text-[#999] font-medium leading-tight mt-0.5">
+                                        {preset.description}
+                                      </span>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
 
-                          <motion.div 
-                            initial={{ opacity: 0, y: 15 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 15 }}
-                            className="space-y-6 mt-6"
-                          >
-                            {/* Recurrence Frequency Card */}
+                          {/* Section 2: Date Selector */}
+                          {recurrencePattern !== "none" && recurrencePattern !== "minutely" && (
                             <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
-                              <div className="flex flex-col gap-2">
+                              <div className="flex flex-col gap-1">
                                 <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
-                                  <span className="text-xl">⟳</span> Recurrence Frequency
+                                  <span>📅</span> {
+                                    recurrencePattern === "yearly" ? "Select Month & Day" :
+                                    recurrencePattern === "monthly" ? "Select Day of Month" :
+                                    recurrencePattern === "weekly" ? "Select Day of Week" :
+                                    "Select Date"
+                                  }
                                 </h4>
                                 <p className="text-sm text-[#5D2A42]/70 font-medium">
-                                  Choose how often this capsule should be sent automatically.
+                                  {
+                                    recurrencePattern === "yearly" ? "Pick the recurring annual date (e.g. Birthday, Anniversary)." :
+                                    recurrencePattern === "monthly" ? "Pick which day of the month the reminder should trigger." :
+                                    recurrencePattern === "weekly" ? "Pick which day of the week the reminder should trigger." :
+                                    "Select the start date."
+                                  }
                                 </p>
                               </div>
                               
-                              <Select 
-                                value={recurrencePattern} 
-                                onValueChange={(val: any) => onRecurrencePatternChange(val)}
-                              >
-                                <SelectTrigger className="h-12 border-[#E8E8E8] bg-white text-base font-semibold text-[#1A1A1A] rounded-xl focus:ring-0 focus:border-[#FB6376] w-full">
-                                  <SelectValue placeholder="No Recurrence" />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm">
-                                  <SelectItem value="daily">Every Day</SelectItem>
-                                  <SelectItem value="weekly">Every Week</SelectItem>
-                                  <SelectItem value="monthly">Every Month</SelectItem>
-                                  <SelectItem value="yearly">Every Year</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <div className="flex justify-center w-full">
+                                {recurrencePattern === "yearly" && (
+                                  <CalendarUI
+                                    mode="single"
+                                    selected={reminderYearlyDate || undefined}
+                                    onSelect={(date) => onReminderYearlyDateChange(date || null)}
+                                    className="rounded-2xl border border-[#EAEAEA] p-3 bg-white shadow-sm"
+                                  />
+                                )}
+                                
+                                {recurrencePattern === "monthly" && (
+                                  <div className="grid grid-cols-7 gap-2 max-w-xs p-3 border border-[#EAEAEA] rounded-2xl bg-white shadow-sm">
+                                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+                                      const isSelected = reminderDayOfMonth === day;
+                                      return (
+                                        <button
+                                          key={day}
+                                          type="button"
+                                          onClick={() => onReminderDayOfMonthChange(day)}
+                                          className={cn(
+                                            "w-8 h-8 rounded-full font-bold transition-all text-xs flex items-center justify-center",
+                                            isSelected
+                                              ? "bg-[#FB6376] text-white shadow-sm scale-105"
+                                              : "text-[#5D2A42] hover:bg-[#FFF9EC] hover:text-[#FB6376] bg-white border border-[#EAEAEA]"
+                                          )}
+                                        >
+                                          {day}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                
+                                {recurrencePattern === "weekly" && (
+                                  <div className="flex flex-wrap gap-2 justify-center max-w-sm p-3 border border-[#EAEAEA] rounded-2xl bg-white shadow-sm">
+                                    {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => {
+                                      const isSelected = reminderDayOfWeek?.toLowerCase() === day.toLowerCase();
+                                      return (
+                                        <button
+                                          key={day}
+                                          type="button"
+                                          onClick={() => onReminderDayOfWeekChange(day)}
+                                          className={cn(
+                                            "px-3 py-1.5 rounded-xl font-bold transition-all text-xs border",
+                                            isSelected
+                                              ? "bg-[#FB6376] border-[#FB6376] text-white shadow-sm"
+                                              : "bg-white border-[#EAEAEA] text-[#5D2A42] hover:bg-[#FFF9EC] hover:text-[#FB6376]"
+                                          )}
+                                        >
+                                          {day.slice(0, 3)}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            {recurrencePattern === "daily" && (
-                              <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
-                                <div className="flex flex-col gap-2">
-                                  <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
-                                    <span className="text-xl">⏰</span> Reminder Time
-                                  </h4>
-                                  <p className="text-sm text-[#5D2A42]/70 font-medium">
-                                    Choose the time when this capsule should appear every day.
-                                  </p>
-                                </div>
+                          )}
+
+                          {/* Section 3: Scheduling Details */}
+                          <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {/* Recurrence Frequency */}
+                              <div className="space-y-2">
+                                <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                                  Recurrence Frequency
+                                </Label>
+                                <Select 
+                                  value={recurrencePattern} 
+                                  onValueChange={(val: any) => onRecurrencePatternChange(val)}
+                                >
+                                  <SelectTrigger className="h-12 border-[#E8E8E8] bg-white text-base font-semibold text-[#1A1A1A] rounded-xl focus:ring-0 focus:border-[#FB6376] w-full">
+                                    <SelectValue placeholder="No Recurrence" />
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm">
+                                    <SelectItem value="daily">Every Day</SelectItem>
+                                    <SelectItem value="weekly">Every Week</SelectItem>
+                                    <SelectItem value="monthly">Every Month</SelectItem>
+                                    <SelectItem value="yearly">Every Year</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {/* Reminder Time */}
+                              <div className="space-y-2">
+                                <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                                  Reminder Time
+                                </Label>
                                 <Input
                                   type="time"
                                   value={reminderTime}
                                   onChange={(e) => onReminderTimeChange(e.target.value)}
-                                  className="h-12 border-[#E8E8E8] bg-white rounded-xl"
+                                  className="h-12 border-[#E8E8E8] bg-white rounded-xl text-[#1A1A1A] font-semibold"
                                 />
-                                {reminderTime && (
-                                  <p className="text-sm font-medium text-[  #FB6376]">
-                                    ✓ This capsule will appear every day at {reminderTime}
-                                  </p>
-                                )}
                               </div>
-                            )}
-                          </motion.div>
+                            </div>
+
+                            {/* Summary Sentence Card */}
+                            <div className="p-5 bg-[#5D2A42] text-[#FFF9EC] rounded-[1.5rem] flex items-center gap-4">
+                              <span className="text-2xl">✨</span>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wider font-extrabold opacity-60">Delivery Schedule Summary</p>
+                                <p className="text-sm font-bold mt-0.5">{getSummarySentence()}</p>
+                              </div>
+                            </div>
+                          </div>
                         </TabsContent>
                     </div>
                   </Tabs>
@@ -901,15 +1038,17 @@ export const CapsuleMultistepForm = ({
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8">
                           <div>
-                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Recurrence Frequency</span>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Auto Reminder Schedule</span>
                             <span className="text-xl font-bold text-[#1A1A1A] capitalize">
-                               {recurrencePattern}
+                               {reminderPreset === "custom" 
+                                 ? `${recurrencePattern} Schedule` 
+                                 : `${reminderPreset} Preset (${recurrencePattern})`}
                             </span>
                           </div>
                           <div>
-                             <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Prior Reminder</span>
+                             <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Next Occurrence</span>
                              <span className="text-xl font-bold text-[#1A1A1A]">
-                                `${recurrencePattern.charAt(0).toUpperCase() + recurrencePattern.slice(1)} Reminder`
+                                {getSummarySentence()}
                              </span>
                           </div>
                         </div>
