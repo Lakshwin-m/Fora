@@ -14,7 +14,6 @@ export function parseFirebaseDate(value: any): Date | null {
       return new Date(seconds * 1000);
     }
   }
-}
 
   // ISO string or millis
   const date = new Date(value);
