@@ -185,10 +185,12 @@ const getCountdown = (unlockDate: any, now: Date) => {
   const days = Math.floor(diff / 86400000);
   const hours = Math.floor((diff % 86400000) / 3600000);
   const minutes = Math.floor((diff % 3600000) / 60000);
+  const seconds = Math.floor((diff % 60000) / 1000);
 
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
 };
 
 /* ===================== CAPSULE CARD ===================== */
@@ -232,32 +234,32 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
   const showAsOpen = isUnlocked && isOpened;
   const isSentToSelf = capsule.recipientType === "self";
   const countdown = getCountdown(capsule.unlockDate || capsule.deliveryDate, currentTime);
-  
+
   // Use decrypted content for icon selection
   const ContentIcon = getContentIcon(capsule, content);
   const TriggerIcon = getTriggerIcon(capsule.triggerType);
 
   const handleCapsuleClick = () => {
-  if (isDialogOpen) return;
+    if (isDialogOpen) return;
 
-  if (!isUnlocked) {
-    return;
-  }
+    if (!isUnlocked) {
+      return;
+    }
 
-  if (cardRef.current) {
-    gsap.to(cardRef.current, {
-      scale: 0.97,
-      duration: 0.15,
-      yoyo: true,
-      repeat: 1,
-      onComplete: () => {
-        navigate(`/capsule/${capsule.id}`);
-      },
-    });
-  } else {
-    navigate(`/capsule/${capsule.id}`);
-  }
-};
+    if (cardRef.current) {
+      gsap.to(cardRef.current, {
+        scale: 0.97,
+        duration: 0.15,
+        yoyo: true,
+        repeat: 1,
+        onComplete: () => {
+          navigate(`/capsule/${capsule.id}`, { state: { from: "dashboard" } });
+        },
+      });
+    } else {
+      navigate(`/capsule/${capsule.id}`, { state: { from: "dashboard" } });
+    }
+  };
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -283,27 +285,27 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
 
   return (
     <div ref={cardRef} className="group relative w-full h-[320px] max-w-sm mx-auto flex flex-col items-center justify-center p-2">
-      <div 
+      <div
         className="relative w-full h-full transition-transform duration-300 group-hover:-translate-y-2 cursor-pointer flex items-center justify-center"
         onClick={handleCapsuleClick}
       >
         {showAsOpen ? (
           // UNLOCKED & OPENED STATE (OPEN ENVELOPE)
           <>
-            <img 
-              src="/open_envelope-eMfrWOgA.png" 
-              alt="Opened Envelope" 
+            <img
+              src="/open_envelope-eMfrWOgA.png"
+              alt="Opened Envelope"
               className="absolute inset-0 w-full h-full object-contain drop-shadow-sm pointer-events-none"
             />
             {/* The letter area inside the open envelope. */}
             <div className="absolute top-[32%] left-[22%] right-[22%] h-[35%] flex flex-col items-center justify-center z-10 text-center text-[#1A1A1A] overflow-hidden pt-2">
-               {isDecrypting ? (
-                 <Loader2 className="w-5 h-5 animate-spin text-[#FB6376] mt-4" />
-               ) : (
-                 <h3 className="font-bold text-[13px] sm:text-[15px] leading-tight w-full font-serif text-[#5D2A42] line-clamp-3">
-                   {title || "Untitled Capsule"}
-                 </h3>
-               )}
+              {isDecrypting ? (
+                <Loader2 className="w-5 h-5 animate-spin text-[#FB6376] mt-4" />
+              ) : (
+                <h3 className="font-bold text-[13px] sm:text-[15px] leading-tight w-full font-serif text-[#5D2A42] line-clamp-3">
+                  {title || "Untitled Capsule"}
+                </h3>
+              )}
             </div>
             {/* Status Indicator */}
             <div className="absolute bottom-[20%] left-0 right-0 flex justify-center z-10">
@@ -315,9 +317,9 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
         ) : (
           // LOCKED / SEALED STATE (CLOSED ENVELOPE)
           <>
-            <img 
-              src="/letter_cover-4fCnauP6.png" 
-              alt="Sealed Envelope" 
+            <img
+              src="/letter_cover-4fCnauP6.png"
+              alt="Sealed Envelope"
               className="absolute inset-0 w-full h-full object-contain drop-shadow-sm pointer-events-none"
             />
             {/* Center text on closed envelope */}
@@ -328,28 +330,28 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                 </span>
                 <h3 className="text-lg md:text-xl font-bold text-[#1A1A1A]/80 text-balance font-serif tracking-tight leading-snug line-clamp-3">
                   {isDecrypting ? (
-                     <Loader2 className="w-5 h-5 animate-spin text-[#5D2A42]" />
-                   ) : (
-                     title || "you are down"
-                   )}
+                    <Loader2 className="w-5 h-5 animate-spin text-[#5D2A42]" />
+                  ) : (
+                    title || "you are down"
+                  )}
                 </h3>
               </div>
             </div>
             {/* Countdown / Ready badge */}
             <div className="absolute bottom-[22%] left-0 right-0 flex justify-center z-10">
-               {isUnlocked ? (
-                 <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md animate-pulse">
-                   <Unlock className="w-3.5 h-3.5" />
-                   <span className="font-semibold tracking-wide">
-                     {(capsule as any).isReminderCapsule || (capsule as any).isReminder ? "Ready to Open" : "Unlocked"}
-                   </span>
-                 </Badge>
-               ) : (
-                 <Badge className="bg-[#1A1A1A]/80 hover:bg-[#1A1A1A] text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md">
-                   <Lock className="w-3 h-3" />
-                   <span className="font-medium tracking-wide">{countdown}</span>
-                 </Badge>
-               )}
+              {isUnlocked ? (
+                <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md animate-pulse">
+                  <Unlock className="w-3.5 h-3.5" />
+                  <span className="font-semibold tracking-wide">
+                    {(capsule as any).isReminderCapsule || (capsule as any).isReminder ? "Ready to Open" : "Unlocked"}
+                  </span>
+                </Badge>
+              ) : (
+                <Badge className="bg-[#1A1A1A]/80 hover:bg-[#1A1A1A] text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+                  <Lock className="w-3 h-3" />
+                  <span className="font-medium tracking-wide">{countdown}</span>
+                </Badge>
+              )}
             </div>
           </>
         )}
@@ -507,20 +509,20 @@ const Dashboard = () => {
     return [...caps].sort((a, b) => {
       const aUnlockDate = parseFirebaseDate(a.unlockDate || a.deliveryDate) ?? new Date(0);
       const bUnlockDate = parseFirebaseDate(b.unlockDate || b.deliveryDate) ?? new Date(0);
-      
+
       const aIsUnlocked = a.isUnlocked || aUnlockDate.getTime() <= currentTime.getTime();
       const bIsUnlocked = b.isUnlocked || bUnlockDate.getTime() <= currentTime.getTime();
-      
+
       if (aIsUnlocked !== bIsUnlocked) {
         // Locked (false) comes first, unlocked (true) comes after
         return aIsUnlocked ? 1 : -1;
       }
-      
+
       if (aIsUnlocked) {
         // Both unlocked: most recent unlock date first (descending)
         return bUnlockDate.getTime() - aUnlockDate.getTime();
       }
-      
+
       // Both locked: closest to open first (ascending)
       return aUnlockDate.getTime() - bUnlockDate.getTime();
     });
@@ -556,23 +558,8 @@ const Dashboard = () => {
                     {t('dashboard.subtitle')}
                   </p>
                 </div>
-                
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    onClick={() => navigate("/create?type=capsule")}
-                    className="bg-[#FB6376] hover:bg-[#FB6376]/90 text-white font-semibold px-5 py-2.5 rounded-xl text-sm flex items-center shadow-sm hover:scale-[1.02] transition-all"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create Capsule
-                  </Button>
-                  <Button
-                    onClick={() => navigate("/create?type=reminder")}
-                    className="bg-white hover:bg-[#FFF9EC] text-[#5D2A42] border border-[#FFDCCC] font-semibold px-5 py-2.5 rounded-xl text-sm flex items-center shadow-sm hover:scale-[1.02] transition-all"
-                  >
-                    <Clock className="w-4 h-4 mr-2 text-[#FB6376]" />
-                    Set Auto Reminder
-                  </Button>
-                </div>
+
+
               </div>
 
               {/* Stats */}
@@ -617,15 +604,15 @@ const Dashboard = () => {
                     <Timer className="w-5 h-5 fill-[#FB6376]/20 stroke-[1.5px] text-[#FB6376] mr-2" />
                     {t('dashboard.nextMemoryUnlock')}
                   </Badge>
-                  
+
                   {unlockDate && (
-                    <AnimatedNumberCountdown 
-                      endDate={unlockDate} 
-                      className="scale-90 md:scale-110" 
+                    <AnimatedNumberCountdown
+                      endDate={unlockDate}
+                      className="scale-90 md:scale-110"
                     />
                   )}
-                  
-                  
+
+
                 </div>
               );
             })()}

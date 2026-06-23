@@ -43,7 +43,7 @@ const CreateCapsule = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useTranslation();
-  const { refreshCapsules } = useCapsules();
+  const { refreshCapsules, serverNow } = useCapsules();
   const { privateKey } = useAuth();
   const auth = getAuth();
   const storage = getStorage();
@@ -305,8 +305,8 @@ const CreateCapsule = () => {
     let nextUnlockAt: string | null = null;
     let visibleFrom: string | null = null;
     if (capturedTriggerType === "event" && capturedReminderTime) {
-      const now = new Date();
-      const next = new Date();
+      const now = serverNow();
+      const next = serverNow();
       const [hours, minutes] = capturedReminderTime.split(":").map(Number);
       next.setHours(hours, minutes, 0, 0);
 
@@ -394,7 +394,7 @@ const CreateCapsule = () => {
           capturedTriggerType === "event"
             ? nextUnlockAt
             : capturedRecipientType === "public"
-              ? new Date().toISOString()
+              ? serverNow().toISOString()
               : new Date(`${format(capturedDeliveryDate!, "yyyy-MM-dd")}T${capturedDeliveryTime}:00`).toISOString();
 
         const res = await fetch(`${API_BASE}/createCapsule`, {
@@ -402,6 +402,9 @@ const CreateCapsule = () => {
           headers,
           body: JSON.stringify({
             id: capsuleId,
+            // Moderation only — plaintext, never stored server-side
+            plaintextTitle:   capturedTitle.replace(/<[^>]*>/g, "").trim().slice(0, 200),
+            plaintextPreview: capturedContent.replace(/<[^>]*>/g, "").trim().slice(0, 1000),
             // v2 encrypted fields
             encryptedTitle:   encryptedTitle.ciphertext,
             titleIV:          encryptedTitle.iv,
@@ -441,7 +444,12 @@ const CreateCapsule = () => {
           }),
         });
 
-        if (!res.ok) throw new Error((await res.text()) || "Failed to create capsule");
+        if (!res.ok) {
+          // Surface moderation rejection message to user
+          const errorBody = await res.json().catch(() => ({}));
+          const errorMessage = errorBody?.error || "Failed to create capsule";
+          throw new Error(errorMessage);
+        }
 
         // Refresh capsules in the background so the new one appears on dashboard
         await refreshCapsules();

@@ -24,6 +24,7 @@ import {
   Globe,
   ArrowUpCircle,
   ExternalLink,
+  Search,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -120,7 +121,10 @@ const Navigation = () => {
 
   useEffect(() => {
     setActiveItem(location.pathname);
+    setIsOpen(false);
   }, [location]);
+
+  const isGarden = location.pathname === "/garden";
 
   const navItems = [
     {
@@ -135,8 +139,8 @@ const Navigation = () => {
     },
     {
       path: "/connections",
-      label: t("nav.connections"),
-      icon: Users,
+      label: t("nav.search") || "Search",
+      icon: Search,
     },
     {
       path: "/garden",
@@ -171,7 +175,7 @@ const Navigation = () => {
       <div className="relative mb-2" key={item.path}>
         <Link
           to={item.path}
-          onClick={() => isMobile && setIsOpen(false)}
+          onClick={() => (isMobile || isGarden) && setIsOpen(false)}
           className="block"
         >
           <div
@@ -382,7 +386,7 @@ const Navigation = () => {
   return (
     <>
       {/* Mobile Menu Button */}
-      {isMobile && (
+      {(isMobile || isGarden) && (
         <Button
           variant="ghost"
           size="icon"
@@ -397,7 +401,8 @@ const Navigation = () => {
       <div
         className={`hidden md:flex flex-col fixed left-0 top-0 h-screen z-30 transition-all duration-500 ease-in-out
           bg-[#FB6376] shadow-xl overflow-hidden
-          ${effectivelyHovered ? "border-r border-white/10" : ""}`}
+          ${effectivelyHovered ? "border-r border-white/10" : ""}
+          ${isGarden ? "!hidden" : ""}`}
         style={{ width: `${sidebarWidth}px` }}
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}

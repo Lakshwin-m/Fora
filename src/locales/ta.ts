@@ -7,6 +7,7 @@ export const ta = {
     profile: "சுயவிவரம்",
     fora: "ஃபோரா (Forá)",
     capsules: "காலப் பெட்டகங்கள்",
+    search: "தேடு",
   },
   menu: {
     settings: "அமைப்புகள்",

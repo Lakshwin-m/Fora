@@ -7,6 +7,7 @@ export const hi = {
     profile: "प्रोफ़ाइल",
     fora: "फ़ोरा (Forá)",
     capsules: "टाइम कैप्सूल",
+    search: "खोजें",
   },
   menu: {
     settings: "सेटिंग्स",

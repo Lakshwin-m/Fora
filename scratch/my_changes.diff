@@ -1,0 +1,235 @@
+﻿diff --git a/src/pages/Profile.tsx b/src/pages/Profile.tsx
+index 16db9c8..f2eb115 100644
+--- a/src/pages/Profile.tsx
++++ b/src/pages/Profile.tsx
+@@ -48,7 +48,10 @@ import {
+   Image as ImageIcon,
+   Unlock,
+   Clock,
++  MoreHorizontal,
++  Users,
+ } from "lucide-react";
++import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+ import { Switch } from "@/components/ui/switch";
+ import CountrySelect from "@/components/CountrySelect";
+ import AvatarCropModal from "@/components/AvatarCropModal";
+@@ -70,11 +73,18 @@ const Profile = () => {
+   const { t } = useTranslation();
+   const [loading, setLoading] = useState(true);
+   const [saving, setSaving] = useState(false);
+-  const [activeTab, setActiveTab] = useState("profile");
++  const [activeTab, setActiveTab] = useState("account");
+   const [isEditing, setIsEditing] = useState(false);
+   const [notificationsList, setNotificationsList] = useState<any[]>([]);
+   const [loadingNotifs, setLoadingNotifs] = useState(false);
+ 
++  // Modal states
++  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
++  const [showFollowersModal, setShowFollowersModal] = useState(false);
++  const [showFollowingModal, setShowFollowingModal] = useState(false);
++  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
++  const [userCapsulesCount, setUserCapsulesCount] = useState(0);
++
+   // Photo upload state
+   const [showCropModal, setShowCropModal] = useState(false);
+   const [showCameraModal, setShowCameraModal] = useState(false);
+@@ -194,6 +204,15 @@ const Profile = () => {
+       // Dev Team UIDs (Automatically Verified)
+       const DEV_UIDS = ["OEeWgBvvQIgjIPiVZUqCHcXZtDf2"]; // Add dev UIDs here
+ 
++      // Fetch capsules count
++      try {
++        const capsulesQuery = query(collection(db, "capsules"), where("userId", "==", user.uid));
++        const capsulesSnap = await getDocs(capsulesQuery);
++        setUserCapsulesCount(capsulesSnap.size);
++      } catch (e) {
++        console.error("Error fetching capsules count:", e);
++      }
++
+       if (userSnap.exists()) {
+         const userData = userSnap.data();
+         setProfile({
+@@ -485,6 +504,17 @@ const Profile = () => {
+       .toUpperCase();
+   };
+ 
++  const renderBioWithMentions = (bio: string) => {
++    if (!bio) return <span className="text-[#5D2A42]/40 italic">{t('profile.noBioYet')}</span>;
++    const parts = bio.split(/(@\w+)/g);
++    return parts.map((part, index) => {
++      if (part.startsWith('@')) {
++        return <span key={index} className="text-[#5D2A42] font-semibold">{part}</span>;
++      }
++      return <span key={index}>{part}</span>;
++    });
++  };
++
+   if (loading) {
+     return (
+       <div className="min-h-screen bg-[#FFF9EC]">
+@@ -497,7 +527,6 @@ const Profile = () => {
+   }
+ 
+   const settingsMenu = [
+-    { id: "profile", label: t('profile.tabPublicProfile'), icon: User },
+     { id: "account", label: t('profile.tabYourAccount') },
+     { id: "security", label: t('profile.tabSecurity') },
+     { id: "privacy", label: t('profile.tabPrivacy') },
+@@ -506,12 +535,115 @@ const Profile = () => {
+ 
+   return (
+     <>
+-    <div className="min-h-screen bg-[#FFF9EC] font-sans selection:bg-[#FB6376] selection:text-white">
+-      <Navigation />
++      <div className="min-h-screen bg-[#FFF9EC] font-sans selection:bg-[#FB6376] selection:text-white pb-20 md:pb-0">
++        <Navigation />
+ 
+-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+-        <div className="flex flex-col md:flex-row bg-white rounded-3xl shadow-sm border border-[#5D2A42]/10 overflow-hidden min-h-[75vh]">
+-          {/* Navigation Sidebar */}
++        <main className="ml-0 md:ml-20">
++          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
++            {/* Top Header Row with 3 dots */}
++            <div className="flex justify-end mb-4">
++              <button 
++                onClick={() => setIsSettingsModalOpen(true)}
++                className="p-2 text-[#5D2A42] hover:bg-[#5D2A42]/5 rounded-full transition-colors"
++              >
++                <MoreHorizontal className="w-6 h-6" />
++              </button>
++            </div>
++
++            {/* Profile Info Header */}
++            <div className="flex items-center gap-6 md:gap-10 mb-6">
++              {/* Avatar */}
++              <div className="relative group rounded-full shrink-0">
++                <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-2 border-transparent bg-white shadow-sm overflow-hidden">
++                  <AvatarImage src={profile.photoURL} alt={profile.name} className="object-cover" />
++                  <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-2xl font-semibold">
++                    {getInitials(profile.name)}
++                  </AvatarFallback>
++                </Avatar>
++              </div>
++
++              {/* Stats */}
++              <div className="flex flex-1 justify-around text-center">
++                <div className="flex flex-col items-center">
++                  <span className="text-xl sm:text-2xl font-bold text-[#5D2A42]">{userCapsulesCount}</span>
++                  <span className="text-xs sm:text-sm text-[#5D2A42]/70 font-medium">Capsules</span>
++                </div>
++                <div 
++                  className="flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity"
++                  onClick={() => setShowFollowersModal(true)}
++                >
++                  <span className="text-xl sm:text-2xl font-bold text-[#5D2A42]">{profile.connectionsCount || 0}</span>
++                  <span className="text-xs sm:text-sm text-[#5D2A42]/70 font-medium">Followers</span>
++                </div>
++                <div 
++                  className="flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity"
++                  onClick={() => setShowFollowingModal(true)}
++                >
++                  <span className="text-xl sm:text-2xl font-bold text-[#5D2A42]">{profile.connectionsCount || 0}</span>
++                  <span className="text-xs sm:text-sm text-[#5D2A42]/70 font-medium">Following</span>
++                </div>
++              </div>
++            </div>
++            
++            {/* Bio section */}
++            <div className="mb-8">
++              <div className="flex items-center gap-1.5 mb-1">
++                <h1 className="text-lg sm:text-xl font-bold text-[#5D2A42]">{profile.name}</h1>
++                {profile.isVerified && <VerifiedBadge className="w-4 h-4" />}
++              </div>
++              <p className="text-[#5D2A42]/60 text-sm font-medium mb-2">
++                {profile.username ? `@${profile.username}` : ""}
++              </p>
++              <p className="text-[#5D2A42]/90 text-sm whitespace-pre-wrap leading-relaxed mb-3">
++                {renderBioWithMentions(profile.bio)}
++              </p>
++              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[#5D2A42]/60 text-xs sm:text-sm font-medium mb-4">
++                {profile.location && (
++                  <span className="flex items-center gap-1.5">
++                    {getCountryFlag(profile.location) ? (
++                      <img src={getCountryFlag(profile.location)!} alt={profile.location} className="w-4 h-4 rounded-sm object-cover" />
++                    ) : (
++                      <Globe className="w-3 h-3 opacity-70" />
++                    )}
++                    {profile.location}
++                  </span>
++                )}
++                {profile.createdAt && (
++                  <span className="flex items-center gap-1">
++                    <Calendar className="w-3 h-3 opacity-70" />
++                    {t('profile.joined')} {new Date(profile.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
++                  </span>
++                )}
++              </div>
++              
++              <Button 
++                variant="outline" 
++                className="w-full sm:w-auto border-[#5D2A42]/20 text-[#5D2A42] rounded-xl font-bold h-9 hover:bg-[#FFF9EC] shadow-none"
++                onClick={() => setIsEditProfileModalOpen(true)}
++              >
++                {t('profile.editProfile') || 'Edit Profile'}
++              </Button>
++            </div>
++
++            <hr className="border-[#5D2A42]/10 mb-8" />
++
++            {/* Empty state for capsules (since Profile.tsx doesn't render them yet) */}
++            <div className="flex flex-col items-center justify-center py-12 text-center">
++               <div className="w-16 h-16 rounded-full bg-[#5D2A42]/5 flex items-center justify-center mb-4">
++                 <Camera className="w-8 h-8 text-[#5D2A42]/20" />
++               </div>
++               <h3 className="text-xl font-bold text-[#5D2A42] mb-2">No Capsules Yet</h3>
++               <p className="text-[#5D2A42]/60 max-w-sm">When you create capsules, they will appear here on your profile.</p>
++            </div>
++          </div>
++        </main>
++      </div>
++
++      {/* Settings Modal */}
++      <Dialog open={isSettingsModalOpen} onOpenChange={setIsSettingsModalOpen}>
++        <DialogContent className="max-w-6xl w-[95vw] h-[90vh] p-0 border-none bg-transparent overflow-hidden">
++          <div className="flex flex-col md:flex-row bg-white rounded-3xl shadow-sm border border-[#5D2A42]/10 h-full w-full overflow-hidden">
++            {/* Navigation Sidebar */}
+           <div className="md:w-80 shrink-0 border-r border-[#5D2A42]/10 bg-white flex flex-col">
+             <div className="p-6 pb-2">
+               <h2 className="text-2xl font-bold text-[#5D2A42] tracking-tight mb-6">{t('profile.settingsTitle')}</h2>
+@@ -1252,9 +1384,33 @@ const Profile = () => {
+               </div>
+             )}
+           </div>
+-        </div>
+-      </div>
+-    </div>
++          </div>
++        </DialogContent>
++      </Dialog>
++
++      {/* Followers Modal */}
++      <Dialog open={showFollowersModal} onOpenChange={setShowFollowersModal}>
++        <DialogContent className="sm:max-w-md bg-white rounded-3xl p-6 border-none">
++           <DialogHeader>
++             <DialogTitle className="text-xl font-bold text-[#5D2A42] text-center border-b border-[#5D2A42]/10 pb-4">Followers</DialogTitle>
++           </DialogHeader>
++           <div className="py-6 text-center text-[#5D2A42]/60">
++              <Users className="w-12 h-12 mx-auto opacity-20" />
++           </div>
++        </DialogContent>
++      </Dialog>
++
++      {/* Following Modal */}
++      <Dialog open={showFollowingModal} onOpenChange={setShowFollowingModal}>
++        <DialogContent className="sm:max-w-md bg-white rounded-3xl p-6 border-none">
++           <DialogHeader>
++             <DialogTitle className="text-xl font-bold text-[#5D2A42] text-center border-b border-[#5D2A42]/10 pb-4">Following</DialogTitle>
++           </DialogHeader>
++           <div className="py-6 text-center text-[#5D2A42]/60">
++              <Users className="w-12 h-12 mx-auto opacity-20" />
++           </div>
++        </DialogContent>
++      </Dialog>
+ 
+       <CameraModal 
+         isOpen={showCameraModal}

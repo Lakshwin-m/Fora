@@ -7,6 +7,7 @@ import React, { useState, useRef, useEffect } from "react";
 import ReactSignatureCanvas from "react-signature-canvas";
 import Lottie from "lottie-react";
 import { Button } from "@/components/ui/button";
+import { Button as StatefulButton } from "@/components/ui/stateful-button";
 import {
   Card,
   CardContent,
@@ -163,19 +164,15 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
       return;
     }
 
-    // Start sealing: show brief animation then fire onSealComplete
-    setIsSealing(true);
-    setShowAnimation(true);
-
     // Play tick sound
     await playTickSound();
 
-    // Brief 1.5s animation, then immediately hand off to parent
-    setTimeout(() => {
-      setShowAnimation(false);
-      setIsSealing(false);
-      onSealComplete(signature);
-    }, 1500);
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        onSealComplete(signature);
+        resolve();
+      }, 5);
+    });
   };
 
   // Reset modal state
@@ -335,27 +332,14 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                       {t('seal.clearRestart')}
                     </Button>
 
-                    <Button
+                    <StatefulButton
                       type="button"
                       onClick={handleSealCapsule}
                       disabled={isSignatureEmpty || isSealing || showAnimation}
-                      className="relative overflow-hidden bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] text-white px-8 hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="relative overflow-hidden bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] text-white px-8 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none ring-0 hover:ring-0"
                     >
-                      {isSealing ? (
-                        <>
-                          <div className="absolute inset-0 bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] animate-shimmer"></div>
-                          <span className="relative flex items-center">
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3"></div>
-                            {t('seal.sealing')}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="w-5 h-5 mr-3" />
-                          {t('seal.sealCapsule')}
-                        </>
-                      )}
-                    </Button>
+                      {t('seal.sealCapsule')}
+                    </StatefulButton>
                   </div>
                 </div>
               </div>
