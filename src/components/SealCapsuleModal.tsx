@@ -7,6 +7,7 @@ import React, { useState, useRef, useEffect } from "react";
 import ReactSignatureCanvas from "react-signature-canvas";
 import Lottie from "lottie-react";
 import { Button } from "@/components/ui/button";
+import { Button as StatefulButton } from "@/components/ui/stateful-button";
 import {
   Card,
   CardContent,
@@ -163,19 +164,15 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
       return;
     }
 
-    // Start sealing: show brief animation then fire onSealComplete
-    setIsSealing(true);
-    setShowAnimation(true);
-
     // Play tick sound
     await playTickSound();
 
-    // Brief 1.5s animation, then immediately hand off to parent
-    setTimeout(() => {
-      setShowAnimation(false);
-      setIsSealing(false);
-      onSealComplete(signature);
-    }, 1500);
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        onSealComplete(signature);
+        resolve();
+      }, 5);
+    });
   };
 
   // Reset modal state
@@ -335,11 +332,11 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                       {t('seal.clearRestart')}
                     </Button>
 
-                    <Button
+                    <StatefulButton
                       type="button"
                       onClick={handleSealCapsule}
                       disabled={isSignatureEmpty || isSealing || showAnimation}
-                      className="relative overflow-hidden bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] text-white px-8 hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="relative overflow-hidden bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] text-white px-8 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none ring-0 hover:ring-0"
                     >
                       {isSealing ? (
                         <>
@@ -355,7 +352,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                           {t('seal.sealCapsule')}
                         </>
                       )}
-                    </Button>
+                    </StatefulButton>
                   </div>
                 </div>
               </div>

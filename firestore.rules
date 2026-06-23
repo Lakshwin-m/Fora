@@ -113,7 +113,7 @@ service cloud.firestore {
         || (
           isRecipient(resource.data.recipients)
           && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['likedBy', 'isUnlocked'])
+               .hasOnly(['likedBy', 'isUnlocked', 'openedBy'])
         )
       );
 
@@ -125,6 +125,10 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read, update: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow create, delete: if false;
+    }
+    /* MODERATION LOG — admin SDK only, never client */
+    match /_moderationLog/{doc} {
+      allow read, write: if false;
     }
   }
 }

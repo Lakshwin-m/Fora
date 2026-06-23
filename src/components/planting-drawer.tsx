@@ -70,7 +70,8 @@ export function PlantingDrawer({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to plant flower");
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody?.error || "Failed to plant flower");
       }
 
       const newFlower = await response.json();
@@ -122,8 +123,8 @@ export function PlantingDrawer({
               />
             </div>
             <div className="flex-1">
-              <SheetTitle>{t('garden.plantingDrawerTitle')}</SheetTitle>
-              <SheetDescription>
+              <SheetTitle className="text-[#FB6376] text-2xl font-bold">{t('garden.plantingDrawerTitle')}</SheetTitle>
+              <SheetDescription className="text-gray-600">
                 {t('garden.plantingDrawerDesc')}
               </SheetDescription>
             </div>
@@ -132,8 +133,8 @@ export function PlantingDrawer({
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-1">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium mb-2">
-              {t('garden.fieldTitleReq').replace(' *', '')} <span className="text-red-500">*</span>
+            <label htmlFor="title" className="block text-sm font-bold text-[#FB6376] mb-2">
+              {t('garden.fieldTitleReq').replace(' *', '')} <span className="text-[#FB6376]">*</span>
             </label>
             <Input
               id="title"
@@ -142,13 +143,13 @@ export function PlantingDrawer({
               placeholder={t('garden.titlePlaceholder')}
               required
               maxLength={100}
-              className="bg-white"
+              className="bg-white text-gray-900 placeholder:text-gray-400 border-[#FB6376]/20 focus-visible:ring-[#FB6376]"
             />
           </div>
 
           <div>
-            <label htmlFor="message" className="block text-sm font-medium mb-2">
-              {t('garden.fieldMessageReq').replace(' *', '')} <span className="text-red-500">*</span>
+            <label htmlFor="message" className="block text-sm font-bold text-[#FB6376] mb-2">
+              {t('garden.fieldMessageReq').replace(' *', '')} <span className="text-[#FB6376]">*</span>
             </label>
             <Textarea
               id="message"
@@ -158,12 +159,12 @@ export function PlantingDrawer({
               required
               rows={4}
               maxLength={500}
-              className="bg-white"
+              className="bg-white text-gray-900 placeholder:text-gray-400 border-[#FB6376]/20 focus-visible:ring-[#FB6376]"
             />
           </div>
 
           <div>
-            <label htmlFor="author" className="block text-sm font-medium mb-2">
+            <label htmlFor="author" className="block text-sm font-bold text-[#FB6376] mb-2">
               {t('garden.fieldAuthor')}
             </label>
             <Input
@@ -172,13 +173,13 @@ export function PlantingDrawer({
               onChange={(e) => setAuthor(e.target.value)}
               placeholder={t('garden.authorPlaceholder')}
               maxLength={50}
-              className="bg-white"
+              className="bg-white text-gray-900 placeholder:text-gray-400 border-[#FB6376]/20 focus-visible:ring-[#FB6376]"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">
-              {t('garden.fieldChooseFlower').replace(' *', '')} <span className="text-red-500">*</span>
+            <label className="block text-sm font-bold text-[#FB6376] mb-2">
+              {t('garden.fieldChooseFlower').replace(' *', '')} <span className="text-[#FB6376]">*</span>
             </label>
             <FlowerSelector
               selectedFlower={selectedFlower}
@@ -190,12 +191,12 @@ export function PlantingDrawer({
             <Button
               type="submit"
               disabled={isLoading || !title.trim() || !message.trim()}
-              className="w-full text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               style={{
                 backgroundColor:
                   isLoading || !title.trim() || !message.trim()
-                    ? "#D7F5D3"
-                    : "#4CAF50",
+                    ? "#fca5b0"
+                    : "#FB6376",
               }}
             >
               {isLoading ? t('garden.btnPlanting') : t('garden.btnPlant')}

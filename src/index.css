@@ -196,6 +196,15 @@
 .cursor-shovel {
   cursor: url("/shovel-cursor.png") 16 16, pointer !important;
 }
+.garden-bg-wrapper {
+  /* To COVER the screen while maintaining a perfect 16:9 aspect ratio */
+  width: max(100vw, 100vh * (16/9));
+  height: max(100vh, 100vw * (9/16));
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
 .cursor-shovel * {
   cursor: inherit;
 }

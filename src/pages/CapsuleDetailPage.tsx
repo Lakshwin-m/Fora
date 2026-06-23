@@ -1,6 +1,6 @@
 // src/pages/CapsuleDetailPage.tsx
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,7 @@ import { getPlainTextLength } from "@/components/ui/rich-text-editor";
 const CapsuleDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const auth = getAuth();
   const { t } = useTranslation();
@@ -113,8 +114,7 @@ const CapsuleDetailPage = () => {
       if (!id) return;
 
       try {
-        console.log("📦 Loading capsule:", id);
-        const data = await getCapsuleDetail(id);
+                const data = await getCapsuleDetail(id);
         
         if (!data) {
           console.error("❌ Capsule not found");
@@ -237,7 +237,15 @@ const CapsuleDetailPage = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         <Button
           variant="outline"
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (location.state?.from === "profile") {
+              navigate("/profile");
+            } else if (location.state?.from === "user-profile" && location.state?.userId) {
+              navigate(`/user/${location.state.userId}`);
+            } else {
+              navigate("/dashboard");
+            }
+          }}
           className="mb-8 text-[#5D2A42] hover:bg-[#FFDCCC]/30 relative z-50 rounded-full bg-white/50 backdrop-blur-md shadow-sm"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />

@@ -1,35 +1,11 @@
-import { useEffect, useState, useRef, useCallback } from "react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Navigation from "@/components/Navigation";
 import { toast } from "@/hooks/use-toast";
-import {
-  Search,
-  Users,
-  UserPlus,
-  UserMinus,
-  Loader2,
-  UserCheck,
-  UserX,
-  ChevronDown,
-  ChevronUp,
-  X,
-  Sparkles,
-  RefreshCw,
-  Heart,
-  Send,
-  ArrowRight,
-} from "lucide-react";
-import {
-  apiGetFriends,
-  apiGetPendingRequests,
-  apiAcceptFriendRequest,
-  apiRejectFriendRequest,
-  apiRemoveFriend,
-  apiSearchUsers,
-  apiSendFriendRequest,
-} from "@/services/friendServices";
+import { Search, Loader2, ArrowRight, UserPlus, Heart, Users, X, UserMinus, UserCheck, Sparkles, RefreshCw } from "lucide-react";
+import { apiSearchUsers, apiGetFriends, apiGetPendingRequests, apiSendFriendRequest, apiRemoveFriend, apiAcceptFriendRequest, apiRejectFriendRequest } from "@/services/friendServices";
 import { auth } from "@/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -67,8 +43,6 @@ interface SearchResult {
   bio?: string;
   username?: string;
 }
-
-/* ================= HELPERS ================= */
 
 const getInitials = (name?: string) =>
   name
@@ -160,7 +134,6 @@ const Connections = () => {
   const { t } = useTranslation();
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
-  /* ---- Auth ---- */
   const [authReady, setAuthReady] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -178,22 +151,19 @@ const Connections = () => {
   /* ---- Local Filter ---- */
   const [localQuery, setLocalQuery] = useState("");
   const [debouncedLocalQuery, setDebouncedLocalQuery] = useState("");
+  const [hoveredFriend, setHoveredFriend] = useState<string | null>(null);
+  const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
 
   /* ---- Global Search ---- */
   const [globalQuery, setGlobalQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
-  const [searchMode, setSearchMode] = useState(false); // true when showing API results
-  const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
+  const [searchMode, setSearchMode] = useState(false);
 
-  /* ---- Suggestions ---- */
   const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [friendsData, setFriendsData] = useState<any[]>([]);
 
-  /* ---- Hover state for unfollow buttons ---- */
-  const [hoveredFriend, setHoveredFriend] = useState<string | null>(null);
-
-  /* ================= AUTH ================= */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (!user) {
@@ -205,7 +175,6 @@ const Connections = () => {
     return () => unsub();
   }, [navigate]);
 
-  /* ================= LOAD DATA ================= */
   useEffect(() => {
     if (!authReady) return;
     loadAll();
@@ -236,20 +205,20 @@ const Connections = () => {
   const loadSuggestions = async () => {
     setSuggestionsLoading(true);
     try {
-      // Fetch users dynamically using a guaranteed trigger
-      const results = await apiSearchUsers("SUGGESTIONS_TRIGGER");
-
+      const [results, fData] = await Promise.all([
+        apiSearchUsers("SUGGESTIONS_TRIGGER"),
+        apiGetFriends()
+      ]);
+      setFriendsData(fData || []);
       const currentUid = auth.currentUser?.uid;
-      const friendUids = new Set(friends.map((f) => f.profile?.uid));
+      const friendUids = new Set((fData || []).map((f: any) => f.profile?.uid));
 
       const filtered = (results || []).filter(
         (r: SearchResult) => r.uid !== currentUid && !friendUids.has(r.uid)
       );
-
       setSuggestions(filtered.slice(0, 12));
     } catch {
-      // Silently fail — suggestions are non-critical
-      console.log("Suggestions unavailable");
+      // Silently fail
     } finally {
       setSuggestionsLoading(false);
     }
@@ -283,7 +252,7 @@ const Connections = () => {
     setSearchMode(true);
     try {
       const results = await apiSearchUsers(globalQuery.trim());
-      const friendUids = new Set(friends.map((f) => f.profile?.uid));
+      const friendUids = new Set(friendsData.map((f: any) => f.profile?.uid));
       const currentUid = auth.currentUser?.uid;
       const filtered = (results || []).filter(
         (r: SearchResult) => r.uid !== currentUid && !friendUids.has(r.uid)
@@ -298,7 +267,7 @@ const Connections = () => {
     } finally {
       setSearching(false);
     }
-  }, [globalQuery, friends, t]);
+  }, [globalQuery, friendsData, t]);
 
   /* ================= ACTIONS ================= */
   const handleSendRequest = async (uid: string) => {
@@ -437,12 +406,13 @@ const Connections = () => {
     );
   }
 
-  /* ================= RENDER ================= */
+  if (!authReady) return null;
+
   return (
     <div className="min-h-screen bg-[#FFF9EC]">
       <Navigation />
-
       <main className="ml-0 md:ml-20">
+
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
           
           {/* ========== HEADER SECTION WITH STATS ========== */}
@@ -884,6 +854,7 @@ const Connections = () => {
 
             </div>
           </div>
+
         </div>
       </main>
     </div>

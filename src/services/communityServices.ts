@@ -523,13 +523,11 @@ export const subscribeToComments = (
     const unsubscribe = onSnapshot(
       q,
       async (snapshot) => {
-        console.log("Snapshot received for capsule:", capsuleId, "docs:", snapshot.docs.length);
-        const comments: Comment[] = [];
+                const comments: Comment[] = [];
 
         for (const doc of snapshot.docs) {
           const data = doc.data();
-          console.log("Processing comment:", doc.id, "parentCommentId:", data.parentCommentId);
-          // Only include top-level comments (no parentCommentId or parentCommentId is null)
+                    // Only include top-level comments (no parentCommentId or parentCommentId is null)
           if (!data.parentCommentId) {
             const replies = await getReplies(doc.id);
             comments.push({
@@ -546,8 +544,7 @@ export const subscribeToComments = (
           }
         }
 
-        console.log("Final comments to render:", comments.length);
-        callback(comments);
+                callback(comments);
       },
       (error) => {
         console.error("Error in subscribeToComments:", error);

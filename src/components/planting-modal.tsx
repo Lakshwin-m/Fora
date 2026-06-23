@@ -106,29 +106,18 @@ export function PlantingDrawer({
         className="w-[500px] sm:w-[650px] p-8 py-6 bg-yellow-50 overflow-y-auto"
       >
         <SheetHeader>
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0">
-              <img
-                src="/sun.png"
-                alt="Sun"
-                width={64}
-                height={64}
-                className="w-16 h-16 object-contain"
-              />
-            </div>
-            <div className="flex-1">
-              <SheetTitle>Plant a Flower</SheetTitle>
-              <SheetDescription>
-                Share a positive message with the world. Spread peace and love.
-              </SheetDescription>
-            </div>
+          <div className="flex flex-col gap-2 mb-2">
+            <SheetTitle className="text-[#FB6376] text-2xl font-bold">Plant a Flower</SheetTitle>
+            <SheetDescription className="text-gray-600">
+              Share a positive message with the world. Spread peace and love.
+            </SheetDescription>
           </div>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6 mt-1">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium mb-2">
-              Title <span className="text-red-500">*</span>
+            <label htmlFor="title" className="block text-sm font-bold text-[#FB6376] mb-2">
+              Title <span className="text-[#FB6376]">*</span>
             </label>
             <Input
               id="title"
@@ -137,13 +126,13 @@ export function PlantingDrawer({
               placeholder="Give your message a title"
               required
               maxLength={100}
-              className="bg-white"
+              className="bg-white text-gray-900 placeholder:text-gray-400 border-[#FB6376]/20 focus-visible:ring-[#FB6376]"
             />
           </div>
 
           <div>
-            <label htmlFor="message" className="block text-sm font-medium mb-2">
-              Message <span className="text-red-500">*</span>
+            <label htmlFor="message" className="block text-sm font-bold text-[#FB6376] mb-2">
+              Message <span className="text-[#FB6376]">*</span>
             </label>
             <Textarea
               id="message"
@@ -153,12 +142,12 @@ export function PlantingDrawer({
               required
               rows={4}
               maxLength={500}
-              className="bg-white"
+              className="bg-white text-gray-900 placeholder:text-gray-400 border-[#FB6376]/20 focus-visible:ring-[#FB6376]"
             />
           </div>
 
           <div>
-            <label htmlFor="author" className="block text-sm font-medium mb-2">
+            <label htmlFor="author" className="block text-sm font-bold text-[#FB6376] mb-2">
               Your Name
             </label>
             <Input
@@ -167,13 +156,13 @@ export function PlantingDrawer({
               onChange={(e) => setAuthor(e.target.value)}
               placeholder="Anonymous"
               maxLength={50}
-              className="bg-white"
+              className="bg-white text-gray-900 placeholder:text-gray-400 border-[#FB6376]/20 focus-visible:ring-[#FB6376]"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">
-              Choose a Flower <span className="text-red-500">*</span>
+            <label className="block text-sm font-bold text-[#FB6376] mb-2">
+              Choose a Flower <span className="text-[#FB6376]">*</span>
             </label>
             <FlowerSelector
               selectedFlower={selectedFlower}
@@ -185,12 +174,12 @@ export function PlantingDrawer({
             <Button
               type="submit"
               disabled={isLoading || !title.trim() || !message.trim()}
-              className="w-full text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full text-white font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               style={{
                 backgroundColor:
                   isLoading || !title.trim() || !message.trim()
-                    ? "#D7F5D3"
-                    : "#4CAF50",
+                    ? "#fca5b0"
+                    : "#FB6376",
               }}
             >
               {isLoading ? "Planting..." : "Plant Flower"}

@@ -14,8 +14,7 @@ export const usePlan = () => {
   useEffect(() => {
     const loadPlan = async () => {
       try {
-        console.log("🔥 usePlan: loading plan");
-
+        
         const auth = getAuth();
         const user = auth.currentUser;
         if (!user) {
@@ -40,8 +39,7 @@ export const usePlan = () => {
         }
 
         const profile = await res.json();
-        console.log("📦 usePlan: profile", profile);
-
+        
         const planFromDb = profile?.plan;
 
         if (!planFromDb) {

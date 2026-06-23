@@ -53,6 +53,8 @@ export interface Capsule {
 
   status?: "scheduled" | "delivered" | "opened";
   isUnlocked?: boolean;
+  isOpenedByMe?: boolean;
+  openedBy?: string[];
 
   userId?: string;
   username?: string;
@@ -62,6 +64,8 @@ export interface Capsule {
   visibility?: "public" | "private";
   isReceived?: boolean;
   version?: string;
+  isReminder?: boolean;
+  isReminderCapsule?: boolean;
 }
 
 /* ================= CONTEXT TYPE ================= */
@@ -73,6 +77,7 @@ interface CapsuleContextType {
   updateCapsule: (id: string, updates: Partial<Capsule>) => void;
   deleteCapsule: (id: string) => Promise<void>;
   markCapsuleAsOpened: (id: string) => Promise<void>;
+  sealReminder: (id: string) => Promise<void>;
   refreshCapsules: () => Promise<void>;
 
   /** Media-safe helpers */
@@ -102,6 +107,10 @@ export const toDate = (value: any): Date | null => {
 
   try {
     if (value?.toDate) return value.toDate(); // Firestore Timestamp
+    if (typeof value === "object") {
+      if ("seconds" in value) return new Date(value.seconds * 1000);
+      if ("_seconds" in value) return new Date(value._seconds * 1000);
+    }
     const d = new Date(value);
     // Treat invalid or Unix epoch (0) as invalid for forá's logic
     if (isNaN(d.getTime()) || d.getTime() <= 0) return null;
@@ -212,14 +221,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       const receivedRaw = await receivedRes.json();
 
       // Debug: log raw capsule data to identify orphan/phantom capsules
-      console.log("[CapsuleContext] Raw capsules from API:", mineRaw?.map((c: any) => ({
-        id: c.id,
-        title: c.title?.substring(0, 30),
-        hasContent: !!c.content,
-        unlockDate: c.unlockDate,
-        createdAt: c.createdAt,
-      })));
-
+      
       // Filter out broken/phantom capsules that have no title at all
       const validMine = Array.isArray(mineRaw)
         ? mineRaw.filter((c: any) => c.title || c.content || c.encryptedTitle || c.encryptedContent)
@@ -270,9 +272,28 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         body: JSON.stringify({ capsuleId: id }),
       });
 
-      updateCapsule(id, { status: "opened", isUnlocked: true });
+      updateCapsule(id, { isOpenedByMe: true, isUnlocked: true });
+      await refreshCapsules();
     } catch (error) {
       console.error("markCapsuleAsOpened failed:", error);
+    }
+  };
+
+  const sealReminder = async (id: string) => {
+    try {
+      const headers = await getAuthHeaders();
+
+      const res = await fetch(`${API_BASE}/sealReminder`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ capsuleId: id }),
+      });
+
+      if (!res.ok) throw new Error("Failed to seal reminder");
+      await refreshCapsules();
+    } catch (error) {
+      console.error("sealReminder failed:", error);
+      throw error;
     }
   };
 
@@ -378,6 +399,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         updateCapsule,
         deleteCapsule,
         markCapsuleAsOpened,
+        sealReminder,
         refreshCapsules,
 
         capsuleHasMedia,
