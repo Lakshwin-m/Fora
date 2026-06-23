@@ -78,6 +78,59 @@ const CreateCapsule = () => {
   const [reminderDayOfWeek, setReminderDayOfWeek] = useState("");
   const [reminderDayOfMonth, setReminderDayOfMonth] = useState<number | null>(null);
   const [reminderYearlyDate, setReminderYearlyDate] = useState<Date | null>(null);
+  const [reminderPreset, setReminderPreset] = useState<string>("custom");
+
+  const handleReminderPresetChange = (preset: string) => {
+    setReminderPreset(preset);
+    if (preset === "birthday") {
+      setRecurrencePattern("yearly");
+      setReminderTime("09:00");
+      setReminderYearlyDate(null); // User must pick date
+    } else if (preset === "anniversary") {
+      setRecurrencePattern("yearly");
+      setReminderTime("09:00");
+      setReminderYearlyDate(null); // User must pick date
+    } else if (preset === "christmas") {
+      setRecurrencePattern("yearly");
+      setReminderTime("09:00");
+      setReminderYearlyDate(new Date(new Date().getFullYear(), 11, 25));
+    } else if (preset === "newyear") {
+      setRecurrencePattern("yearly");
+      setReminderTime("00:00");
+      setReminderYearlyDate(new Date(new Date().getFullYear(), 0, 1));
+    } else if (preset === "custom") {
+      setRecurrencePattern("none");
+      setReminderTime("");
+      setReminderDayOfWeek("");
+      setReminderDayOfMonth(null);
+      setReminderYearlyDate(null);
+    }
+  };
+
+  const updateRecurrencePattern = (pattern: typeof recurrencePattern) => {
+    setRecurrencePattern(pattern);
+    setReminderPreset("custom");
+  };
+
+  const updateReminderTime = (time: string) => {
+    setReminderTime(time);
+    setReminderPreset("custom");
+  };
+
+  const updateReminderDayOfWeek = (day: string) => {
+    setReminderDayOfWeek(day);
+    setReminderPreset("custom");
+  };
+
+  const updateReminderDayOfMonth = (day: number | null) => {
+    setReminderDayOfMonth(day);
+    setReminderPreset("custom");
+  };
+
+  const updateReminderYearlyDate = (date: Date | null) => {
+    setReminderYearlyDate(date);
+    setReminderPreset("custom");
+  };
 
   const getAuthHeaders = async () => {
     if (!auth.currentUser) throw new Error("No authenticated user");
@@ -247,6 +300,7 @@ const CreateCapsule = () => {
     const capturedReminderDayOfWeek = reminderDayOfWeek;
     const capturedReminderDayOfMonth = reminderDayOfMonth;
     const capturedReminderYearlyDate = reminderYearlyDate;
+    const capturedReminderPreset = reminderPreset;
     
     let nextUnlockAt: string | null = null;
     let visibleFrom: string | null = null;
@@ -380,6 +434,7 @@ const CreateCapsule = () => {
               dayOfMonth: capturedReminderDayOfMonth,
               yearlyDate: capturedReminderYearlyDate,
             } : null,
+            reminderPreset: capturedTriggerType === "event" ? capturedReminderPreset : null,
             isReminderCapsule: capturedTriggerType === "event",
             nextUnlockAt,
             visibleFrom,
@@ -492,20 +547,22 @@ const CreateCapsule = () => {
           onSubmit={handleFormSubmit}
           isSubmitting={isSubmitting}
           recurrencePattern={recurrencePattern as any}
-          onRecurrencePatternChange={setRecurrencePattern as any}
+          onRecurrencePatternChange={updateRecurrencePattern as any}
           priorReminderEnabled={priorReminderEnabled}
           onPriorReminderEnabledChange={setPriorReminderEnabled}
           priorReminderDays={priorReminderDays}
           onPriorReminderDaysChange={setPriorReminderDays}
 
           reminderTime={reminderTime}
-          onReminderTimeChange={setReminderTime}
+          onReminderTimeChange={updateReminderTime}
           reminderDayOfWeek={reminderDayOfWeek}
-          onReminderDayOfWeekChange={setReminderDayOfWeek}
+          onReminderDayOfWeekChange={updateReminderDayOfWeek}
           reminderDayOfMonth={reminderDayOfMonth}
-          onReminderDayOfMonthChange={setReminderDayOfMonth}
+          onReminderDayOfMonthChange={updateReminderDayOfMonth}
           reminderYearlyDate={reminderYearlyDate}
-          onReminderYearlyDateChange={setReminderYearlyDate}
+          onReminderYearlyDateChange={updateReminderYearlyDate}
+          reminderPreset={reminderPreset}
+          onReminderPresetChange={handleReminderPresetChange}
         />
       </div>
 

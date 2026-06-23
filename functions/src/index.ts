@@ -434,13 +434,14 @@ export const createCapsule = onRequest((req, res) => {
           recurrencePattern: req.body.recurrencePattern || "none",
           isReminderCapsule: req.body.isReminderCapsule || false,
           reminderConfig: req.body.reminderConfig || null,
+          reminderPreset: req.body.reminderPreset || null,
           nextUnlockAt: req.body.nextUnlockAt || null,
           visibleFrom: req.body.visibleFrom || null,
           lastOpenedAt: null,
           priorReminderEnabled: req.body.priorReminderEnabled || false,
           priorReminderDays: req.body.priorReminderDays || 0,
           priorReminderSent: false,
-           openedBy:         [],
+          openedBy:         [],
         });
 
         // 🔢 Increment usage (single source of truth)
