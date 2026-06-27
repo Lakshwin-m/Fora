@@ -59,6 +59,20 @@ export function SignUpLoginForm() {
     setError("");
     setLoading(true);
 
+    // Pre-flight validation — defense-in-depth before Firebase Auth
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 254) {
+      setError(t("auth.errInvalidEmail"));
+      setLoading(false);
+      return;
+    }
+
+    if (password.length > 128) {
+      setError(t("auth.errGeneric"));
+      setLoading(false);
+      return;
+    }
+
     // Additional validation for signup
     if (!isLogin && !isPasswordValid) {
       setError(t("auth.errorPasswordReqs"));

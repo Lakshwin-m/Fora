@@ -180,6 +180,21 @@ export const Fields = {
     maxLength: 100,
     allowBasicFormatting: false,
   },
+  profileName: {
+    fieldName: "display name",
+    maxLength: 50,
+    allowBasicFormatting: false,
+  },
+  profileUsername: {
+    fieldName: "username",
+    maxLength: 30,
+    allowBasicFormatting: false,
+  },
+  profileBio: {
+    fieldName: "bio",
+    maxLength: 300,
+    allowBasicFormatting: false,
+  },
 } as const;
 
 /* ================================================================

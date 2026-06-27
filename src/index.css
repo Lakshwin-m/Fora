@@ -146,11 +146,9 @@
 /* ================= BASE ================= */
 
 @layer base {
-  @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
-
   * {
     @apply border-border;
-    font-family: "Inter", "Outfit", sans-serif;
+    font-family: "Geist", sans-serif;
     letter-spacing: -0.01em;
   }
 

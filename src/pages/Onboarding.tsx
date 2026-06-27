@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "@/firebase";
 import { updateProfile } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Upload, Sparkles, Check, ChevronRight, User, 
@@ -107,29 +107,40 @@ export default function Onboarding() {
     
     try {
       if (!auth.currentUser) throw new Error("No user logged in");
-      const uid = auth.currentUser.uid;
-      const userRef = doc(db, "users", uid);
 
       // Format DOB
       const dobStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
+      // Update Firebase Auth profile (displayName / photoURL)
       await updateProfile(auth.currentUser, {
         displayName: name,
         photoURL: avatarUrl || auth.currentUser.photoURL
       });
 
-      await setDoc(userRef, {
-        uid,
-        email: auth.currentUser.email || "",
-        name,
-        username: username || name.split(' ')[0].toLowerCase(),
-        bio,
-        dateOfBirth: dobStr,
-        photoURL: avatarUrl || "",
-        privacyLevel: privacy,
-        onboardingCompleted: true,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      // Save profile data through server-side validated endpoint
+      const API_BASE = import.meta.env.VITE_API_BASE_URL;
+      const token = await auth.currentUser.getIdToken();
+
+      const response = await fetch(`${API_BASE}/saveOnboarding`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          username: username || name.split(' ')[0].toLowerCase(),
+          bio,
+          dateOfBirth: dobStr,
+          photoURL: avatarUrl || "",
+          privacyLevel: privacy,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save profile");
+      }
 
       // Wait a moment so they can see the completion screen
       setTimeout(() => {

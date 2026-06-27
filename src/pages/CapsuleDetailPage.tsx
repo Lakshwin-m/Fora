@@ -31,10 +31,12 @@ import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuth } from "firebase/auth";
 import { useTranslation } from "@/contexts/LanguageContext";
+import { useCapsules } from "@/contexts/CapsuleContext";
 
 // 🔐 IMPORT DECRYPTION HOOK
 import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
 import { getPlainTextLength } from "@/components/ui/rich-text-editor";
+import MediaRenderer from "@/components/MediaRenderer";
 
 const CapsuleDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +45,7 @@ const CapsuleDetailPage = () => {
   const { user } = useAuth();
   const auth = getAuth();
   const { t } = useTranslation();
+  const { markCapsuleAsOpened, capsules, receivedCapsules } = useCapsules();
 
   const [capsule, setCapsule] = useState<CapsuleWithLineage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,6 +62,16 @@ const CapsuleDetailPage = () => {
   const [decryptedTitle, setDecryptedTitle] = useState("");
   const [rawDecryptedContent, setRawDecryptedContent] = useState("");
   const [isDecrypting, setIsDecrypting] = useState(true);
+
+  // Auto-skip opening animation if already opened locally
+  useEffect(() => {
+    if (capsule && id) {
+      const localCapsule = [...capsules, ...receivedCapsules].find(c => c.id === id);
+      if (localCapsule?.isOpenedByMe === true || localCapsule?.status === "opened") {
+        setInteractionStep(2);
+      }
+    }
+  }, [capsule, capsules, receivedCapsules, id]);
 
   useEffect(() => {
     let mounted = true;
@@ -261,9 +274,14 @@ const CapsuleDetailPage = () => {
               exit={{ opacity: 0, scale: 1.05 }}
               transition={{ duration: 0.4, ease: "easeInOut" }}
               className="relative max-w-sm mx-auto aspect-square cursor-pointer hover:-translate-y-2 transition-transform duration-300 mt-12"
-              onClick={() => setInteractionStep(1)}
+              onClick={() => {
+                setInteractionStep(1);
+                if (id) {
+                  markCapsuleAsOpened(id);
+                }
+              }}
             >
-              <img src="/letter_cover-4fCnauP6.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Sealed Envelope" />
+              <img src="/letter_cover-4fCnauP6.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Unlocked Envelope" />
               <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4">
                 <div className="rotate-[0deg] flex flex-col items-center max-w-[85%] mt-4">
                   <span className="text-[14px] text-[#5D2A42]/90 font-serif italic mb-1 tracking-tight">{t('capsuleDetail.openWhen')}</span>
@@ -360,13 +378,70 @@ const CapsuleDetailPage = () => {
                      </div>
 
                      {/* Body Context - adjusting line-height for visual alignment with canvas */}
-                     <div className="pt-8 pb-4 space-y-6 text-lg md:text-xl leading-[2.5rem] tracking-wide relative">
-                       <p>{capsule.recipientType === "self" ? t('capsuleDetail.dearFutureMe') : t('capsuleDetail.dearFriend')}</p>
-                       <div
-                         className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
-                         dangerouslySetInnerHTML={{ __html: decryptedContent || "" }}
-                       />
-                       <p className="mt-8 text-xl">{t('capsuleDetail.sincerely')}</p>
+                     <div className="pt-8 pb-4 space-y-6 text-lg md:text-xl leading-[2.5rem] tracking-wide">
+                       {(() => {
+                         let parsedBlocks = null;
+                         if (rawDecryptedContent) {
+                           try {
+                             // Try to extract JSON array if it's accidentally wrapped in HTML (e.g., <p>[...]</p>)
+                             const match = rawDecryptedContent.match(/\[\s*\{[\s\S]*\}\s*\]/);
+                             const jsonString = match ? match[0] : rawDecryptedContent;
+                             const parsed = JSON.parse(jsonString);
+                             if (Array.isArray(parsed)) parsedBlocks = parsed;
+                           } catch (e) {
+                             try {
+                               const match2 = decryptedContent.match(/\[\s*\{[\s\S]*\}\s*\]/);
+                               const jsonString2 = match2 ? match2[0] : decryptedContent;
+                               const parsed2 = JSON.parse(jsonString2);
+                               if (Array.isArray(parsed2)) parsedBlocks = parsed2;
+                             } catch (e2) {}
+                           }
+                         }
+
+                         if (parsedBlocks) {
+                           return (
+                             <div className="w-full relative min-h-[600px] border border-[#E8E8E8] rounded-xl overflow-hidden shadow-inner bg-[#EBE4D5]"
+                                  style={{
+                                    backgroundImage: "url('/canvas-background-BYlUkw-J.png')",
+                                    backgroundSize: "cover",
+                                    backgroundRepeat: "repeat-y",
+                                    backgroundPosition: "top center"
+                                  }}>
+                               {parsedBlocks.map((block: any) => (
+                                 <div
+                                   key={block.id}
+                                   className="absolute p-2"
+                                   style={{
+                                     top: `${block.y}%`,
+                                     left: `${block.x}%`,
+                                     fontFamily: block.fontFamily,
+                                     fontSize: `${block.fontSize}px`,
+                                     color: block.color,
+                                     fontWeight: block.fontWeight,
+                                     textAlign: block.textAlign,
+                                     width: "auto",
+                                     whiteSpace: "pre-wrap",
+                                     lineHeight: "normal",
+                                   }}
+                                 >
+                                   {block.text}
+                                 </div>
+                               ))}
+                             </div>
+                           );
+                         }
+
+                         return (
+                           <>
+                             <p>{capsule.recipientType === "self" ? t('capsuleDetail.dearFutureMe') : t('capsuleDetail.dearFriend')}</p>
+                             <div
+                               className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
+                               dangerouslySetInnerHTML={{ __html: decryptedContent || "" }}
+                             />
+                             <p className="mt-8 text-xl">{t('capsuleDetail.sincerely')}</p>
+                           </>
+                         );
+                       })()}
                      </div>
 
                      {/* Signature block */}
@@ -388,6 +463,18 @@ const CapsuleDetailPage = () => {
                        <p className="font-bold text-xl text-[#5D2A42]">{capsule.creatorName}</p>
                      </div>
 
+                     {/* Attached Media in Detail */}
+                     {capsule.attachments && capsule.attachments.length > 0 && (
+                       <div className="py-6 mt-4 border-t border-[#5D2A42]/10">
+                         <div className="columns-1 sm:columns-2 gap-4 space-y-4">
+                           {capsule.attachments.map((attachment: any) => (
+                             <div key={attachment.id} className="break-inside-avoid rounded-2xl overflow-hidden border border-[#5D2A42]/20 shadow-sm bg-white/50 backdrop-blur-sm">
+                               <MediaRenderer attachment={attachment} isUnlocked={capsule.isUnlocked} />
+                             </div>
+                           ))}
+                         </div>
+                       </div>
+                     )}
 
                   </div>
                 </div>

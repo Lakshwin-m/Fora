@@ -275,7 +275,7 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                   }
                 }}
               >
-                <img src="/letter_cover-4fCnauP6.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Sealed Envelope" />
+                <img src="/letter_cover-4fCnauP6.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Unlocked Envelope" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4">
                   <div className="rotate-[0deg] flex flex-col items-center max-w-[85%] mt-4">
                     <span className="text-[14px] text-[#5D2A42]/90 font-serif italic mb-1 tracking-tight">open when...</span>

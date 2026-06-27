@@ -281,20 +281,6 @@ export function FlowerDetailModal({
                 ))}
               </div>
 
-              {/* Water button */}
-              {growthLevel < 3 && (
-                <Button
-                  onClick={onWater}
-                  disabled={!canWater}
-                  className={`w-full font-semibold transition-colors ${
-                    canWater
-                      ? "bg-blue-400 hover:bg-blue-500 text-white"
-                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  }`}
-                >
-                  {canWater ? "💧 " + t('garden.btnWaterThis') : "⏳ " + t('garden.btnWateredRecently')}
-                </Button>
-              )}
             </div>
           </div>
         </SheetPrimitive.Content>

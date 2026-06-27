@@ -230,7 +230,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
     parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ?? new Date(0);
   const isUnlockedDate = unlockDate.getTime() <= currentTime.getTime();
   const isUnlocked = isUnlockedDate || capsule.isUnlocked;
-  const isOpened = capsule.isOpenedByMe === true;
+  const isOpened = capsule.isOpenedByMe === true || capsule.status === "opened";
   const showAsOpen = isUnlocked && isOpened;
   const isSentToSelf = capsule.recipientType === "self";
   const countdown = getCountdown(capsule.unlockDate || capsule.deliveryDate, currentTime);
@@ -318,8 +318,8 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
           // LOCKED / SEALED STATE (CLOSED ENVELOPE)
           <>
             <img
-              src="/letter_cover-4fCnauP6.png"
-              alt="Sealed Envelope"
+              src={!isUnlocked ? "/lettersealed.png" : "/letter_cover-4fCnauP6.png"}
+              alt={!isUnlocked ? "Sealed Envelope" : "Unlocked Envelope"}
               className="absolute inset-0 w-full h-full object-contain drop-shadow-sm pointer-events-none"
             />
             {/* Center text on closed envelope */}

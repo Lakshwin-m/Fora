@@ -2,8 +2,21 @@
 
 import { toast } from "sonner";
 import { useState, useRef } from "react";
-import { RichTextEditor, getPlainTextLength } from "@/components/ui/rich-text-editor";
+import { CanvasTextEditor } from "@/components/ui/canvas-text-editor";
 import { motion, AnimatePresence } from "framer-motion";
+
+const getPlainTextLength = (val: string) => {
+  if (!val) return 0;
+  try {
+    const blocks = JSON.parse(val);
+    if (Array.isArray(blocks)) {
+      return blocks.reduce((acc, b) => acc + (b.text?.length || 0), 0);
+    }
+  } catch (e) {
+    // fallback for html
+  }
+  return val.replace(/<[^>]*>?/gm, '').length;
+};
 import {
   ChevronLeft,
   ChevronRight,
@@ -65,10 +78,9 @@ import { format } from "date-fns";
 import { Calendar as CalendarUI } from "@/components/ui/calendar";
 
 const steps = [
-  { id: "basic", title: "Message", description: "Write your capsule", icon: MessageSquare },
   { id: "trigger", title: "Delivery", description: "When to unlock", icon: Clock },
   { id: "recipients", title: "Recipients", description: "Who receives it", icon: Users },
-  { id: "attachments", title: "Memories", description: "Add photos & videos", icon: Image },
+  { id: "basic", title: "Message", description: "Write your capsule", icon: MessageSquare },
   { id: "review", title: "Review", description: "Check details", icon: Check },
 ];
 
@@ -237,15 +249,14 @@ export const CapsuleMultistepForm = ({
   const { t } = useTranslation();
 
   const translatedSteps = [
-    { id: "basic", title: t("create.stepMessageTitle"), description: t("create.stepMessageDesc"), icon: MessageSquare },
-    { id: "trigger", title: t("create.stepDeliveryTitle"), description: t("create.stepDeliveryDesc"), icon: Clock },
-    { id: "recipients", title: t("create.stepRecipientsTitle"), description: t("create.stepRecipientsDesc"), icon: Users },
-    { id: "attachments", title: t("create.stepMemoriesTitle"), description: t("create.stepMemoriesDesc"), icon: Image },
-    { id: "review", title: t("create.stepReviewTitle"), description: t("create.stepReviewDesc"), icon: Check },
+    { id: "trigger", title: t("create.stepDeliveryTitle") || "Delivery", description: t("create.stepDeliveryDesc") || "When to unlock", icon: Clock },
+    { id: "recipients", title: t("create.stepRecipientsTitle") || "Recipients", description: t("create.stepRecipientsDesc") || "Who receives it", icon: Users },
+    { id: "basic", title: t("create.stepMessageTitle") || "Message", description: t("create.stepMessageDesc") || "Write your capsule", icon: MessageSquare },
+    { id: "review", title: t("create.stepReviewTitle") || "Review", description: t("create.stepReviewDesc") || "Check details", icon: Check },
   ];
 
   const handleNext = () => {
-    if (currentStep === 1) {
+    if (currentStep === 0) {
       if (triggerType === "time" && deliveryDate && deliveryTime) {
         toast.success("Delivery Time Confirmed", {
           description: `Capsule will unlock on ${deliveryDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} at ${deliveryTime}.`
@@ -343,13 +354,11 @@ export const CapsuleMultistepForm = ({
   const isStepValid = () => {
     switch (currentStep) {
       case 0:
-        return title.trim() !== "" && getPlainTextLength(content) > 0;
-      case 1:
         if (triggerType === "time") {
           return deliveryDate !== undefined && deliveryTime !== "";
         }
         return true;
-      case 2:
+      case 1:
         if (recipientType === "friends") {
           return selectedFriends.length > 0;
         }
@@ -357,9 +366,9 @@ export const CapsuleMultistepForm = ({
           return capsuleCategory.trim() !== "";
         }
         return true;
+      case 2:
+        return title.trim() !== "" && getPlainTextLength(content) > 0;
       case 3:
-        return true; // Attachments are optional
-      case 4:
         return true; // Review always valid
       default:
         return false;
@@ -448,8 +457,8 @@ export const CapsuleMultistepForm = ({
               exit="exit"
               className="flex-1 flex flex-col"
             >
-              {/* Step 0: Basic Information */}
-              {currentStep === 0 && (
+              {/* Step 2: Basic Information & Memories */}
+              {currentStep === 2 && (
                 <div className="p-10 md:p-14 h-full flex flex-col gap-10">
                   <div>
                     <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.msgTitleHeading')}</h2>
@@ -475,19 +484,90 @@ export const CapsuleMultistepForm = ({
                         </Label>
                         <span className="text-xs font-bold text-[#FB6376]">{getPlainTextLength(content)} {t('create.chars')}</span>
                       </div>
-                      <RichTextEditor
+                      <CanvasTextEditor
                         value={content}
                         onChange={onContentChange}
-                        placeholder={t('create.messagePlaceholder')}
-                        className="flex-1"
                       />
                     </div>
+
+                    {/* Attachments Section */}
+                    <div className="flex flex-col gap-4 mt-4 border-t border-[#E8E8E8] pt-8">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                            {t('create.memoriesHeading') || "Memories"}
+                          </Label>
+                          <p className="text-[#999] text-xs font-medium mt-1">Add photos, videos, and voice notes</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => imageInputRef.current?.click()}
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-[#1A1A1A] border border-[#E8E8E8] hover:bg-[#F8F8F8] hover:border-[#D1D1D1] transition-all"
+                            title={t('create.addPhoto')}
+                          >
+                            📷
+                          </button>
+                          <button
+                            onClick={() => videoInputRef.current?.click()}
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-[#1A1A1A] border border-[#E8E8E8] hover:bg-[#F8F8F8] hover:border-[#D1D1D1] transition-all"
+                            title={t('create.addVideo')}
+                          >
+                            🎥
+                          </button>
+                          <button
+                            onClick={() => audioInputRef.current?.click()}
+                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-[#1A1A1A] border border-[#E8E8E8] hover:bg-[#F8F8F8] hover:border-[#D1D1D1] transition-all"
+                            title={t('create.addAudio')}
+                          >
+                            🎤
+                          </button>
+                        </div>
+                      </div>
+
+                      {attachments.length > 0 && (
+                        <div className="columns-1 sm:columns-2 gap-4 space-y-4 mt-4">
+                          {attachments.map((attachment) => {
+                            const url = URL.createObjectURL(attachment.file);
+                            return (
+                              <div key={attachment.id} className="break-inside-avoid relative group rounded-2xl overflow-hidden border border-[#E8E8E8] bg-white shadow-sm hover:shadow-md transition-all">
+                                <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none" />
+                                <button
+                                  type="button"
+                                  onClick={() => onRemoveAttachment(attachment.id)}
+                                  className="absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center bg-white/90 backdrop-blur-md rounded-full text-[#1A1A1A] font-bold text-sm opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 hover:bg-[#FB6376] hover:text-white transition-all shadow-sm"
+                                >
+                                  ✕
+                                </button>
+                                {attachment.type === 'image' && (
+                                  <img src={url} alt={attachment.name} className="w-full h-auto object-cover min-h-[100px]" />
+                                )}
+                                {attachment.type === 'video' && (
+                                  <div className="w-full bg-black relative">
+                                    <video src={url} controls className="w-full h-auto object-cover max-h-[300px]" />
+                                  </div>
+                                )}
+                                {attachment.type === 'audio' && (
+                                  <div className="w-full aspect-square bg-[#F8F8F8] flex flex-col items-center justify-center p-4 border-b border-[#E8E8E8]">
+                                    <span className="font-extrabold text-[#1A1A1A] tracking-widest text-xs mb-2">AUDIO</span>
+                                    <audio src={url} controls className="w-full max-h-8" />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    {/* Hidden inputs */}
+                    <input type="file" ref={imageInputRef} onChange={(e) => onFileSelect("image", e)} accept="image/*" multiple className="hidden" />
+                    <input type="file" ref={videoInputRef} onChange={(e) => onFileSelect("video", e)} accept="video/*" multiple className="hidden" />
+                    <input type="file" ref={audioInputRef} onChange={(e) => onFileSelect("audio", e)} accept="audio/*" multiple className="hidden" />
                   </div>
                 </div>
               )}
 
-              {/* Step 1: Trigger Configuration */}
-              {currentStep === 1 && (
+              {/* Step 0: Trigger Configuration */}
+              {currentStep === 0 && (
                 <div className="p-10 md:p-14 h-full flex flex-col gap-10">
                   <div>
                     <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.deliveryHeading')}</h2>
@@ -696,8 +776,8 @@ export const CapsuleMultistepForm = ({
                 </div>
               )}
 
-              {/* Step 2: Recipients */}
-              {currentStep === 2 && (
+              {/* Step 1: Recipients */}
+              {currentStep === 1 && (
                 <div className="p-10 md:p-14 h-full flex flex-col gap-10">
                   <div>
                     <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.recipientsHeading')}</h2>
@@ -836,142 +916,8 @@ export const CapsuleMultistepForm = ({
                 </div>
               )}
 
-              {/* Step 3: Attachments */}
+              {/* Step 3: Review */}
               {currentStep === 3 && (
-                <div className="p-10 md:p-14 h-full flex flex-col gap-10">
-                  <div>
-                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.memoriesHeading')}</h2>
-                    <p className="text-[#666] text-lg font-medium">{t('create.memoriesSub')}</p>
-                  </div>
-
-                  {attachments.length === 0 ? (
-                    /* Premium Bento Box Empty State */
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[400px]">
-                      <div
-                        onClick={() => imageInputRef.current?.click()}
-                        className="md:row-span-2 bg-[#F8F8F8] hover:bg-[#F0F0F0] border border-[#E8E8E8] rounded-[32px] p-8 flex flex-col justify-between cursor-pointer transition-all group"
-                      >
-                        <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center border border-[#E8E8E8] group-hover:scale-110 transition-transform">
-                          <span className="font-bold text-[#1A1A1A] uppercase text-xs tracking-widest">IMG</span>
-                        </div>
-                        <div>
-                          <h3 className="text-3xl font-extrabold text-[#1A1A1A] tracking-tight mb-1">{t('create.photoCardTitle')}</h3>
-                          <p className="text-[#666] font-medium">{t('create.photoCardDesc')}</p>
-                        </div>
-                      </div>
-                      <div
-                        onClick={() => videoInputRef.current?.click()}
-                        className="bg-[#FFF9EC] hover:bg-[#FDEED2] border border-[#FBE0B5] rounded-[32px] p-8 flex flex-col justify-between cursor-pointer transition-all group"
-                      >
-                        <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center border border-[#FBE0B5] group-hover:scale-110 transition-transform">
-                          <span className="font-bold text-[#5D2A42] uppercase text-[10px] tracking-widest">MP4</span>
-                        </div>
-                        <h3 className="text-2xl font-extrabold text-[#5D2A42] tracking-tight">{t('create.videoCardTitle')}</h3>
-                      </div>
-                      <div
-                        onClick={() => audioInputRef.current?.click()}
-                        className="bg-[#1A1A1A] hover:bg-[#333333] border border-[#1A1A1A] rounded-[32px] p-8 flex flex-col justify-between cursor-pointer transition-all group"
-                      >
-                        <div className="w-12 h-12 rounded-full bg-[#333] flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <span className="font-bold text-white uppercase text-[10px] tracking-widest">WAV</span>
-                        </div>
-                        <h3 className="text-2xl font-extrabold text-white tracking-tight">{t('create.audioCardTitle')}</h3>
-                      </div>
-                    </div>
-                  ) : (
-                    /* Populated Gallery State */
-                    <div className="flex flex-col gap-8">
-                      {/* Add More Toolbar */}
-                      <div className="flex items-center gap-2 p-2 bg-[#F8F8F8] border border-[#E8E8E8] rounded-full w-max mx-auto md:mx-0">
-                        <button
-                          onClick={() => imageInputRef.current?.click()}
-                          className="px-6 py-3 bg-white rounded-full font-bold text-sm text-[#1A1A1A] shadow-sm hover:shadow-md transition-all border border-[#E8E8E8]"
-                        >
-                          {t('create.addPhoto')}
-                        </button>
-                        <button
-                          onClick={() => videoInputRef.current?.click()}
-                          className="px-6 py-3 bg-[#FFF9EC] rounded-full font-bold text-sm text-[#5D2A42] shadow-sm hover:shadow-md transition-all border border-[#FBE0B5]"
-                        >
-                          {t('create.addVideo')}
-                        </button>
-                        <button
-                          onClick={() => audioInputRef.current?.click()}
-                          className="px-6 py-3 bg-[#1A1A1A] rounded-full font-bold text-sm text-white shadow-sm hover:shadow-md transition-all"
-                        >
-                          {t('create.addAudio')}
-                        </button>
-                      </div>
-
-                      {/* Masonry-style Grid */}
-                      <div className="columns-1 sm:columns-2 md:columns-3 gap-6 space-y-6">
-                        {attachments.map((attachment) => {
-                          const url = URL.createObjectURL(attachment.file);
-                          return (
-                            <div key={attachment.id} className="break-inside-avoid relative group rounded-3xl overflow-hidden border border-[#E8E8E8] bg-white shadow-sm hover:shadow-xl transition-all duration-300">
-                              {/* Hover Overlay & Delete Button */}
-                              <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none" />
-                              <button
-                                type="button"
-                                onClick={() => onRemoveAttachment(attachment.id)}
-                                className="absolute top-4 right-4 z-20 w-10 h-10 flex items-center justify-center bg-white/90 backdrop-blur-md rounded-full text-[#1A1A1A] font-bold text-lg opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 hover:bg-[#FB6376] hover:text-white transition-all shadow-sm"
-                              >
-                                ✕
-                              </button>
-
-                              {/* Media Content */}
-                              {attachment.type === 'image' && (
-                                <img src={url} alt={attachment.name} className="w-full h-auto object-cover min-h-[150px]" />
-                              )}
-
-                              {attachment.type === 'video' && (
-                                <div className="w-full bg-black relative">
-                                  <video src={url} controls className="w-full h-auto object-cover max-h-[400px]" />
-                                </div>
-                              )}
-
-                              {attachment.type === 'audio' && (
-                                <div className="w-full aspect-square bg-[#F8F8F8] flex flex-col items-center justify-center p-6 border-b border-[#E8E8E8]">
-                                  <div className="w-16 h-16 rounded-full bg-white border border-[#E8E8E8] shadow-sm flex items-center justify-center mb-6">
-                                    <span className="font-extrabold text-[#1A1A1A] tracking-widest">AUDIO</span>
-                                  </div>
-                                  <audio src={url} controls className="w-full" />
-                                </div>
-                              )}
-
-                              {/* Meta Bar */}
-                              <div className="p-4 bg-white flex flex-col gap-2 border-t border-[#E8E8E8]/50">
-                                <input
-                                  type="text"
-                                  placeholder={t('create.captionPlaceholder')}
-                                  className="w-full px-3 py-2 text-sm bg-[#F8F8F8] border border-[#E8E8E8] rounded-md focus:outline-none focus:border-[#FB6376] focus:bg-white transition-all text-[#1A1A1A]"
-                                  value={attachment.altText || ''}
-                                  onChange={(e) => {
-                                    const newAttachments = [...attachments];
-                                    const index = newAttachments.findIndex(a => a.id === attachment.id);
-                                    if (index !== -1) {
-                                      newAttachments[index] = { ...newAttachments[index], altText: e.target.value };
-                                      onAttachmentsChange(newAttachments);
-                                    }
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Hidden inputs */}
-                  <input type="file" ref={imageInputRef} onChange={(e) => onFileSelect("image", e)} accept="image/*" multiple className="hidden" />
-                  <input type="file" ref={videoInputRef} onChange={(e) => onFileSelect("video", e)} accept="video/*" multiple className="hidden" />
-                  <input type="file" ref={audioInputRef} onChange={(e) => onFileSelect("audio", e)} accept="audio/*" multiple className="hidden" />
-                </div>
-              )}
-
-              {/* Step 4: Review */}
-              {currentStep === 4 && (
                 <div className="p-10 md:p-14 h-full flex flex-col gap-8">
                   <div className="flex items-start justify-between">
                     <div>
@@ -1125,16 +1071,52 @@ export const CapsuleMultistepForm = ({
                                   : recipientType === "friends"
                                     ? selectedFriends.map(id => friends.find(f => f.id === id)?.name || "Friend").join(", ") + ","
                                     : t('create.letterPreviewDearWorld')}</p>
-                                <div
-                                  className="prose prose-base max-w-none text-[#5D2A42] prose-p:my-2 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-0.5 prose-img:rounded-xl prose-img:max-w-full prose-img:my-3 prose-strong:text-inherit prose-em:text-inherit"
-                                  dangerouslySetInnerHTML={{
-                                    __html: content ? (() => {
-                                      const txt = document.createElement("textarea");
-                                      txt.innerHTML = content;
-                                      return txt.value;
-                                    })() : `<p><em>${t('create.letterPreviewPlaceholder')}</em></p>`
-                                  }}
-                                />
+                                <div className="min-h-[400px] relative w-full mt-4 border border-[#5D2A42]/10 rounded-xl bg-white/20">
+                                  {(() => {
+                                    if (!content) return <p className="p-4"><em>{t('create.letterPreviewPlaceholder')}</em></p>;
+                                    try {
+                                      // Try to extract JSON array if it's accidentally wrapped in HTML
+                                      const match = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+                                      const jsonString = match ? match[0] : content;
+                                      const blocks = JSON.parse(jsonString);
+                                      if (Array.isArray(blocks)) {
+                                        return blocks.map(block => (
+                                          <div
+                                            key={block.id}
+                                            className="absolute"
+                                            style={{
+                                              top: `${block.y}%`,
+                                              left: `${block.x}%`,
+                                              fontFamily: block.fontFamily,
+                                              fontSize: `${block.fontSize}px`,
+                                              color: block.color,
+                                              fontWeight: block.fontWeight,
+                                              textAlign: block.textAlign,
+                                              whiteSpace: "pre-wrap",
+                                              lineHeight: "normal",
+                                            }}
+                                          >
+                                            {block.text}
+                                          </div>
+                                        ));
+                                      }
+                                    } catch (e) {
+                                      // Fallback for HTML content
+                                      return (
+                                        <div
+                                          className="p-4 prose prose-base max-w-none text-[#5D2A42] prose-p:my-2 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-0.5 prose-img:rounded-xl prose-img:max-w-full prose-img:my-3 prose-strong:text-inherit prose-em:text-inherit"
+                                          dangerouslySetInnerHTML={{
+                                            __html: (() => {
+                                              const txt = document.createElement("textarea");
+                                              txt.innerHTML = content;
+                                              return txt.value;
+                                            })()
+                                          }}
+                                        />
+                                      );
+                                    }
+                                  })()}
+                                </div>
                                 <p className="mt-6 text-lg">Sincerely,</p>
                               </div>
 

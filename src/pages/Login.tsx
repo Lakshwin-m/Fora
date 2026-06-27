@@ -17,6 +17,15 @@ export default function SignupPage() {
   const handleSignup = async () => {
     setLoading(true);
     setError("");
+
+    // Pre-flight validation — defense-in-depth before Firebase Auth
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 254 || password.length > 128) {
+      setError(t('loginFallback.signupFailed'));
+      setLoading(false);
+      return;
+    }
+
     try {
       const cred = await signup(email, password);
       const userRef = doc(db, "users", cred.user.uid);
@@ -38,6 +47,15 @@ export default function SignupPage() {
   const handleLogin = async () => {
     setLoading(true);
     setError("");
+
+    // Pre-flight validation — defense-in-depth before Firebase Auth
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 254 || password.length > 128) {
+      setError(t('loginFallback.loginFailed'));
+      setLoading(false);
+      return;
+    }
+
     try {
       const cred = await login(email, password);
       const userRef = doc(db, "users", cred.user.uid);

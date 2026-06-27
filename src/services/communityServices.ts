@@ -24,8 +24,8 @@ import { getAuth } from "firebase/auth";
 
 export interface PublicCapsule {
   id: string;
-  title: string;
-  content: string;
+  title?: string;
+  content?: string;
   createdBy: string;
   creatorName: string;
   creatorPhoto?: string;
@@ -37,6 +37,24 @@ export interface PublicCapsule {
   visibility: "public" | "private";
   likeCount?: number;
   likedBy?: string[];
+  
+  // v2 fields
+  version?: string;
+  encryptedTitle?: string;
+  titleIV?: string;
+  encryptedContent?: string;
+  contentIV?: string;
+  encryptedKeys?: Record<string, string>;
+  
+  // unencrypted metadata
+  attachments?: any[];
+  signature?: string;
+  triggerType?: string;
+  recipientType?: string;
+  recipients?: string[];
+  unlockDate?: string | Timestamp;
+  status?: string;
+  isUnlocked?: boolean;
 }
 
 export interface CapsuleWithLineage extends PublicCapsule {
@@ -147,6 +165,7 @@ export const getCapsuleDetail = async (
     const creatorData = creatorDoc.data();
 
     const capsule: CapsuleWithLineage = {
+      ...data,
       id: capsuleDoc.id,
       title: data.title,
       content: data.content,
@@ -161,7 +180,7 @@ export const getCapsuleDetail = async (
       visibility: data.visibility || "private",
       likeCount: data.likeCount || 0,
       likedBy: data.likedBy || [],
-    };
+    } as CapsuleWithLineage;
 
     // If this is a reshare, fetch the original
     if (data.isReshare && data.originalCapsuleId) {
@@ -176,6 +195,7 @@ export const getCapsuleDetail = async (
         const originalCreatorData = originalCreatorDoc.data();
 
         capsule.originalCapsule = {
+          ...originalData,
           id: originalDoc.id,
           title: originalData.title,
           content: originalData.content,
@@ -189,7 +209,7 @@ export const getCapsuleDetail = async (
           visibility: originalData.visibility || "private",
           likeCount: originalData.likeCount || 0,
           likedBy: originalData.likedBy || [],
-        };
+        } as PublicCapsule;
       }
     }
 

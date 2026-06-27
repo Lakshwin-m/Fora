@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Flower } from "@/types/flower";
 import { FLOWER_METADATA } from "@/lib/flower-data";
 
-import CloudsAnimation from "@/components/clouds-animation";
+
 import { MusicPlayer } from "@/components/music-player";
 import { DirtPlot } from "@/components/dirt-plot";
 import { PlantingDrawer } from "@/components/planting-drawer";
@@ -48,13 +48,20 @@ if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
       animation: garden-sparkle 2s ease-in-out infinite;
     }
     .garden-drag-active { cursor: grabbing !important; }
+    @keyframes garden-cloud-drift {
+      0% { left: -20%; }
+      100% { left: 110%; }
+    }
+    .garden-cloud {
+      animation: garden-cloud-drift linear infinite;
+    }
   `;
   document.head.appendChild(s);
 }
 
 /* ── Types ──────────────────────────────────────────────── */
 type UserState = "normal" | "viewing" | "planting";
-type ActiveTool = "shovel" | "seeds" | null;
+type ActiveTool = "shovel" | "seeds" | "watercan" | null;
 
 interface DugHole {
   id: string;
@@ -223,9 +230,22 @@ export default function GardenPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("contextmenu", handleContextMenu);
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const cursorEl = document.getElementById("custom-tool-cursor");
+      if (cursorEl) {
+        cursorEl.style.left = `${e.clientX}px`;
+        cursorEl.style.top = `${e.clientY}px`;
+      }
+    };
+    if (activeTool === "watercan") {
+      window.addEventListener("mousemove", handleMouseMove);
+    }
+
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("contextmenu", handleContextMenu);
+      window.removeEventListener("mousemove", handleMouseMove);
     };
   }, [activeTool]);
 
@@ -401,11 +421,6 @@ export default function GardenPage() {
       }
 
       const now = Date.now();
-      const lastWatered = waterCooldowns[flowerId] || 0;
-
-      if (now - lastWatered < COOLDOWN_MS) {
-        return; // silently block — could add a toast here
-      }
 
       const currentLevel = growthLevels[flowerId] ?? 3;
       if (currentLevel >= 3) return;
@@ -429,11 +444,9 @@ export default function GardenPage() {
   const canWater = useCallback(
     (flowerId: string) => {
       const level = growthLevels[flowerId] ?? 3;
-      if (level >= 3) return false;
-      const lastWatered = waterCooldowns[flowerId] || 0;
-      return Date.now() - lastWatered >= COOLDOWN_MS;
+      return level < 3;
     },
-    [growthLevels, waterCooldowns]
+    [growthLevels]
   );
 
   // Seed bag hover swap
@@ -443,6 +456,10 @@ export default function GardenPage() {
   // Shovel hover swap
   const [shovelHovered, setShovelHovered] = useState(false);
   const shovelImage = activeTool === "shovel" ? "/shovelout.png" : shovelHovered ? "/shovelout.png" : "/shovel.png";
+
+  // Watercan hover swap
+  const [watercanHovered, setWatercanHovered] = useState(false);
+  const watercanImage = activeTool === "watercan" ? "/watercanout.png" : watercanHovered ? "/watercanout.png" : "/watercan.png";
 
   // ─────────────────────────────────────────────
   // Render
@@ -462,13 +479,24 @@ export default function GardenPage() {
   return (
     <div className="fixed inset-0 overflow-hidden bg-sky-200 select-none">
       <Navigation />
-      <CloudsAnimation gardenOffset={0} />
+
 
       {/* Active tool indicator */}
       {activeTool && (
         <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-black/70 text-white text-sm px-4 py-2 rounded-full backdrop-blur-sm flex items-center gap-2 pointer-events-none">
-          <img src={activeTool === "shovel" ? "/shovel.png" : "/seed.png"} alt="" className="w-5 h-5 object-contain" />
-          {activeTool === "shovel" ? "Click on the ground to dig" : "Click on a dug hole to plant"}
+          <img src={activeTool === "shovel" ? "/shovel.png" : activeTool === "watercan" ? "/watercan.png" : "/seed.png"} alt="" className="w-5 h-5 object-contain" />
+          {activeTool === "shovel" ? "Click on the ground to dig" : activeTool === "watercan" ? "Click on a thirsty plant to water it" : "Click on a dug hole to plant"}
+        </div>
+      )}
+
+      {/* Custom Tool Cursor */}
+      {activeTool === "watercan" && (
+        <div
+          id="custom-tool-cursor"
+          className={`fixed pointer-events-none z-[100] transition-transform duration-100 ${splashFlower ? "-rotate-12 scale-110" : "rotate-0 scale-100"}`}
+          style={{ width: "96px", height: "96px", transformOrigin: "bottom right", marginLeft: "-48px", marginTop: "-48px" }}
+        >
+          <img src={splashFlower ? "/watercanw.png" : "/watercan.png"} alt="Cursor" className="w-full h-full object-contain drop-shadow-xl" />
         </div>
       )}
 
@@ -489,10 +517,18 @@ export default function GardenPage() {
           <img
             src="/bgn.png"
             alt="Garden"
-            className="absolute inset-0 w-full h-full object-cover"
+            className="absolute inset-0 w-[1920px] h-[1080px] object-cover"
             style={{ objectPosition: "center 60%" }}
             draggable={false}
           />
+
+          {/* Custom Clouds using cloud.png */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <img src="/cloud.png" className="absolute top-[8%] w-[250px] opacity-80 garden-cloud" style={{ animationDuration: '45s', animationDelay: '0s' }} alt="cloud" />
+            <img src="/cloud.png" className="absolute top-[22%] w-[180px] opacity-60 garden-cloud" style={{ animationDuration: '65s', animationDelay: '-20s' }} alt="cloud" />
+            <img src="/cloud.png" className="absolute top-[5%] w-[350px] opacity-90 garden-cloud" style={{ animationDuration: '85s', animationDelay: '-40s' }} alt="cloud" />
+            <img src="/cloud.png" className="absolute top-[15%] w-[200px] opacity-70 garden-cloud" style={{ animationDuration: '55s', animationDelay: '-10s' }} alt="cloud" />
+          </div>
 
           {/* Seed Bag */}
           <div
@@ -508,12 +544,26 @@ export default function GardenPage() {
           {/* Shovel */}
           <div
             className={`absolute z-[5] cursor-pointer transition-transform duration-150 pointer-events-auto ${activeTool === "shovel" ? "scale-110 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" : ""}`}
-            style={{ left: "55%", top: "10%", width: "9%", height: "40%" }}
+            style={{ left: "55%", top: "16%", width: "9%", height: "40%" }}
             onMouseEnter={() => setShovelHovered(true)}
             onMouseLeave={() => setShovelHovered(false)}
             onClick={handleShovelClick}
           >
             <img src={shovelImage} alt="Shovel" className="w-full h-full object-contain" draggable={false} />
+          </div>
+
+          {/* Watercan */}
+          <div
+            className={`absolute z-[5] cursor-pointer transition-transform duration-150 pointer-events-auto ${activeTool === "watercan" ? "scale-110 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" : ""}`}
+            style={{ left: "48%", top: "24%", width: "8%", height: "25%" }}
+            onMouseEnter={() => setWatercanHovered(true)}
+            onMouseLeave={() => setWatercanHovered(false)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveTool(prev => prev === "watercan" ? null : "watercan");
+            }}
+          >
+            <img src={watercanImage} alt="Watering Can" className="w-full h-full object-contain" draggable={false} />
           </div>
 
           {/* Garden Layer (flowers & holes) - Translates with zones */}
@@ -524,9 +574,11 @@ export default function GardenPage() {
                 ? "url(/shovel-cursor.png) 8 24, crosshair"
                 : activeTool === "seeds"
                   ? "crosshair"
-                  : typeof window !== "undefined" && window.innerWidth / scale < VIRTUAL_WIDTH
-                    ? (isDragging ? "grabbing" : "grab")
-                    : undefined,
+                  : activeTool === "watercan"
+                    ? "none"
+                    : typeof window !== "undefined" && window.innerWidth / scale < VIRTUAL_WIDTH
+                      ? (isDragging ? "grabbing" : "grab")
+                      : undefined,
             }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -581,6 +633,11 @@ export default function GardenPage() {
                       transform: `translate(-50%, -50%) scale(${growthScale})`,
                       opacity: growthOpacity,
                       zIndex: 10,
+                      cursor: activeTool === "watercan"
+                        ? "none"
+                        : activeTool === "shovel" ? "url(/shovel-cursor.png) 8 24, crosshair"
+                          : activeTool === "seeds" ? "crosshair"
+                            : "pointer"
                     };
 
                 return (
@@ -592,19 +649,15 @@ export default function GardenPage() {
                     onMouseLeave={() => setHoveredFlower(null)}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleFlowerClick(flower);
+                      if (activeTool === "watercan") {
+                        if (canWater(flower.id)) {
+                          handleWater(flower.id, e);
+                        }
+                      } else if (!activeTool) {
+                        handleFlowerClick(flower);
+                      }
                     }}
                   >
-                    {/* Water button */}
-                    {isHovered && !isMaxed && canWater(flower.id) && (
-                      <button
-                        className="garden-water-btn absolute -top-10 left-1/2 -translate-x-1/2 z-50 bg-blue-400/90 hover:bg-blue-500 text-white rounded-full w-9 h-9 flex items-center justify-center shadow-lg backdrop-blur-sm border-2 border-white/40"
-                        onClick={(e) => handleWater(flower.id, e)}
-                        title={t('garden.waterTooltip')}
-                      >
-                        💧
-                      </button>
-                    )}
 
                     {/* Max bloom sparkle */}
                     {isHovered && isMaxed && (

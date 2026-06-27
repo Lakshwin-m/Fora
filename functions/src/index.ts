@@ -10,7 +10,8 @@ const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
 
 import { runPipeline } from "./moderation/pipeline";
 import { sanitize, detectInjections, Fields } from "./moderation/sanitize";
-import { CreateCapsuleSchema, PlantFlowerSchema, SendFriendRequestSchema, SearchUsersSchema } from "./moderation/schemas";
+import { CreateCapsuleSchema, PlantFlowerSchema, SendFriendRequestSchema, SearchUsersSchema, OnboardingSchema } from "./moderation/schemas";
+import { logValidationFailure } from "./moderation/validationLogger";
 import cors from "cors";
 import { Resend } from "resend";
 import { ReceiptEmail } from "./emails/ReceiptTemplate";
@@ -1382,6 +1383,93 @@ export const plantFlower = onRequest(
     } catch (err) {
       console.error("[plantFlower ERROR]", err);
       res.status(500).json({ error: "Failed to plant flower" });
+    }
+  });
+});
+
+/* ============================================================
+   ONBOARDING — SERVER-SIDE VALIDATED PROFILE SAVE
+   ============================================================ */
+
+/**
+ * Save onboarding profile data with server-side validation.
+ * Replaces direct Firestore writes from the client.
+ *
+ * Pipeline: Auth → Zod schema → Sanitize → Injection detection → Firestore
+ * Returns a generic error message on any validation failure.
+ */
+export const saveOnboarding = onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    try {
+      const user = await verifyAuth(req);
+
+      // ── Step 1: Zod schema validation ──
+      const parsed = OnboardingSchema.safeParse(req.body);
+      if (!parsed.success) {
+        logValidationFailure("saveOnboarding", req, user.uid, "schema");
+        console.warn(`[saveOnboarding] Schema validation failed for uid=${user.uid}`);
+        res.status(400).json({
+          error: "Invalid input. Please check your details and try again.",
+        });
+        return;
+      }
+      const body = parsed.data;
+
+      // ── Step 2: Sanitize text fields ──
+      let cleanName: string;
+      let cleanUsername: string;
+      let cleanBio: string;
+
+      try {
+        cleanName = sanitize(body.name, Fields.profileName).clean;
+        cleanUsername = sanitize(body.username, Fields.profileUsername).clean;
+        cleanBio = body.bio ? sanitize(body.bio, Fields.profileBio).clean : "";
+      } catch (err: any) {
+        logValidationFailure("saveOnboarding", req, user.uid, "sanitization");
+        console.warn(`[saveOnboarding] Sanitization failed for uid=${user.uid}`);
+        res.status(400).json({
+          error: "Invalid input. Please check your details and try again.",
+        });
+        return;
+      }
+
+      // ── Step 3: Injection detection ──
+      const allText = [cleanName, cleanUsername, cleanBio].join(" ");
+      const injection = detectInjections(allText);
+
+      if (!injection.clean) {
+        logValidationFailure("saveOnboarding", req, user.uid, "injection");
+        console.warn(`[saveOnboarding] Injection detected for uid=${user.uid}, patterns=${injection.patterns.join(",")}`);
+        res.status(400).json({
+          error: "Invalid input. Please check your details and try again.",
+        });
+        return;
+      }
+
+      // ── Step 4: Write to Firestore ──
+      const userRef = db.collection("users").doc(user.uid);
+
+      await userRef.set({
+        uid: user.uid,
+        email: user.email || "",
+        name: cleanName,
+        username: cleanUsername,
+        bio: cleanBio,
+        dateOfBirth: body.dateOfBirth || null,
+        photoURL: body.photoURL || "",
+        privacyLevel: body.privacyLevel || "private",
+        onboardingCompleted: true,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error("saveOnboarding error:", e.message);
+      if (e.message === "Missing token" || e.code?.startsWith?.("auth/")) {
+        res.status(401).json({ error: "Unauthorized" });
+      } else {
+        res.status(500).json({ error: "An error occurred. Please try again." });
+      }
     }
   });
 });
