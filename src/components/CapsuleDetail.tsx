@@ -1,5 +1,5 @@
 // src/components/CapsuleDetail.tsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useCapsules } from "@/contexts/CapsuleContext";
 import { getAuth } from "firebase/auth";
@@ -30,6 +30,75 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
 import { parseFirebaseDate, formatFirebaseDate } from "@/lib/date";
 
+const PremiumAudioPlayer = ({ src }: { src: string }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState("0:00");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => {
+      const mins = Math.floor(audio.currentTime / 60);
+      const secs = Math.floor(audio.currentTime % 60).toString().padStart(2, "0");
+      setCurrentTime(`${mins}:${secs}`);
+    };
+
+    const handleEnded = () => setIsPlaying(false);
+
+    audio.addEventListener("timeupdate", updateTime);
+    audio.addEventListener("ended", handleEnded);
+    return () => {
+      audio.removeEventListener("timeupdate", updateTime);
+      audio.removeEventListener("ended", handleEnded);
+    };
+  }, []);
+
+  return (
+    <div className="bg-[#1A1A1A] text-white px-4 py-3 rounded-full flex items-center gap-3 w-full border border-white/10 shadow-lg select-none pointer-events-auto">
+      <audio ref={audioRef} src={src} preload="metadata" />
+      <button onClick={togglePlay} className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors">
+        {isPlaying ? (
+          <span className="text-white text-[10px]">⏸</span>
+        ) : (
+          <span className="text-white text-xs pl-0.5">▶</span>
+        )}
+      </button>
+      
+      {/* Waveform Visualizer */}
+      <div className="flex-1 flex items-center justify-center gap-[3px] h-6 px-2">
+        {[40, 60, 30, 70, 50, 80, 40, 60, 30, 70, 50, 80, 40, 60, 30, 70, 50].map((h, i) => (
+          <div 
+            key={i} 
+            className={`w-[2px] bg-white/30 rounded-full transition-all duration-300 ${isPlaying ? "animate-pulse" : ""}`}
+            style={{ 
+              height: `${h}%`,
+              animationDelay: `${i * 0.05}s`
+            }} 
+          />
+        ))}
+      </div>
+
+      <span className="text-xs font-mono text-white/70 min-w-[28px] text-right">
+        {currentTime}
+      </span>
+    </div>
+  );
+};
+
 interface TimeRemaining {
   years: number;
   months: number;
@@ -40,7 +109,7 @@ interface TimeRemaining {
   totalMs: number;
 }
 
-interface CapsuleDetailProps {}
+interface CapsuleDetailProps { }
 
 const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   const { id } = useParams<{ id: string }>();
@@ -65,9 +134,9 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
 
   // 🔐 DECRYPT CAPSULE CONTENT
   const { decryptCapsule } = useCapsuleDecryption();
-  const [decryptedTitle,   setDecryptedTitle]   = useState<string>("");
+  const [decryptedTitle, setDecryptedTitle] = useState<string>("");
   const [decryptedContent, setDecryptedContent] = useState<string>("");
-  const [isDecrypting,     setIsDecrypting]     = useState(false);
+  const [isDecrypting, setIsDecrypting] = useState(false);
 
   // Run decryption whenever the capsule changes
   useEffect(() => {
@@ -104,7 +173,7 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   };
 
   const content = decryptedContent ? decodeHTML(decryptedContent) : "";
-  const title   = decryptedTitle   ? decodeHTML(decryptedTitle)   : "";
+  const title = decryptedTitle ? decodeHTML(decryptedTitle) : "";
 
   const auth = getAuth();
 
@@ -261,7 +330,7 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
         {isUnlocked && (
           <AnimatePresence mode="wait">
             {interactionStep === 0 && (
-              <motion.div 
+              <motion.div
                 key="closed"
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -291,7 +360,7 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
             )}
 
             {interactionStep === 1 && (
-              <motion.div 
+              <motion.div
                 key="open"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -302,12 +371,12 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
               >
                 <img src="/open_envelope-eMfrWOgA.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Open Envelope" />
                 <div className="absolute top-[32%] left-[22%] right-[22%] h-[35%] flex flex-col items-center justify-start z-10 text-center text-[#1A1A1A] overflow-hidden pt-2">
-                   <h3 className="font-bold text-[15px] leading-tight w-full font-serif mb-1 line-clamp-2 text-[#5D2A42]">
-                     {title || "Untitled Capsule"}
-                   </h3>
-                    <div className="text-[11px] text-[#1A1A1A]/80 line-clamp-3 leading-snug w-full px-1">
-                      {content ? (() => { const tmp = document.createElement("div"); tmp.innerHTML = content; return tmp.textContent || tmp.innerText || "..."; })() : "..."}
-                    </div>
+                  <h3 className="font-bold text-[15px] leading-tight w-full font-serif mb-1 line-clamp-2 text-[#5D2A42]">
+                    {title || "Untitled Capsule"}
+                  </h3>
+                  <div className="text-[11px] text-[#1A1A1A]/80 line-clamp-3 leading-snug w-full px-1">
+                    {content ? (() => { const tmp = document.createElement("div"); tmp.innerHTML = content; return tmp.textContent || tmp.innerText || "..."; })() : "..."}
+                  </div>
                 </div>
                 <div className="absolute bottom-[-50px] left-0 right-0 text-center text-[#5D2A42]/60 animate-pulse text-sm font-medium">
                   Click to pull out letter
@@ -316,125 +385,295 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
             )}
 
             {interactionStep === 2 && (
-              <motion.div 
+              <motion.div
                 key="letter"
                 initial={{ opacity: 0, y: 150 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: "spring", damping: 22, stiffness: 90 }}
                 className="w-full max-w-3xl mx-auto flex flex-col items-center pb-20 mt-12"
               >
-                <div className="w-full relative rounded-xl overflow-hidden shadow-2xl bg-[#EBE4D5]">
-                  <div 
-                    className="w-full relative min-h-[800px] p-8 md:p-16"
-                    style={{
-                      backgroundImage: "url('/canvas-background-BYlUkw-J.png')",
-                      backgroundSize: "cover",
-                      backgroundRepeat: "repeat-y",
-                      backgroundPosition: "top center"
-                    }}
-                  >
-                    <div className="max-w-xl mx-auto space-y-8 relative z-10 font-serif text-[#5D2A42]">
-                       <div className="text-center mb-10 pt-4">
-                         <Badge variant="outline" className="border-[#5D2A42]/30 text-[#5D2A42] bg-[#EBE4D5]/60 mb-6 px-4 py-1.5 uppercase text-xs tracking-widest backdrop-blur-sm shadow-sm">
-                           <FileText className="w-3 h-3 mr-2 inline" /> TIME CAPSULE LETTER
-                         </Badge>
-                         <h1 className="text-3xl md:text-5xl font-bold uppercase tracking-widest mb-6 text-[#5D2A42]">
-                           {title || "Untitled"}
-                         </h1>
-                         <div className="flex items-center justify-center space-x-6 text-sm text-[#5D2A42]/80">
-                           <div className="flex items-center"><Calendar className="w-4 h-4 mr-1.5" /> {formatFirebaseDate(capsule.createdAt || new Date())}</div>
-                         </div>
-                       </div>
+                {(() => {
+                  let parsedBlocks = null;
+                  let parseError = "";
+                  if (decryptedContent) {
+                    try {
+                      // Try to extract JSON array if it's accidentally wrapped in HTML (e.g., <p>[...]</p>)
+                      const match = decryptedContent.match(/\[\s*\{[\s\S]*\}\s*\]/);
+                      const jsonString = match ? match[0] : decryptedContent;
+                      // Sanitize literal newlines and carriage returns inside the JSON string before parsing
+                      const sanitized = jsonString.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+                      let parsed = JSON.parse(sanitized);
+                      while (typeof parsed === "string") {
+                        parsed = JSON.parse(parsed.replace(/\n/g, "\\n").replace(/\r/g, "\\r"));
+                      }
+                      if (Array.isArray(parsed)) parsedBlocks = parsed;
+                    } catch (e: any) {
+                      if (decryptedContent.includes('[') && decryptedContent.includes(']')) {
+                        parseError += "RawErr: " + e.message;
+                      }
+                    }
+                  }
 
-                       <hr className="border-[#5D2A42]/10 my-8 shadow-sm" />
+                  if (parsedBlocks) {
+                    return (
+                      <div className="w-full relative rounded-xl overflow-hidden shadow-2xl bg-[#EBE4D5]">
+                        <div
+                          className="w-full relative min-h-[1000px] p-8 md:p-16 flex flex-col"
+                          style={{
+                            backgroundImage: "url('/canvas-background-BYlUkw-J.png')",
+                            backgroundSize: "cover",
+                            backgroundRepeat: "repeat-y",
+                            backgroundPosition: "top center"
+                          }}
+                        >
+                          {/* Static Letter Header Elements */}
+                          <div className="max-w-xl mx-auto space-y-4 pointer-events-none select-none font-serif text-[#5D2A42] w-full mb-4">
+                            <div className="text-center mb-4 pt-2">
+                              <h1 className="text-3xl md:text-5xl font-bold uppercase tracking-widest text-[#5D2A42] m-0">
+                                {title || "Untitled"}
+                              </h1>
+                              <div className="flex items-center justify-center space-x-6 text-sm text-[#5D2A42]/80 mt-3">
+                                <div className="flex items-center">
+                                  <Calendar className="w-4 h-4 mr-1.5" />
+                                  {formatFirebaseDate(capsule.createdAt || new Date())}
+                                </div>
+                              </div>
+                            </div>
 
-                       <div className="flex justify-between items-start pt-2">
-                         <div>
-                           <span className="text-xs text-[#5D2A42]/60 block mb-1">Date Written:</span>
-                           <span className="font-semibold text-lg">{formatFirebaseDate(capsule.createdAt || new Date(), "MMMM do, yyyy")}</span>
-                         </div>
-                         <div className="text-right">
-                           <span className="text-xs text-[#5D2A42]/60 block mb-1">To:</span>
-                           <span className="font-semibold text-lg">
-                             {capsule.recipientType === "self" 
-                                ? "My Future Self" 
-                                : capsule.recipientType === "friends" 
-                                  ? (capsule.recipientNames && capsule.recipientNames.length > 0 ? capsule.recipientNames.join(', ') : "My Connections")
-                                  : capsule.recipientType === "public"
-                                    ? "The World"
-                                    : "My Future Self"}
-                           </span>
-                           <div className="text-xs text-[#5D2A42]/60 mt-1">Present Day</div>
-                         </div>
-                       </div>
+                            <div className="flex justify-between items-start pt-2">
+                              <div>
+                                <span className="text-xs text-[#5D2A42]/60 block mb-1">Date Written:</span>
+                                <span className="font-semibold text-lg">{formatFirebaseDate(capsule.createdAt || new Date(), "MMMM do, yyyy")}</span>
+                              </div>
+                              <div className="text-right">
+                                <span className="text-xs text-[#5D2A42]/60 block mb-1">To:</span>
+                                <span className="font-semibold text-lg">
+                                  {capsule.recipientType === "self"
+                                    ? "My Future Self"
+                                    : capsule.recipientType === "friends"
+                                      ? (capsule.recipientNames && capsule.recipientNames.length > 0 ? capsule.recipientNames.join(', ') : "My Connections")
+                                      : "The World"}
+                                </span>
+                                <div className="text-xs text-[#5D2A42]/60 mt-1">Present Day</div>
+                              </div>
+                            </div>
 
-                        <div className="pt-8 pb-4 space-y-6 text-lg md:text-xl leading-[2.5rem] tracking-wide relative">
-                          <p>Dear {isReceived ? (currentUser?.displayName?.split(" ")[0] || "Friend") : "Future Me"},</p>
-                          {/<[a-z][\s\S]*>/i.test(content) ? (
-                            <div
-                              className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
-                              dangerouslySetInnerHTML={{ __html: content }}
-                            />
-                          ) : (
-                            <div className="whitespace-pre-wrap">{(content || "").split(/\n\s*\n/).filter((p: string) => p.trim()).map((para: string, i: number) => <p key={i} className="mb-4">{para}</p>)}</div>
-                          )}
-                          <p className="mt-8 text-xl">Sincerely,</p>
-                        </div>
-
-                       <div className="pt-6">
-                         <div className="bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 min-h-[140px] max-w-sm flex items-center justify-center shadow-sm">
-                           {hasSignature && signatureData ? (
-                             <img src={signatureData} className="max-h-[100px] object-contain opacity-90 mix-blend-multiply" alt="Signature" />
-                           ) : (
-                             <span className="font-signature text-xl opacity-70 italic">{capsule.creatorName || capsule.username}</span>
-                           )}
-                         </div>
-                       </div>
-
-                       <div className="pt-6">
-                         <p className="font-bold text-xl text-[#5D2A42]">{capsule.creatorName || capsule.username || "Your past self"}</p>
-                       </div>
-
-                       {hasMedia && (
-                          <div className="mt-12 mb-8 bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 shadow-sm">
-                            <div className="space-y-4">
-                              {(capsule as any).attachments.map((attachment: any) => (
-                                <MediaRenderer key={attachment.id} attachment={attachment} isUnlocked={isUnlocked} className="w-full rounded-lg" />
-                              ))}
+                            <div className="pt-2">
+                              <p className="text-lg md:text-xl leading-[2.5rem] tracking-wide m-0">
+                                Dear {isReceived ? (currentUser?.displayName?.split(" ")[0] || "Friend") : "Future Me"},
+                              </p>
                             </div>
                           </div>
-                       )}
 
-                       {(capsule.isReminder || (capsule as any).isReminderCapsule) && (
-                         <div className="mt-16 flex justify-center pb-8 border-t border-[#5D2A42]/10 pt-8">
-                           <Button 
-                             onClick={async () => {
-                               try {
-                                 await sealReminder(capsule.id);
-                                 toast({
-                                   title: "Reminder Sealed 🔒",
-                                   description: "This reminder has been locked until the next scheduled time.",
-                                 });
-                                 navigate("/dashboard");
-                               } catch (err) {
-                                 console.error("Failed to seal reminder:", err);
-                                 toast({
-                                   title: "Error",
-                                   description: "Failed to seal reminder. Please try again.",
-                                   variant: "destructive"
-                                 });
-                               }
-                             }}
-                             className="bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white px-8 py-6 rounded-full text-lg shadow-lg font-bold flex items-center gap-2 transition-transform hover:scale-105"
-                           >
-                             <Lock className="w-5 h-5" />
-                             Seal for Next Time
-                           </Button>
-                         </div>
-                       )}
+                          {/* Absolute Text Blocks */}
+                          {parsedBlocks.map((block: any) => (
+                            <div
+                              key={block.id}
+                              className="absolute p-2"
+                              style={{
+                                top: `${block.y}%`,
+                                left: `${block.x}%`,
+                                width: block.width ? `${block.width}px` : "auto",
+                                fontFamily: block.fontFamily,
+                                fontSize: `${block.fontSize}px`,
+                                color: block.color,
+                                fontWeight: block.fontWeight,
+                                textAlign: block.textAlign,
+                                whiteSpace: "pre-wrap",
+                                lineHeight: "normal",
+                              }}
+                            >
+                              {(!block.type || block.type === "text") ? (
+                                block.text
+                              ) : block.type === "image" ? (
+                                <img 
+                                  src={block.mediaUrl} 
+                                  alt={block.fileName || "Image"} 
+                                  className="w-full h-auto rounded-xl object-cover border border-[#EAEAEA] shadow-sm select-none pointer-events-none" 
+                                />
+                              ) : block.type === "video" ? (
+                                <div className="w-full h-auto rounded-xl overflow-hidden border border-[#EAEAEA] bg-black">
+                                  <video 
+                                    src={block.mediaUrl} 
+                                    controls 
+                                    className="w-full h-auto object-cover pointer-events-auto" 
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-full">
+                                  <PremiumAudioPlayer src={block.mediaUrl || ""} />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+
+                          {/* Static Sincerely & Signature Block */}
+                          <div className="max-w-xl mx-auto pt-8 pb-8 space-y-6 pointer-events-none select-none font-serif text-[#5D2A42] w-full mt-auto">
+                            <p className="text-xl">Sincerely,</p>
+                            <div className="bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 min-h-[140px] max-w-sm flex items-center justify-center shadow-sm">
+                              {hasSignature && signatureData ? (
+                                <img src={signatureData} className="max-h-[100px] object-contain opacity-90 mix-blend-multiply" alt="Signature" />
+                              ) : (
+                                <span className="font-signature text-xl opacity-70 italic">{capsule.creatorName || capsule.username}</span>
+                              )}
+                            </div>
+                            <div className="pt-6">
+                              <p className="font-bold text-xl text-[#5D2A42]">{capsule.creatorName || capsule.username || "Your past self"}</p>
+                            </div>
+                          </div>
+
+                          {/* Sincerely & Signature block ends here */}
+
+                          {(capsule.isReminder || (capsule as any).isReminderCapsule) && (
+                            <div className="mt-16 flex justify-center pb-8 border-t border-[#5D2A42]/10 pt-8">
+                              <Button
+                                onClick={async () => {
+                                  try {
+                                    await sealReminder(capsule.id);
+                                    toast({
+                                      title: "Reminder Sealed 🔒",
+                                      description: "This reminder has been locked until the next scheduled time.",
+                                    });
+                                    navigate("/dashboard");
+                                  } catch (err) {
+                                    console.error("Failed to seal reminder:", err);
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to seal reminder. Please try again.",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                                className="bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white px-8 py-6 rounded-full text-lg shadow-lg font-bold flex items-center gap-2 transition-transform hover:scale-105"
+                              >
+                                <Lock className="w-5 h-5" />
+                                Seal for Next Time
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Otherwise render the fallback text/HTML flow layout
+                  return (
+                    <div className="w-full relative rounded-xl overflow-hidden shadow-2xl bg-[#EBE4D5]">
+                      <div
+                        className="w-full relative min-h-[800px] p-8 md:p-16"
+                        style={{
+                          backgroundImage: "url('/canvas-background-BYlUkw-J.png')",
+                          backgroundSize: "cover",
+                          backgroundRepeat: "repeat-y",
+                          backgroundPosition: "top center"
+                        }}
+                      >
+                        <div className="max-w-xl mx-auto space-y-8 relative z-10 font-serif text-[#5D2A42]">
+                          <div className="text-center mb-10 pt-4">
+                            <h1 className="text-3xl md:text-5xl font-bold uppercase tracking-widest mb-6 text-[#5D2A42]">
+                              {title || "Untitled"}
+                            </h1>
+                            <div className="flex items-center justify-center space-x-6 text-sm text-[#5D2A42]/80">
+                              <div className="flex items-center"><Calendar className="w-4 h-4 mr-1.5" /> {formatFirebaseDate(capsule.createdAt || new Date())}</div>
+                            </div>
+                          </div>
+
+                          <hr className="border-[#5D2A42]/10 my-8 shadow-sm" />
+
+                          <div className="flex justify-between items-start pt-2">
+                            <div>
+                              <span className="text-xs text-[#5D2A42]/60 block mb-1">Date Written:</span>
+                              <span className="font-semibold text-lg">{formatFirebaseDate(capsule.createdAt || new Date(), "MMMM do, yyyy")}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-xs text-[#5D2A42]/60 block mb-1">To:</span>
+                              <span className="font-semibold text-lg">
+                                {capsule.recipientType === "self"
+                                  ? "My Future Self"
+                                  : capsule.recipientType === "friends"
+                                    ? (capsule.recipientNames && capsule.recipientNames.length > 0 ? capsule.recipientNames.join(', ') : "My Connections")
+                                    : capsule.recipientType === "public"
+                                      ? "The World"
+                                      : "My Future Self"}
+                              </span>
+                              <div className="text-xs text-[#5D2A42]/60 mt-1">Present Day</div>
+                            </div>
+                          </div>
+
+                          <div className="pt-8 pb-4 space-y-6 text-lg md:text-xl leading-[2.5rem] tracking-wide relative">
+                            <p>Dear {isReceived ? (currentUser?.displayName?.split(" ")[0] || "Friend") : "Future Me"},</p>
+                            {parseError && (
+                              <div className="p-3 my-2 text-xs bg-red-50 text-red-600 rounded-lg border border-red-200 font-mono break-all">
+                                <strong>JSON Parse Failure:</strong> {parseError}
+                              </div>
+                            )}
+                            {/<[a-z][\s\S]*>/i.test(content) ? (
+                              <div
+                                className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide whitespace-pre-wrap prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
+                                dangerouslySetInnerHTML={{ __html: content }}
+                              />
+                            ) : (
+                              <div className="whitespace-pre-wrap">{(content || "").split(/\n\s*\n/).filter((p: string) => p.trim()).map((para: string, i: number) => <p key={i} className="mb-4">{para}</p>)}</div>
+                            )}
+                            <p className="mt-8 text-xl">Sincerely,</p>
+                          </div>
+
+                          <div className="pt-6">
+                            <div className="bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 min-h-[140px] max-w-sm flex items-center justify-center shadow-sm">
+                              {hasSignature && signatureData ? (
+                                <img src={signatureData} className="max-h-[100px] object-contain opacity-90 mix-blend-multiply" alt="Signature" />
+                              ) : (
+                                <span className="font-signature text-xl opacity-70 italic">{capsule.creatorName || capsule.username}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="pt-6">
+                            <p className="font-bold text-xl text-[#5D2A42]">{capsule.creatorName || capsule.username || "Your past self"}</p>
+                          </div>
+
+                          {hasMedia && (
+                            <div className="mt-12 mb-8 bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 shadow-sm">
+                              <div className="space-y-4">
+                                {(capsule as any).attachments.map((attachment: any) => (
+                                  <MediaRenderer key={attachment.id} attachment={attachment} isUnlocked={isUnlocked} className="w-full rounded-lg" />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {(capsule.isReminder || (capsule as any).isReminderCapsule) && (
+                            <div className="mt-16 flex justify-center pb-8 border-t border-[#5D2A42]/10 pt-8">
+                              <Button
+                                onClick={async () => {
+                                  try {
+                                    await sealReminder(capsule.id);
+                                    toast({
+                                      title: "Reminder Sealed 🔒",
+                                      description: "This reminder has been locked until the next scheduled time.",
+                                    });
+                                    navigate("/dashboard");
+                                  } catch (err) {
+                                    console.error("Failed to seal reminder:", err);
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to seal reminder. Please try again.",
+                                      variant: "destructive"
+                                    });
+                                  }
+                                }}
+                                className="bg-[#5D2A42] hover:bg-[#5D2A42]/90 text-white px-8 py-6 rounded-full text-lg shadow-lg font-bold flex items-center gap-2 transition-transform hover:scale-105"
+                              >
+                                <Lock className="w-5 h-5" />
+                                Seal for Next Time
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </motion.div>
             )}
           </AnimatePresence>

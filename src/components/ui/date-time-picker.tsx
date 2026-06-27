@@ -56,17 +56,20 @@ function InfiniteScrollColumn({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const isMounted = React.useRef(false);
+
   React.useLayoutEffect(() => {
     if (containerRef.current && !isScrollingRef.current) {
       const currentIdx = Math.round(containerRef.current.scrollTop / 48);
       if (currentIdx !== selectedIndex) {
         containerRef.current.scrollTo({ 
           top: selectedIndex * 48, 
-          behavior: Math.abs(currentIdx - selectedIndex) > 10 ? 'auto' : 'smooth' 
+          behavior: !isMounted.current || Math.abs(currentIdx - selectedIndex) > 10 ? 'auto' : 'smooth' 
         });
       }
     }
     updateHighlight(selectedIndex);
+    isMounted.current = true;
   }, [selectedIndex, updateHighlight]);
 
   const totalItems = items.length * repeat;
@@ -185,11 +188,13 @@ export function DateTimePicker({
       return { hr12, minute: m || "00", ampm };
     } else {
       let hh = now.getHours();
+      let mm = now.getMinutes();
       const ampm = hh >= 12 ? "PM" : "AM";
       const hr12 = (hh % 12 || 12).toString().padStart(2, "0");
+      const minStr = mm.toString().padStart(2, "0");
       return {
         hr12,
-        minute: "00",
+        minute: minStr,
         ampm
       };
     }

@@ -445,7 +445,7 @@ export const CapsuleMultistepForm = ({
       </div>
 
       {/* Form Card */}
-      <Card className="border border-[#EAEAEA] shadow-sm bg-white rounded-[2rem] overflow-hidden relative min-h-[500px]">
+      <div className="relative min-h-[500px]">
         <div className="flex flex-col h-full relative">
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
@@ -459,24 +459,12 @@ export const CapsuleMultistepForm = ({
             >
               {/* Step 2: Basic Information & Memories */}
               {currentStep === 2 && (
-                <div className="p-10 md:p-14 h-full flex flex-col gap-10">
+                <div className="p-4 md:p-6 h-full flex flex-col gap-6">
                   <div>
                     <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.msgTitleHeading')}</h2>
                     <p className="text-[#666] text-base font-medium">{t('create.msgTitleSub')}</p>
                   </div>
-                  <div className="flex-1 flex flex-col gap-8">
-                    <div className="flex flex-col gap-3">
-                      <Label htmlFor="title" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                        {t('create.capsuleTitleLabel')}
-                      </Label>
-                      <Input
-                        id="title"
-                        placeholder={t('create.capsuleTitlePlaceholder')}
-                        value={title}
-                        onChange={(e) => onTitleChange(e.target.value)}
-                        className="h-12 border-[#E8E8E8] bg-white text-[#1A1A1A] placeholder:text-[#999] text-base rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#FB6376] transition-all shadow-sm"
-                      />
-                    </div>
+                  <div className="flex-1 flex flex-col gap-6">
                     <div className="flex-1 flex flex-col gap-3">
                       <div className="flex justify-between items-end">
                         <Label htmlFor="content" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
@@ -487,44 +475,25 @@ export const CapsuleMultistepForm = ({
                       <CanvasTextEditor
                         value={content}
                         onChange={onContentChange}
+                        title={title}
+                        onTitleChange={onTitleChange}
+                        recipientType={recipientType}
+                        recipientNames={selectedFriends.map(id => friends.find(f => f.id === id)?.name || "Friend")}
+                        creatorName={username}
+                        onAddPhoto={() => imageInputRef.current?.click()}
+                        onAddVideo={() => videoInputRef.current?.click()}
+                        onAddAudio={() => audioInputRef.current?.click()}
                       />
                     </div>
 
-                    {/* Attachments Section */}
-                    <div className="flex flex-col gap-4 mt-4 border-t border-[#E8E8E8] pt-8">
-                      <div className="flex items-center justify-between">
+                    {/* Attachments Section (Visual Grid) */}
+                    {attachments.length > 0 && (
+                      <div className="flex flex-col gap-4 mt-4 border-t border-[#E8E8E8] pt-6">
                         <div>
                           <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
                             {t('create.memoriesHeading') || "Memories"}
                           </Label>
-                          <p className="text-[#999] text-xs font-medium mt-1">Add photos, videos, and voice notes</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => imageInputRef.current?.click()}
-                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-[#1A1A1A] border border-[#E8E8E8] hover:bg-[#F8F8F8] hover:border-[#D1D1D1] transition-all"
-                            title={t('create.addPhoto')}
-                          >
-                            📷
-                          </button>
-                          <button
-                            onClick={() => videoInputRef.current?.click()}
-                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-[#1A1A1A] border border-[#E8E8E8] hover:bg-[#F8F8F8] hover:border-[#D1D1D1] transition-all"
-                            title={t('create.addVideo')}
-                          >
-                            🎥
-                          </button>
-                          <button
-                            onClick={() => audioInputRef.current?.click()}
-                            className="w-10 h-10 flex items-center justify-center bg-white rounded-full text-[#1A1A1A] border border-[#E8E8E8] hover:bg-[#F8F8F8] hover:border-[#D1D1D1] transition-all"
-                            title={t('create.addAudio')}
-                          >
-                            🎤
-                          </button>
-                        </div>
-                      </div>
-
-                      {attachments.length > 0 && (
                         <div className="columns-1 sm:columns-2 gap-4 space-y-4 mt-4">
                           {attachments.map((attachment) => {
                             const url = URL.createObjectURL(attachment.file);
@@ -556,14 +525,14 @@ export const CapsuleMultistepForm = ({
                             );
                           })}
                         </div>
-                      )}
+                      </div>
+                    )}
                     </div>
                     {/* Hidden inputs */}
                     <input type="file" ref={imageInputRef} onChange={(e) => onFileSelect("image", e)} accept="image/*" multiple className="hidden" />
                     <input type="file" ref={videoInputRef} onChange={(e) => onFileSelect("video", e)} accept="video/*" multiple className="hidden" />
                     <input type="file" ref={audioInputRef} onChange={(e) => onFileSelect("audio", e)} accept="audio/*" multiple className="hidden" />
                   </div>
-                </div>
               )}
 
               {/* Step 0: Trigger Configuration */}
@@ -1071,14 +1040,18 @@ export const CapsuleMultistepForm = ({
                                   : recipientType === "friends"
                                     ? selectedFriends.map(id => friends.find(f => f.id === id)?.name || "Friend").join(", ") + ","
                                     : t('create.letterPreviewDearWorld')}</p>
-                                <div className="min-h-[400px] relative w-full mt-4 border border-[#5D2A42]/10 rounded-xl bg-white/20">
+                                <div className="min-h-[400px] relative w-full mt-4">
                                   {(() => {
                                     if (!content) return <p className="p-4"><em>{t('create.letterPreviewPlaceholder')}</em></p>;
                                     try {
                                       // Try to extract JSON array if it's accidentally wrapped in HTML
                                       const match = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
                                       const jsonString = match ? match[0] : content;
-                                      const blocks = JSON.parse(jsonString);
+                                      const sanitized = jsonString.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+                                      let blocks = JSON.parse(sanitized);
+                                      while (typeof blocks === "string") {
+                                        blocks = JSON.parse(blocks.replace(/\n/g, "\\n").replace(/\r/g, "\\r"));
+                                      }
                                       if (Array.isArray(blocks)) {
                                         return blocks.map(block => (
                                           <div
@@ -1194,7 +1167,7 @@ export const CapsuleMultistepForm = ({
           </AnimatePresence>
 
           {/* Footer Navigation */}
-          <div className="p-8 border-t border-[#EAEAEA] bg-white flex justify-between items-center z-10">
+          <div className="p-8 border border-[#EAEAEA] bg-white flex justify-between items-center z-10 rounded-2xl shadow-sm mt-6">
             <Button
               type="button"
               variant="outline"
@@ -1221,7 +1194,7 @@ export const CapsuleMultistepForm = ({
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

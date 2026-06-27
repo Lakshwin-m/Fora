@@ -120,7 +120,23 @@ const CapsuleDetailPage = () => {
     return () => { mounted = false; };
   }, [capsule?.originalCapsule, decryptCapsule]);
 
-  const originalDecryptedContent = rawOriginalContent ? decodeHTML(rawOriginalContent) : "";
+  const getPlainTextPreview = (contentStr: string) => {
+    if (!contentStr) return "";
+    try {
+      const match = contentStr.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      const jsonString = match ? match[0] : contentStr;
+      const sanitized = jsonString.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+      const parsed = JSON.parse(sanitized);
+      if (Array.isArray(parsed)) {
+        return parsed.map((block: any) => block.text || "").join(" ");
+      }
+    } catch (e) {
+      // fallback for html or plaintext
+    }
+    return contentStr.replace(/<[^>]*>?/gm, '');
+  };
+
+  const originalDecryptedContent = rawOriginalContent ? getPlainTextPreview(rawOriginalContent) : "";
 
   useEffect(() => {
     const loadCapsule = async () => {
@@ -381,61 +397,86 @@ const CapsuleDetailPage = () => {
                      <div className="pt-8 pb-4 space-y-6 text-lg md:text-xl leading-[2.5rem] tracking-wide">
                        {(() => {
                          let parsedBlocks = null;
+                         let parseError = "";
                          if (rawDecryptedContent) {
                            try {
                              // Try to extract JSON array if it's accidentally wrapped in HTML (e.g., <p>[...]</p>)
                              const match = rawDecryptedContent.match(/\[\s*\{[\s\S]*\}\s*\]/);
                              const jsonString = match ? match[0] : rawDecryptedContent;
-                             const parsed = JSON.parse(jsonString);
+                             // Sanitize literal newlines and carriage returns inside the JSON string before parsing
+                             const sanitized = jsonString.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+                             let parsed = JSON.parse(sanitized);
+                             while (typeof parsed === "string") {
+                               parsed = JSON.parse(parsed.replace(/\n/g, "\\n").replace(/\r/g, "\\r"));
+                             }
                              if (Array.isArray(parsed)) parsedBlocks = parsed;
-                           } catch (e) {
+                           } catch (e: any) {
+                             if (rawDecryptedContent.includes('[') && rawDecryptedContent.includes(']')) {
+                               parseError += "RawErr: " + e.message;
+                             }
                              try {
                                const match2 = decryptedContent.match(/\[\s*\{[\s\S]*\}\s*\]/);
                                const jsonString2 = match2 ? match2[0] : decryptedContent;
-                               const parsed2 = JSON.parse(jsonString2);
+                               const sanitized2 = jsonString2.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+                               let parsed2 = JSON.parse(sanitized2);
+                               while (typeof parsed2 === "string") {
+                                 parsed2 = JSON.parse(parsed2.replace(/\n/g, "\\n").replace(/\r/g, "\\r"));
+                               }
                                if (Array.isArray(parsed2)) parsedBlocks = parsed2;
-                             } catch (e2) {}
+                             } catch (e2: any) {
+                               if (decryptedContent.includes('[') && decryptedContent.includes(']')) {
+                                 parseError += " | DecryptedErr: " + e2.message;
+                               }
+                             }
                            }
                          }
 
                          if (parsedBlocks) {
                            return (
-                             <div className="w-full relative min-h-[600px] border border-[#E8E8E8] rounded-xl overflow-hidden shadow-inner bg-[#EBE4D5]"
-                                  style={{
-                                    backgroundImage: "url('/canvas-background-BYlUkw-J.png')",
-                                    backgroundSize: "cover",
-                                    backgroundRepeat: "repeat-y",
-                                    backgroundPosition: "top center"
-                                  }}>
-                               {parsedBlocks.map((block: any) => (
-                                 <div
-                                   key={block.id}
-                                   className="absolute p-2"
-                                   style={{
-                                     top: `${block.y}%`,
-                                     left: `${block.x}%`,
-                                     fontFamily: block.fontFamily,
-                                     fontSize: `${block.fontSize}px`,
-                                     color: block.color,
-                                     fontWeight: block.fontWeight,
-                                     textAlign: block.textAlign,
-                                     width: "auto",
-                                     whiteSpace: "pre-wrap",
-                                     lineHeight: "normal",
-                                   }}
-                                 >
-                                   {block.text}
-                                 </div>
-                               ))}
-                             </div>
+                             <>
+                               <p className="mb-4">{capsule.recipientType === "self" ? t('capsuleDetail.dearFutureMe') : t('capsuleDetail.dearFriend')}</p>
+                               <div className="w-full relative min-h-[600px] border border-[#E8E8E8] rounded-xl overflow-hidden shadow-inner bg-[#EBE4D5]"
+                                    style={{
+                                      backgroundImage: "url('/canvas-background-BYlUkw-J.png')",
+                                      backgroundSize: "cover",
+                                      backgroundRepeat: "repeat-y",
+                                      backgroundPosition: "top center"
+                                    }}>
+                                 {parsedBlocks.map((block: any) => (
+                                   <div
+                                     key={block.id}
+                                     className="absolute p-2"
+                                     style={{
+                                       top: `${block.y}%`,
+                                       left: `${block.x}%`,
+                                       fontFamily: block.fontFamily,
+                                       fontSize: `${block.fontSize}px`,
+                                       color: block.color,
+                                       fontWeight: block.fontWeight,
+                                       textAlign: block.textAlign,
+                                       width: "auto",
+                                       whiteSpace: "pre-wrap",
+                                       lineHeight: "normal",
+                                     }}
+                                   >
+                                     {block.text}
+                                   </div>
+                                 ))}
+                               </div>
+                             </>
                            );
                          }
 
                          return (
                            <>
                              <p>{capsule.recipientType === "self" ? t('capsuleDetail.dearFutureMe') : t('capsuleDetail.dearFriend')}</p>
+                             {parseError && (
+                               <div className="p-3 my-2 text-xs bg-red-50 text-red-600 rounded-lg border border-red-200 font-mono break-all">
+                                 <strong>JSON Parse Failure:</strong> {parseError}
+                               </div>
+                             )}
                              <div
-                               className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
+                               className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide whitespace-pre-wrap prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
                                dangerouslySetInnerHTML={{ __html: decryptedContent || "" }}
                              />
                              <p className="mt-8 text-xl">{t('capsuleDetail.sincerely')}</p>

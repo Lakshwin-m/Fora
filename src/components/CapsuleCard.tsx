@@ -41,6 +41,22 @@ interface CapsuleCardProps {
   onDelete?: (id: string) => void;
 }
 
+const getPlainTextPreview = (contentStr: string) => {
+  if (!contentStr) return "";
+  try {
+    const match = contentStr.match(/\[\s*\{[\s\S]*\}\s*\]/);
+    const jsonString = match ? match[0] : contentStr;
+    const sanitized = jsonString.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+    const parsed = JSON.parse(sanitized);
+    if (Array.isArray(parsed)) {
+      return parsed.map((block: any) => block.text || "").join(" ");
+    }
+  } catch (e) {
+    // fallback for html or plaintext
+  }
+  return contentStr.replace(/<[^>]*>?/gm, '');
+};
+
 const CapsuleCard = ({ 
   capsule,
   onView,
@@ -157,7 +173,7 @@ const CapsuleCard = ({
         </div>
       ) : (
         <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
-          {isLocked ? '🔒 Content will be revealed when unlocked' : (content || 'No content')}
+          {isLocked ? '🔒 Content will be revealed when unlocked' : (getPlainTextPreview(content) || 'No content')}
         </p>
       )}
 

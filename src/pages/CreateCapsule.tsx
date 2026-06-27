@@ -197,18 +197,77 @@ const CreateCapsule = () => {
   ) => {
     const files = event.target.files;
     if (!files) return;
-    setAttachments((prev) => [
-      ...prev,
-      ...Array.from(files).map((file) => ({
-        id: `${type}-${crypto.randomUUID()}`,
-        file, type, name: file.name, size: file.size,
-      })),
-    ]);
+
+    const newAttachments: any[] = [];
+    const newBlocks: any[] = [];
+
+    let currentBlocks: any[] = [];
+    try {
+      if (content) {
+        const sanitized = content.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+        let parsed = JSON.parse(sanitized);
+        while (typeof parsed === "string") {
+          parsed = JSON.parse(parsed.replace(/\n/g, "\\n").replace(/\r/g, "\\r"));
+        }
+        if (Array.isArray(parsed)) currentBlocks = parsed;
+      }
+    } catch (e) {}
+
+    Array.from(files).forEach((file) => {
+      const blockId = crypto.randomUUID();
+      newAttachments.push({
+        id: blockId,
+        file,
+        type,
+        name: file.name,
+        size: file.size,
+      });
+
+      newBlocks.push({
+        id: blockId,
+        type,
+        mediaUrl: URL.createObjectURL(file),
+        fileName: file.name,
+        x: 10,
+        y: 35,
+        width: type === "audio" ? 300 : 400,
+      });
+    });
+
+    setAttachments((prev) => [...prev, ...newAttachments]);
+    setContent(JSON.stringify([...currentBlocks, ...newBlocks]));
     event.target.value = "";
   };
 
-  const removeAttachment = (id: string) =>
+  useEffect(() => {
+    if (!content) return;
+    try {
+      const sanitized = content.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+      let parsed = JSON.parse(sanitized);
+      while (typeof parsed === "string") {
+        parsed = JSON.parse(parsed.replace(/\n/g, "\\n").replace(/\r/g, "\\r"));
+      }
+      if (Array.isArray(parsed)) {
+        const activeIds = new Set(parsed.map((b: any) => b.id));
+        setAttachments((prev) => prev.filter((att) => activeIds.has(att.id)));
+      }
+    } catch (e) {}
+  }, [content]);
+
+  const removeAttachment = (id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
+    try {
+      const sanitized = content.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+      let parsed = JSON.parse(sanitized);
+      while (typeof parsed === "string") {
+        parsed = JSON.parse(parsed.replace(/\n/g, "\\n").replace(/\r/g, "\\r"));
+      }
+      if (Array.isArray(parsed)) {
+        const remainingBlocks = parsed.filter((b: any) => b.id !== id);
+        setContent(JSON.stringify(remainingBlocks));
+      }
+    } catch (e) {}
+  };
 
   const uploadAttachment = async (capsuleId: string, attachment: LocalAttachment) => {
     const storagePath = `capsules/${capsuleId}/${attachment.id}`;
@@ -364,16 +423,52 @@ const CreateCapsule = () => {
         // ── 3. Generate one fresh AES-256-GCM content key for this capsule ──
         const contentKey = await generateContentKey();
 
-        // ── 4. Encrypt title and content ──
-        const encryptedTitle   = await encryptText(capturedTitle,   contentKey);
-        const encryptedContent = await encryptText(capturedContent, contentKey);
-
-        // ── 5. RSA-wrap content key for every recipient ──
-        const encryptedKeys = await wrapContentKeyForRecipients(contentKey, publicKeys);
-
-        // ── 6. Upload attachments (plain — file encryption is a follow-up) ──
+        // ── 4. Upload attachments (plain) ──
         const uploadedAttachments =
           capturedAttachments.length > 0 ? await uploadAllAttachments(capsuleId) : [];
+
+        // Update local mediaUrl in blocks to public downloadURLs
+        let finalContentString = capturedContent;
+        try {
+          const sanitized = capturedContent.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+          let parsed = JSON.parse(sanitized);
+          while (typeof parsed === "string") {
+            parsed = JSON.parse(parsed.replace(/\n/g, "\\n").replace(/\r/g, "\\r"));
+          }
+          if (Array.isArray(parsed)) {
+            const mapped = parsed.map((block: any) => {
+              if (block.mediaUrl && (block.type === "image" || block.type === "video" || block.type === "audio")) {
+                const match = uploadedAttachments.find(att => att.id === block.id);
+                if (match) {
+                  return { ...block, mediaUrl: match.url };
+                }
+              }
+              return block;
+            });
+            finalContentString = JSON.stringify(mapped);
+          }
+        } catch (e) {
+          console.error("Failed to map uploaded attachment URLs in content blocks:", e);
+        }
+
+        // ── 5. Encrypt title and content ──
+        let plainTextMessage = finalContentString;
+        try {
+          const sanitized = finalContentString.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+          let parsed = JSON.parse(sanitized);
+          while (typeof parsed === "string") {
+            parsed = JSON.parse(parsed.replace(/\n/g, "\\n").replace(/\r/g, "\\r"));
+          }
+          if (Array.isArray(parsed)) {
+            plainTextMessage = parsed.map((b: any) => b.text || "").join("\n");
+          }
+        } catch (e) {}
+
+        const encryptedTitle   = await encryptText(capturedTitle,   contentKey);
+        const encryptedContent = await encryptText(finalContentString, contentKey);
+
+        // ── 6. RSA-wrap content key for every recipient ──
+        const encryptedKeys = await wrapContentKeyForRecipients(contentKey, publicKeys);
 
         let signatureUrl: string | null = null;
         if (capturedSignature) {
@@ -404,7 +499,7 @@ const CreateCapsule = () => {
             id: capsuleId,
             // Moderation only — plaintext, never stored server-side
             plaintextTitle:   capturedTitle.replace(/<[^>]*>/g, "").trim().slice(0, 200),
-            plaintextPreview: capturedContent.replace(/<[^>]*>/g, "").trim().slice(0, 1000),
+            plaintextPreview: plainTextMessage.replace(/<[^>]*>/g, "").trim().slice(0, 1000),
             // v2 encrypted fields
             encryptedTitle:   encryptedTitle.ciphertext,
             titleIV:          encryptedTitle.iv,
