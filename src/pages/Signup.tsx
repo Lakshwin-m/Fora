@@ -8,7 +8,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { IconCheck, IconX, IconAlertCircle } from "@tabler/icons-react";
 import { useTranslation } from "@/contexts/LanguageContext";
 
@@ -85,14 +85,25 @@ export function SignUpLoginForm() {
         const cred = await signInWithEmailAndPassword(auth, email, password);
         const userRef = doc(db, "users", cred.user.uid);
         const snap = await getDoc(userRef);
-        
+
         if (!snap.exists() || !snap.data().onboardingCompleted) {
           navigate("/onboarding");
         } else {
           navigate("/dashboard");
         }
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        const user = cred.user;
+        await setDoc(
+          doc(db, "users", user.uid),
+          {
+            uid: user.uid,
+            email: user.email || "",
+            username: "",
+            onboardingCompleted: false,
+          },
+          { merge: true }
+        );
         navigate("/onboarding");
       }
     } catch (error: any) {
@@ -145,6 +156,19 @@ export function SignUpLoginForm() {
 
       const userRef = doc(db, "users", user.uid);
       const snap = await getDoc(userRef);
+
+      if (!snap.exists()) {
+        await setDoc(
+          userRef,
+          {
+            uid: user.uid,
+            email: user.email || "",
+            username: "",
+            onboardingCompleted: false,
+          },
+          { merge: true }
+        );
+      }
 
       if (!snap.exists() || !snap.data().onboardingCompleted) {
         navigate("/onboarding");

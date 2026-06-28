@@ -1399,6 +1399,16 @@ export const plantFlower = onRequest(
  * Returns a generic error message on any validation failure.
  */
 export const saveOnboarding = onRequest((req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:8080");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Max-Age", "3600");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
   corsHandler(req, res, async () => {
     try {
       const user = await verifyAuth(req);

@@ -469,6 +469,7 @@ const EmptyState = ({ type }: { type: "sent" | "received" }) => {
 
 const Dashboard = () => {
   const { plan, loading: planLoading } = usePlan();
+  const planName = plan?.tier ? plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1) : "Free";
   const tier = plan?.tier || "free";
   const navigate = useNavigate();
   const { capsules, receivedCapsules, loading, serverNow } = useCapsules();
@@ -629,13 +630,13 @@ const Dashboard = () => {
                       <Sparkles className="h-4 w-4" />
                     )
                   }
-                  planName={`${tier.toLowerCase() === 'pro' ? 'Aion' : tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} (${tier.charAt(0).toUpperCase() + tier.slice(1)})`}
+                  planName={plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)}
                   usage={plan.usedCapsules}
                   limit={plan.capsuleLimit}
                   tooltipContent={
                     <div className="space-y-1 text-left">
                       <p className="font-semibold text-[#5D2A42]">
-                        {tier.toLowerCase() === 'pro' ? 'Aion' : tier.toLowerCase() === 'starter' ? 'Kyklos' : 'Arki'} Plan ({tier.charAt(0).toUpperCase() + tier.slice(1)})
+                        {plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)} Plan
                       </p>
                       <p className="text-xs text-[#5D2A42]/70">
                         {plan.capsuleLimit === null

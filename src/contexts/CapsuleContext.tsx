@@ -131,7 +131,6 @@ const safeISOString = (date: Date | null): string => {
 
 export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
   const auth = getAuth();
-
   const [capsules, setCapsules] = useState<Capsule[]>([]);
   const [receivedCapsules, setReceivedCapsules] = useState<Capsule[]>([]);
   const [loading, setLoading] = useState(true);

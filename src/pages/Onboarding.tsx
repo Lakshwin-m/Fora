@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "@/firebase";
 import { updateProfile } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Upload, Sparkles, Check, ChevronRight, User, 
@@ -105,11 +105,11 @@ export default function Onboarding() {
     setIsSubmitting(true);
     setCurrentStep(Step.COMPLETION);
     
+    // Format DOB (needed in both try and fallback)
+    const dobStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    let onboardingSaved = false;
     try {
       if (!auth.currentUser) throw new Error("No user logged in");
-
-      // Format DOB
-      const dobStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
       // Update Firebase Auth profile (displayName / photoURL)
       await updateProfile(auth.currentUser, {
@@ -139,17 +139,40 @@ export default function Onboarding() {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to save profile");
+        throw new Error(data.error || `Failed to save profile: ${response.status}`);
       }
 
-      // Wait a moment so they can see the completion screen
+      onboardingSaved = true;
+
+    } catch (error) {
+      console.warn("Error saving onboarding data via function, trying Firestore fallback:", error);
+      try {
+        if (!auth.currentUser) throw new Error("No user logged in");
+        await setDoc(doc(db, "users", auth.currentUser.uid), {
+          uid: auth.currentUser.uid,
+          email: auth.currentUser.email || "",
+          name,
+          username: username || name.split(' ')[0].toLowerCase(),
+          bio,
+          dateOfBirth: dobStr,
+          photoURL: avatarUrl || "",
+          privacyLevel: privacy,
+          onboardingCompleted: true,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+        onboardingSaved = true;
+      } catch (fallbackError) {
+        console.error("Error saving onboarding data via Firestore fallback:", fallbackError);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    if (onboardingSaved) {
       setTimeout(() => {
         navigate("/dashboard");
       }, 3500);
-
-    } catch (error) {
-      console.error("Error saving onboarding data:", error);
-      setIsSubmitting(false);
+      return;
     }
   };
 
@@ -164,7 +187,7 @@ export default function Onboarding() {
       x: 0,
       opacity: 1,
       scale: 1,
-      transition: { type: "spring", stiffness: 300, damping: 30 }
+      transition: { type: "spring" as any, stiffness: 300, damping: 30 }
     },
     exit: (direction: number) => ({
       zIndex: 0,
@@ -422,24 +445,15 @@ export default function Onboarding() {
                   </div>
                   
                   {playfulMode && !avatarUrl && (
-                    <motion.div 
+                    <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ delay: 0.5, type: "spring" }}
-                      className="absolute -bottom-2 -right-2 bg-secondary text-white text-xs font-bold px-2 py-1 rounded-full shadow-md rotate-12"
+                      className="absolute -bottom-20 left-1/2 -translate-x-1/2 text-center px-4"
                     >
-                      {t("onboarding.mysteryBadge")}
+                      <p className="text-sm text-muted-foreground">{t("onboarding.avatarHint")}</p>
                     </motion.div>
                   )}
-                </div>
-
-                <div className="flex flex-col w-full gap-3 mt-10">
-                  <Button variant="outline" className="h-12 rounded-xl border-border hover:bg-elevated justify-start px-6" onClick={() => {/* Handle Upload */}}>
-                    <Upload className="w-4 h-4 mr-3 text-primary" /> {t("onboarding.uploadImage")}
-                  </Button>
-                  <Button variant="outline" className="h-12 rounded-xl border-border hover:bg-elevated justify-start px-6" onClick={() => setAvatarUrl(`https://api.dicebear.com/7.x/notionists/svg?seed=${username || 'fora'}`)}>
-                    <Dna className="w-4 h-4 mr-3 text-secondary" /> {t("onboarding.generateAbstract")}
-                  </Button>
                 </div>
               </div>
 
@@ -447,7 +461,7 @@ export default function Onboarding() {
                 <Button variant="outline" onClick={() => setCurrentStep(Step.DOB)} className="h-12 rounded-xl flex-1 border-border text-foreground hover:bg-elevated">
                   {t("onboarding.back")}
                 </Button>
-                <Button onClick={handleNext} className="h-12 rounded-xl flex-[2] font-medium shadow-glow">
+                <Button onClick={() => setCurrentStep(Step.PRIVACY)} className="h-12 rounded-xl flex-[2] font-medium shadow-glow">
                   {t("onboarding.continue")} <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
@@ -463,54 +477,34 @@ export default function Onboarding() {
               initial="enter"
               animate="center"
               exit="exit"
-              className="bg-surface/60 backdrop-blur-xl border border-border shadow-card rounded-3xl p-8 space-y-8"
+              className="bg-surface/60 backdrop-blur-xl border border-border shadow-card rounded-3xl p-8 space-y-8 flex flex-col"
             >
               <div className="text-center space-y-2">
-                <h2 className="text-2xl md:text-3xl font-heading font-bold">
-                  {playfulMode ? t("onboarding.privacyTitlePlayful") : t("onboarding.privacyTitleNormal")}
-                </h2>
-                <p className="text-muted-foreground">
-                  {playfulMode ? t("onboarding.privacyDescPlayful") : t("onboarding.privacyDescNormal")}
-                </p>
+                <h2 className="text-2xl md:text-3xl font-heading font-bold">{t("onboarding.privacyTitle")}</h2>
+                <p className="text-muted-foreground">{t("onboarding.privacyDesc")}</p>
               </div>
 
-              <div className="space-y-4 py-4">
-                {[
-                  { id: "private", title: t("onboarding.privacyOptionPrivateTitle"), desc: t("onboarding.privacyOptionPrivateDesc"), icon: Lock },
-                  { id: "connections", title: t("onboarding.privacyOptionFriendsTitle"), desc: t("onboarding.privacyOptionFriendsDesc"), icon: Users },
-                  { id: "public", title: t("onboarding.privacyOptionPublicTitle"), desc: t("onboarding.privacyOptionPublicDesc"), icon: Globe }
-                ].map((option) => {
-                  const Icon = option.icon;
-                  const isSelected = privacy === option.id;
-                  return (
-                    <div 
-                      key={option.id}
-                      onClick={() => setPrivacy(option.id as any)}
-                      className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer overflow-hidden ${isSelected ? 'border-primary bg-primary/5' : 'border-border bg-input/30 hover:border-border/80'}`}
-                    >
-                      {isSelected && (
-                        <motion.div layoutId="privacy-glow" className="absolute inset-0 bg-primary/5 shadow-[inset_0_0_20px_rgba(251,99,118,0.1)]" />
-                      )}
-                      <div className="flex items-center gap-4 relative z-10">
-                        <div className={`p-3 rounded-full ${isSelected ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-surface text-muted-foreground'}`}>
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className={`font-semibold ${isSelected ? 'text-foreground' : 'text-foreground/80'}`}>{option.title}</h4>
-                          <p className="text-sm text-muted-foreground">{option.desc}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="space-y-4">
+                <label className="flex items-center gap-3">
+                  <input type="radio" checked={privacy === 'private'} onChange={() => setPrivacy('private')} />
+                  <span className="ml-2">{t('onboarding.privacyPrivate')}</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input type="radio" checked={privacy === 'connections'} onChange={() => setPrivacy('connections')} />
+                  <span className="ml-2">{t('onboarding.privacyConnections')}</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input type="radio" checked={privacy === 'public'} onChange={() => setPrivacy('public')} />
+                  <span className="ml-2">{t('onboarding.privacyPublic')}</span>
+                </label>
               </div>
 
               <div className="flex gap-4 w-full">
                 <Button variant="outline" onClick={() => setCurrentStep(Step.AVATAR)} className="h-12 rounded-xl flex-1 border-border text-foreground hover:bg-elevated">
                   {t("onboarding.back")}
                 </Button>
-                <Button onClick={handleComplete} className="h-12 rounded-xl flex-[2] font-medium bg-gradient-primary text-white shadow-glow">
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : t("onboarding.completeJourney")}
+                <Button onClick={handleComplete} className="h-12 rounded-xl flex-[2] font-medium shadow-glow">
+                  {t("onboarding.finish")} <Check className="w-4 h-4 ml-1" />
                 </Button>
               </div>
             </motion.div>
@@ -519,48 +513,27 @@ export default function Onboarding() {
           {/* STEP 5: COMPLETION */}
           {currentStep === Step.COMPLETION && (
             <motion.div
-              key="step5"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="text-center space-y-6 relative z-10"
+              key="completion"
+              custom={direction}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="text-center space-y-6 relative z-10 bg-surface/60 backdrop-blur-xl border border-border shadow-card rounded-3xl p-8"
             >
-              {/* Glowing Line Animation */}
-              <motion.div 
-                className="w-1 h-32 bg-gradient-to-b from-transparent via-primary to-transparent mx-auto relative overflow-hidden rounded-full mb-8"
-              >
-                <motion.div 
-                  initial={{ y: -100 }}
-                  animate={{ y: 200 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-0 bg-white/50 blur-[2px]"
-                />
+              <motion.div className="w-1 h-32 bg-gradient-to-b from-transparent via-primary to-transparent mx-auto relative overflow-hidden rounded-full mb-8">
+                <motion.div initial={{ y: -100 }} animate={{ y: 200 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="absolute inset-0 bg-white/50 blur-[2px]" />
               </motion.div>
 
-              <motion.h1 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="text-4xl md:text-5xl font-heading font-bold text-foreground drop-shadow-lg tracking-tight"
-              >
+              <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="text-4xl md:text-5xl font-heading font-bold text-foreground drop-shadow-lg tracking-tight">
                 {t("onboarding.completionTitle")}
               </motion.h1>
-              
-              <motion.p 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.5 }}
-                className="text-xl text-primary font-medium"
-              >
+
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }} className="text-xl text-primary font-medium">
                 {t("onboarding.completionDesc")}
               </motion.p>
-              
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 2.5 }}
-                className="pt-8"
-              >
+
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.5 }} className="pt-8">
                 <Loader2 className="w-6 h-6 text-muted-foreground animate-spin mx-auto" />
               </motion.div>
             </motion.div>

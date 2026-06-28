@@ -4,7 +4,6 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Trash2, Bold, AlignLeft, AlignCenter, AlignRight, Type, Smile, Palette, Plus, Image, Video, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import EmojiPicker, { Theme, EmojiStyle } from "emoji-picker-react";
 import { cn } from "@/lib/utils";
 
 export interface TextBlock {
