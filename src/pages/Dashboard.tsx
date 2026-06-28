@@ -625,13 +625,13 @@ const Dashboard = () => {
                       <Sparkles className="h-4 w-4" />
                     )
                   }
-                  planName={plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)}
+                  planName={planName}
                   usage={plan.usedCapsules}
                   limit={plan.capsuleLimit}
                   tooltipContent={
                     <div className="space-y-1 text-left">
                       <p className="font-semibold text-[#5D2A42]">
-                        {plan.tier.charAt(0).toUpperCase() + plan.tier.slice(1)} Plan
+                        {planName} Plan
                       </p>
                       <p className="text-xs text-[#5D2A42]/70">
                         {plan.capsuleLimit === null
