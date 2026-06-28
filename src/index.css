@@ -318,7 +318,7 @@
   font-family: inherit !important;
   font-weight: 800 !important;
   font-size: 1.35rem !important;
-  color: #1a1a1a !important;
+  color: #5d2a42 !important;
   cursor: pointer !important;
   padding: 8px 20px !important;
   border-radius: 20px !important;
@@ -330,8 +330,8 @@
 }
 
 .rmdp-header-values:hover {
-  background-color: #FFF9EC !important;
-  color: #fb6376 !important;
+  background-color: rgba(93, 42, 66, 0.05) !important;
+  color: #5d2a42 !important;
 }
 
 .rmdp-left, .rmdp-right {
@@ -352,11 +352,11 @@
 }
 
 .rmdp-arrow-container:hover {
-  background-color: #FFF9EC !important;
+  background-color: rgba(93, 42, 66, 0.05) !important;
 }
 
 .rmdp-arrow {
-  border-color: #1a1a1a !important;
+  border-color: #5d2a42 !important;
   width: 8px !important;
   height: 8px !important;
 }
@@ -368,8 +368,8 @@
 }
 
 .rmdp-week-day {
-  color: #888 !important;
-  font-weight: 600 !important;
+  color: rgba(93, 42, 66, 0.5) !important;
+  font-weight: 700 !important;
   font-size: 0.75rem !important;
   width: 40px !important;
   height: 32px !important;
@@ -387,7 +387,8 @@
 
 .rmdp-day span {
   font-size: 1rem !important;
-  color: #1a1a1a !important;
+  font-weight: 600 !important;
+  color: #5d2a42 !important;
   width: 100% !important;
   height: 100% !important;
   display: flex !important;
@@ -398,30 +399,31 @@
 }
 
 .rmdp-day.rmdp-today span {
-  background-color: #ffdccc !important;
+  background-color: transparent !important;
   color: #5d2a42 !important;
-  font-weight: 700 !important;
-  border: 1px solid rgba(251, 99, 118, 0.2) !important;
+  font-weight: 800 !important;
+  border: 1px solid rgba(93, 42, 66, 0.3) !important;
 }
 
 .rmdp-day.rmdp-selected span {
-  background-color: #fb6376 !important;
+  background-color: #5d2a42 !important;
   color: #fff !important;
+  box-shadow: 0 4px 14px rgba(93, 42, 66, 0.2) !important;
 }
 
 .rmdp-day:not(.rmdp-disabled):not(.rmdp-day-hidden) span:hover {
-  background-color: #f0f0f0 !important;
-  color: #fb6376 !important;
+  background-color: rgba(93, 42, 66, 0.05) !important;
+  color: #5d2a42 !important;
 }
 
 .rmdp-day.rmdp-selected:not(.rmdp-disabled):not(.rmdp-day-hidden) span:hover {
-  background-color: #e8556a !important;
+  background-color: rgba(93, 42, 66, 0.9) !important;
   color: #fff !important;
 }
 
 .rmdp-day.rmdp-deactive span,
 .rmdp-disabled span {
-  color: #999 !important;
+  color: rgba(93, 42, 66, 0.3) !important;
   opacity: 0.6 !important;
   cursor: not-allowed !important;
   background-color: transparent !important;
@@ -450,7 +452,7 @@
   height: 60px !important;
   font-family: "Inter", sans-serif !important;
   font-weight: 700 !important;
-  color: #1a1a1a !important;
+  color: #5d2a42 !important;
   border-radius: 20px !important;
   transition: all 0.2s !important;
   display: inline-flex !important;
@@ -467,16 +469,16 @@
 }
 
 .rmdp-month-item:hover, .rmdp-year-item:hover {
-  background-color: #FFF9EC !important;
-  color: #fb6376 !important;
-  border-color: #FFDCCC !important;
+  background-color: rgba(93, 42, 66, 0.05) !important;
+  color: #5d2a42 !important;
+  border-color: rgba(93, 42, 66, 0.1) !important;
   transform: scale(1.05) !important;
 }
 
 .rmdp-month-item.rmdp-selected, .rmdp-year-item.rmdp-selected {
-  background-color: #fb6376 !important;
+  background-color: #5d2a42 !important;
   color: #fff !important;
-  box-shadow: 0 8px 24px rgba(251, 99, 118, 0.3) !important;
+  box-shadow: 0 8px 24px rgba(93, 42, 66, 0.3) !important;
 }
 
 .rmdp-month-item.rmdp-disabled, .rmdp-year-item.rmdp-disabled {

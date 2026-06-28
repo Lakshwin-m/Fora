@@ -32,7 +32,7 @@ function InfiniteScrollColumn({
   const buttonsRef = React.useRef<(HTMLButtonElement | null)[]>([]);
   const prevIdxRef = React.useRef<number | null>(null);
 
-  const activeClasses = ["font-bold", "text-[#FB6376]", "scale-110"];
+  const activeClasses = ["font-bold", "text-[#5D2A42]", "scale-110"];
   const inactiveClasses = ["font-medium", "text-[#999]", "hover:text-[#5D2A42]", "scale-90", "opacity-60", "hover:opacity-100"];
 
   const updateHighlight = React.useCallback((idx: number) => {
@@ -279,8 +279,8 @@ export function DateTimePicker({
         <CardContent className="p-0 flex flex-col md:flex-row min-h-[380px]">
           {/* Calendar Section */}
           {!date ? (
-            <div className="p-6 flex justify-center items-center bg-[#FFF9EC] w-full transition-all duration-500">
-              <div className="flex flex-col items-center w-full">
+            <div className="p-6 flex justify-center items-center bg-transparent w-full transition-all duration-500">
+              <div className="flex flex-col items-center w-full max-w-[360px] mx-auto">
                 <div className="mb-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">Select a Date</h3>
                   <p className="text-[#5D2A42]/70 text-sm max-w-[280px] mx-auto leading-relaxed">
@@ -288,29 +288,33 @@ export function DateTimePicker({
                   </p>
                 </div>
                 <Calendar
+                  mode="single"
                   selected={date}
                   onSelect={setDate}
                   disabled={disabledDays}
-                  className="p-3 bg-white rounded-2xl border border-[#E8E8E8] shadow-sm"
+                  captionLayout="dropdown-buttons"
+                  fromYear={today.getFullYear()}
+                  toYear={today.getFullYear() + 10}
+                  className="p-3 bg-transparent w-full flex justify-center"
                   classNames={{
                     months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                    month: "space-y-4",
-                    caption: "flex justify-center pt-1 relative items-center",
-                    caption_label: "text-sm font-bold text-[#5D2A42]",
-                    nav: "space-x-1 flex items-center",
-                    nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 hover:bg-[#FFF9EC] text-[#5D2A42] rounded-full transition-all flex justify-center items-center",
-                    nav_button_previous: "absolute left-1",
-                    nav_button_next: "absolute right-1",
-                    table: "w-full border-collapse space-y-1",
-                    head_row: "flex",
-                    head_cell: "text-[#5D2A42]/50 font-bold uppercase tracking-widest text-[10px] w-9 rounded-md",
-                    row: "flex w-full mt-2",
-                    cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-outside)]:bg-transparent [&:has([aria-selected])]:bg-transparent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                    day: "h-9 w-9 p-0 font-medium rounded-full hover:bg-[#FFF9EC] hover:text-[#5D2A42] aria-selected:opacity-100 transition-colors",
-                    day_selected: "bg-[#FB6376] text-white hover:bg-[#FB6376] hover:text-white focus:bg-[#FB6376] focus:text-white rounded-full font-bold",
-                    day_today: "bg-[#FFF9EC] text-[#5D2A42] font-bold rounded-full",
+                    month: "space-y-4 w-full flex flex-col items-center",
+                    caption: "flex justify-center pt-2 relative items-center w-full mb-4",
+                    caption_label: "hidden", 
+                    nav: "space-x-1 flex items-center absolute right-0 top-0",
+                    nav_button: "h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100 hover:bg-[#5D2A42]/10 text-[#5D2A42] rounded-full transition-all flex justify-center items-center",
+                    nav_button_previous: "absolute left-0 top-2",
+                    nav_button_next: "absolute right-0 top-2",
+                    table: "w-full border-collapse space-y-1 mt-4",
+                    head_row: "flex w-full justify-between gap-1",
+                    head_cell: "text-[#5D2A42]/50 font-bold uppercase tracking-widest text-[10px] w-9 h-9 flex items-center justify-center rounded-md",
+                    row: "flex w-full mt-2 justify-between gap-1",
+                    cell: "h-10 w-10 text-center text-sm p-0 relative [&:has([aria-selected].day-outside)]:bg-transparent [&:has([aria-selected])]:bg-transparent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20 flex items-center justify-center",
+                    day: "h-10 w-10 p-0 font-medium rounded-full hover:bg-[#5D2A42]/5 hover:text-[#5D2A42] aria-selected:opacity-100 transition-colors flex items-center justify-center text-[#5D2A42]",
+                    day_selected: "bg-[#5D2A42] !text-white hover:bg-[#5D2A42]/90 hover:!text-white focus:bg-[#5D2A42] focus:!text-white rounded-full font-bold shadow-md shadow-[#5D2A42]/20",
+                    day_today: "bg-[#5D2A42]/10 text-[#5D2A42] font-bold rounded-full",
                     day_disabled: "opacity-30 text-[#999] hover:bg-transparent hover:text-[#999] cursor-not-allowed",
-                    day_outside: "text-[#999] opacity-50 aria-selected:bg-[#FB6376]/50 aria-selected:text-white aria-selected:opacity-30",
+                    day_outside: "text-[#999] opacity-50 aria-selected:bg-[#5D2A42]/50 aria-selected:text-white aria-selected:opacity-30",
                   }}
                 />
               </div>
@@ -318,7 +322,7 @@ export function DateTimePicker({
           ) : (
             <div className="w-full bg-white flex flex-col relative animate-in fade-in zoom-in-95 duration-500">
                <div className="p-6 border-b border-[#E8E8E8] flex flex-col items-center justify-center gap-1">
-                 <div className="flex items-center gap-2 mb-1 text-[#FB6376]">
+                 <div className="flex items-center gap-2 mb-1 text-[#5D2A42]">
                     <Clock className="w-5 h-5" />
                  </div>
                  <h3 className="text-xl font-bold text-[#5D2A42]">Set the Time</h3>
@@ -326,7 +330,7 @@ export function DateTimePicker({
                  <Button 
                    variant="outline" 
                    onClick={() => setDate(undefined)} 
-                   className="mt-4 h-11 px-6 text-[#5D2A42] border-2 border-[#E8E8E8] rounded-xl hover:border-[#FB6376] hover:bg-[#FFF9EC] hover:text-[#FB6376] text-sm font-bold shadow-none transition-colors"
+                   className="mt-4 h-11 px-6 text-[#5D2A42] border-2 border-[#E8E8E8] rounded-xl hover:border-[#5D2A42]/20 hover:bg-[#5D2A42]/5 hover:text-[#5D2A42] text-sm font-bold shadow-none transition-colors"
                  >
                     Change Date ({date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })})
                  </Button>
@@ -334,7 +338,7 @@ export function DateTimePicker({
                
                <div className="flex-1 relative h-[240px] overflow-hidden select-none bg-white max-w-sm mx-auto w-full mt-6 mb-6">
                  {/* Center Highlight Band */}
-                 <div className="absolute top-[96px] left-4 right-4 h-[48px] bg-[#FFF9EC] border border-[#FFDCCC] rounded-xl pointer-events-none z-0" />
+                 <div className="absolute top-[96px] left-4 right-4 h-[48px] bg-[#5D2A42]/5 border border-[#5D2A42]/10 rounded-xl pointer-events-none z-0" />
                  
                  <div className="flex h-full relative z-10 px-8">
                    <InfiniteScrollColumn 

@@ -30,16 +30,22 @@ const AnimatedStatsCard = React.forwardRef<
     }
   }, [isInView, primaryValue, spring]);
 
+  const words = title.split(' ');
+
   return (
     <div
       ref={ref || cardRef}
-      className={cn("flex flex-col items-center justify-center", className)}
+      className={cn("flex items-center gap-3 md:gap-4", className)}
       {...props}
     >
-      <motion.h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-[#1A1A1A]">
+      <motion.h1 className="text-5xl md:text-[4rem] font-light tracking-tighter text-[#5D2A42] leading-none">
         {displayValue}
       </motion.h1>
-      <p className="text-sm text-[#666666] mt-2">{title}</p>
+      <div className="flex flex-col text-[10px] md:text-[11px] text-[#5D2A42]/60 font-medium tracking-[0.2em] uppercase leading-[1.2]">
+        {words.map((word, idx) => (
+          <span key={idx}>{word}</span>
+        ))}
+      </div>
     </div>
   );
 });

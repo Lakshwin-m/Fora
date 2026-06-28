@@ -38,6 +38,10 @@ import {
   MapPin,
   Play,
   Pause,
+  PartyPopper,
+  Cake,
+  Star,
+  Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -362,9 +366,6 @@ export const CapsuleMultistepForm = ({
         if (recipientType === "friends") {
           return selectedFriends.length > 0;
         }
-        if (recipientType === "public") {
-          return capsuleCategory.trim() !== "";
-        }
         return true;
       case 2:
         return title.trim() !== "" && getPlainTextLength(content) > 0;
@@ -376,62 +377,68 @@ export const CapsuleMultistepForm = ({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto pb-16">
-      {/* Modern Stepper Indicator */}
+    <div className="w-full max-w-4xl mx-auto pb-16 pt-8 md:pt-16 px-4 md:px-8 overflow-x-hidden">
+      {/* Horizontal Stepper Indicator */}
       <div className="mb-12">
         <Stepper
           value={currentStep + 1}
+          orientation="horizontal"
           onValueChange={(val) => {
             if (val - 1 < currentStep) {
-              // Allow going back to completed steps
               const diff = currentStep - (val - 1);
               for (let i = 0; i < diff; i++) onPrevStep();
             }
           }}
         >
-          <StepperNav className="gap-3.5">
+          <StepperNav className="gap-2 md:gap-6 flex-row items-center w-full justify-between">
             {translatedSteps.map((step, index) => (
               <StepperItem
                 key={index}
                 step={index + 1}
-                className="relative flex-1 items-start"
+                className="relative flex-1"
               >
                 <StepperTrigger
-                  className="flex flex-col items-start justify-center gap-3 grow w-full"
+                  className="flex flex-col items-center justify-center gap-3 w-full group rounded-2xl hover:bg-black/5 p-2 transition-colors"
                   disabled={index > currentStep}
                 >
                   <StepperIndicator
                     className={cn(
-                      "rounded-full h-[3px] w-full transition-all duration-500 ease-out",
+                      "w-10 h-10 flex items-center justify-center transition-all duration-700 ease-out shrink-0 rounded-2xl border",
                       index < currentStep
-                        ? "bg-[#5D2A42]" // Completed: Premium Plum
+                        ? "bg-[#5D2A42] border-[#5D2A42] text-white shadow-md"
                         : index === currentStep
-                          ? "bg-[#FB6376]" // Active: Forá Coral (no glow)
-                          : "bg-[#E8E8E8]" // Upcoming: Clean light gray
+                          ? "bg-white border-[#5D2A42] text-[#5D2A42] shadow-[0_4px_20px_rgba(93,42,66,0.08)]"
+                          : "bg-[#5D2A42]/5 border-[#5D2A42]/10 text-[#5D2A42]/30"
                     )}
-                  />
-                  <div className="flex flex-col items-start gap-0.5">
+                  >
+                    {index < currentStep ? (
+                      <Check className="w-5 h-5" strokeWidth={2.5} />
+                    ) : (
+                      <span className="font-semibold text-sm">{index + 1}</span>
+                    )}
+                  </StepperIndicator>
+                  
+                  <div className="flex flex-col items-center gap-1 text-center mt-1">
                     <StepperTitle
                       className={cn(
-                        "text-start font-bold text-sm tracking-wide transition-colors duration-300",
+                        "font-semibold text-[10px] md:text-xs tracking-[0.15em] uppercase transition-all duration-500",
                         index === currentStep
-                          ? "text-[#5D2A42]" // Active text
+                          ? "text-[#5D2A42]"
                           : index < currentStep
-                            ? "text-[#1A1A1A]" // Completed text
-                            : "text-[#999]"    // Upcoming text
+                            ? "text-[#5D2A42]/80"
+                            : "text-[#5D2A42]/30"
                       )}
                     >
-                      <span className="opacity-40 font-semibold mr-1.5">{index + 1}.</span>
                       {step.title}
                     </StepperTitle>
                     <span
                       className={cn(
-                        "text-xs font-medium hidden md:block leading-tight transition-colors duration-300",
+                        "text-[9px] md:text-[11px] font-medium leading-tight hidden md:block transition-all duration-500",
                         index === currentStep
-                          ? "text-[#FB6376]" // Active description accent
+                          ? "text-[#5D2A42]/60"
                           : index < currentStep
-                            ? "text-[#999]"
-                            : "text-[#CCC]"
+                            ? "text-[#5D2A42]/40"
+                            : "text-[#5D2A42]/20"
                       )}
                     >
                       {step.description}
@@ -444,8 +451,8 @@ export const CapsuleMultistepForm = ({
         </Stepper>
       </div>
 
-      {/* Form Card */}
-      <div className="relative min-h-[500px]">
+      {/* Form Area */}
+      <div className="relative min-h-[500px] overflow-x-hidden">
         <div className="flex flex-col h-full relative">
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
@@ -459,10 +466,10 @@ export const CapsuleMultistepForm = ({
             >
               {/* Step 2: Basic Information & Memories */}
               {currentStep === 2 && (
-                <div className="p-4 md:p-6 h-full flex flex-col gap-6">
-                  <div>
-                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.msgTitleHeading')}</h2>
-                    <p className="text-[#666] text-base font-medium">{t('create.msgTitleSub')}</p>
+                <div className="h-full flex flex-col gap-10 lg:pt-4">
+                  <div className="text-center max-w-2xl mx-auto">
+                    <h2 className="text-4xl md:text-5xl font-black text-[#5D2A42] tracking-tighter mb-4">{t('create.msgTitleHeading')}</h2>
+                    <p className="text-[#666] text-lg font-medium">{t('create.msgTitleSub')}</p>
                   </div>
                   <div className="flex-1 flex flex-col gap-6">
                     <div className="flex-1 flex flex-col gap-3">
@@ -537,30 +544,36 @@ export const CapsuleMultistepForm = ({
 
               {/* Step 0: Trigger Configuration */}
               {currentStep === 0 && (
-                <div className="p-10 md:p-14 h-full flex flex-col gap-10">
-                  <div>
-                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.deliveryHeading')}</h2>
-                    <p className="text-[#666] text-base font-medium">{t('create.deliverySub')}</p>
+                <div className="h-full flex flex-col gap-10 lg:pt-4">
+                  <div className="text-center max-w-2xl mx-auto">
+                    <h2 className="text-4xl md:text-5xl font-black text-[#5D2A42] tracking-tighter mb-4">{t('create.deliveryHeading')}</h2>
+                    <p className="text-[#666] text-lg font-medium">{t('create.deliverySub')}</p>
                   </div>
 
                   <Tabs
                     value={triggerType}
                     onValueChange={(value) => onTriggerTypeChange(value as any)}
-                    className="flex flex-col flex-1 gap-6"
+                    className="flex flex-col flex-1 gap-8"
                   >
-                    <TabsList className="grid w-full h-auto grid-cols-2 bg-[#FFF9EC] p-2 rounded-2xl border border-[#FFDCCC]">
+                    <TabsList className="grid w-full h-auto grid-cols-1 md:grid-cols-2 gap-6 bg-transparent p-0 max-w-2xl mx-auto">
                       {triggerOptions.map((option) => (
                         <TabsTrigger
                           key={option.id}
                           value={option.id}
-                          className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12"
+                          className="flex flex-col items-start justify-center h-auto min-h-[110px] p-6 text-left rounded-3xl border border-[#5D2A42]/10 bg-white/60 backdrop-blur-sm data-[state=active]:border-[#5D2A42] data-[state=active]:bg-white data-[state=active]:shadow-[0_4px_20px_rgba(93,42,66,0.06)] text-[#5D2A42]/80 transition-all hover:border-[#5D2A42]/30"
                         >
-                          {option.label}
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 rounded-xl bg-[#5D2A42]/5 border border-[#5D2A42]/10 text-[#5D2A42]">
+                              {option.id === 'time' ? <Clock className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
+                            </div>
+                            <span className="font-semibold text-lg text-[#5D2A42] tracking-wide">{option.label}</span>
+                          </div>
+                          <div className="text-xs md:text-sm font-medium text-[#5D2A42]/60 leading-relaxed">{option.description}</div>
                         </TabsTrigger>
                       ))}
                     </TabsList>
 
-                    <div className="flex-1 mt-2 overflow-y-auto no-scrollbar pb-6">
+                    <div className="flex-1 mt-2 overflow-y-auto overflow-x-hidden no-scrollbar pb-6">
                       <TabsContent value="time" className="mt-0 outline-none">
                         <DateTimePicker
                           date={deliveryDate}
@@ -577,11 +590,11 @@ export const CapsuleMultistepForm = ({
                           </Label>
                           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                             {[
-                              { id: "birthday", name: "Birthday", emoji: "🎂", description: "Yearly at 9:00 AM" },
-                              { id: "anniversary", name: "Anniversary", emoji: "💍", description: "Yearly at 9:00 AM" },
-                              { id: "christmas", name: "Christmas", emoji: "🎄", description: "Every Dec 25 at 9:00 AM" },
-                              { id: "newyear", name: "New Year", emoji: "🎆", description: "Every Jan 1 at 12:00 AM" },
-                              { id: "custom", name: "Custom", emoji: "📅", description: "Define from scratch" },
+                              { id: "birthday", name: "Birthday", icon: <Cake className="w-5 h-5" />, description: "Yearly at 9:00 AM" },
+                              { id: "anniversary", name: "Anniversary", icon: <Heart className="w-5 h-5" />, description: "Yearly at 9:00 AM" },
+                              { id: "christmas", name: "Christmas", icon: <Gift className="w-5 h-5" />, description: "Every Dec 25 at 9:00 AM" },
+                              { id: "newyear", name: "New Year", icon: <PartyPopper className="w-5 h-5" />, description: "Every Jan 1 at 12:00 AM" },
+                              { id: "custom", name: "Custom", icon: <Calendar className="w-5 h-5" />, description: "Define from scratch" },
                             ].map((preset) => {
                               const isSelected = reminderPreset === preset.id;
                               return (
@@ -592,16 +605,16 @@ export const CapsuleMultistepForm = ({
                                   className={cn(
                                     "flex flex-col items-center justify-between p-4 rounded-3xl border transition-all text-center h-32 focus:outline-none",
                                     isSelected
-                                      ? "border-[#FB6376] bg-[#FFF9EC] shadow-sm scale-[1.02]"
-                                      : "border-[#E8E8E8] bg-white hover:border-[#FB6376] hover:bg-[#FFF9EC]/40"
+                                      ? "border-[#5D2A42] bg-white shadow-[0_4px_20px_rgba(93,42,66,0.06)] scale-[1.02]"
+                                      : "border-[#5D2A42]/10 bg-white/60 hover:border-[#5D2A42]/30 hover:bg-white"
                                   )}
                                 >
-                                  <span className="text-2xl mb-1">{preset.emoji}</span>
+                                  <span className={cn("mb-1 p-2 rounded-xl border", isSelected ? "bg-[#5D2A42]/5 border-[#5D2A42]/10 text-[#5D2A42]" : "bg-transparent border-transparent text-[#5D2A42]/60")}>{preset.icon}</span>
                                   <div className="flex flex-col">
-                                    <span className={cn("text-xs font-extrabold", isSelected ? "text-[#5D2A42]" : "text-[#1A1A1A]")}>
+                                    <span className={cn("text-xs font-semibold tracking-wide", isSelected ? "text-[#5D2A42]" : "text-[#5D2A42]/80")}>
                                       {preset.name}
                                     </span>
-                                    <span className="text-[10px] text-[#999] font-medium leading-tight mt-0.5">
+                                    <span className="text-[10px] text-[#5D2A42]/50 font-medium leading-tight mt-0.5">
                                       {preset.description}
                                     </span>
                                   </div>
@@ -613,10 +626,10 @@ export const CapsuleMultistepForm = ({
 
                         {/* Section 2: Date Selector */}
                         {recurrencePattern !== "none" && recurrencePattern !== "minutely" && (
-                          <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
+                          <div className="p-6 border border-[#5D2A42]/10 rounded-3xl bg-[#5D2A42]/5 space-y-4">
                             <div className="flex flex-col gap-1">
                               <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
-                                <span>📅</span> {
+                                <Calendar className="w-5 h-5" /> {
                                   recurrencePattern === "yearly" ? "Select Month & Day" :
                                     recurrencePattern === "monthly" ? "Select Day of Month" :
                                       recurrencePattern === "weekly" ? "Select Day of Week" :
@@ -639,12 +652,12 @@ export const CapsuleMultistepForm = ({
                                   mode="single"
                                   selected={reminderYearlyDate || undefined}
                                   onSelect={(date) => onReminderYearlyDateChange(date || null)}
-                                  className="rounded-2xl border border-[#EAEAEA] p-3 bg-white shadow-sm"
+                                  className="rounded-2xl border border-[#5D2A42]/10 p-3 bg-white shadow-sm"
                                 />
                               )}
 
                               {recurrencePattern === "monthly" && (
-                                <div className="grid grid-cols-7 gap-2 max-w-xs p-3 border border-[#EAEAEA] rounded-2xl bg-white shadow-sm">
+                                <div className="grid grid-cols-7 gap-2 max-w-xs p-3 border border-[#5D2A42]/10 rounded-2xl bg-white shadow-sm">
                                   {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
                                     const isSelected = reminderDayOfMonth === day;
                                     return (
@@ -655,8 +668,8 @@ export const CapsuleMultistepForm = ({
                                         className={cn(
                                           "w-8 h-8 rounded-full font-bold transition-all text-xs flex items-center justify-center",
                                           isSelected
-                                            ? "bg-[#FB6376] text-white shadow-sm scale-105"
-                                            : "text-[#5D2A42] hover:bg-[#FFF9EC] hover:text-[#FB6376] bg-white border border-[#EAEAEA]"
+                                            ? "bg-[#5D2A42] text-white shadow-sm scale-105"
+                                            : "text-[#5D2A42] hover:bg-[#5D2A42]/10 bg-white border border-[#5D2A42]/10"
                                         )}
                                       >
                                         {day}
@@ -667,7 +680,7 @@ export const CapsuleMultistepForm = ({
                               )}
 
                               {recurrencePattern === "weekly" && (
-                                <div className="flex flex-wrap gap-2 justify-center max-w-sm p-3 border border-[#EAEAEA] rounded-2xl bg-white shadow-sm">
+                                <div className="flex flex-wrap gap-2 justify-center max-w-sm p-3 border border-[#5D2A42]/10 rounded-2xl bg-white shadow-sm">
                                   {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => {
                                     const isSelected = reminderDayOfWeek?.toLowerCase() === day.toLowerCase();
                                     return (
@@ -678,8 +691,8 @@ export const CapsuleMultistepForm = ({
                                         className={cn(
                                           "px-3 py-1.5 rounded-xl font-bold transition-all text-xs border",
                                           isSelected
-                                            ? "bg-[#FB6376] border-[#FB6376] text-white shadow-sm"
-                                            : "bg-white border-[#EAEAEA] text-[#5D2A42] hover:bg-[#FFF9EC] hover:text-[#FB6376]"
+                                            ? "bg-[#5D2A42] border-[#5D2A42] text-white shadow-sm"
+                                            : "bg-white border-[#5D2A42]/10 text-[#5D2A42] hover:bg-[#5D2A42]/10"
                                         )}
                                       >
                                         {day.slice(0, 3)}
@@ -693,7 +706,7 @@ export const CapsuleMultistepForm = ({
                         )}
 
                         {/* Section 3: Scheduling Details */}
-                        <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-6">
+                        <div className="p-6 border border-[#5D2A42]/10 rounded-3xl bg-[#5D2A42]/5 space-y-6">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {/* Recurrence Frequency */}
                             <div className="space-y-2">
@@ -704,10 +717,10 @@ export const CapsuleMultistepForm = ({
                                 value={recurrencePattern}
                                 onValueChange={(val: any) => onRecurrencePatternChange(val)}
                               >
-                                <SelectTrigger className="h-12 border-[#E8E8E8] bg-white text-base font-semibold text-[#1A1A1A] rounded-xl focus:ring-0 focus:border-[#FB6376] w-full">
+                                <SelectTrigger className="h-12 border-[#5D2A42]/10 bg-white text-base font-semibold text-[#5D2A42] rounded-xl focus:ring-0 focus:border-[#5D2A42]/30 w-full">
                                   <SelectValue placeholder="No Recurrence" />
                                 </SelectTrigger>
-                                <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm">
+                                <SelectContent className="rounded-xl border-[#5D2A42]/10 shadow-sm text-[#5D2A42]">
                                   <SelectItem value="daily">Every Day</SelectItem>
                                   <SelectItem value="weekly">Every Week</SelectItem>
                                   <SelectItem value="monthly">Every Month</SelectItem>
@@ -724,18 +737,18 @@ export const CapsuleMultistepForm = ({
                                 type="time"
                                 value={reminderTime}
                                 onChange={(e) => onReminderTimeChange(e.target.value)}
-                                className="h-12 border-[#E8E8E8] bg-white rounded-xl text-[#1A1A1A] font-semibold"
+                                className="h-12 border-[#5D2A42]/10 bg-white rounded-xl text-[#5D2A42] font-semibold"
                               />
 
                             </div>
                           </div>
 
                           {/* Summary Sentence Card */}
-                          <div className="p-5 bg-[#5D2A42] text-[#FFF9EC] rounded-[1.5rem] flex items-center gap-4">
-                            <span className="text-2xl">✨</span>
+                          <div className="p-5 bg-[#5D2A42]/5 border border-[#5D2A42]/10 text-[#5D2A42] rounded-[1.5rem] flex items-center gap-4">
+                            <Clock className="w-6 h-6 opacity-60" />
                             <div>
-                              <p className="text-[10px] uppercase tracking-wider font-extrabold opacity-60">Delivery Schedule Summary</p>
-                              <p className="text-sm font-bold mt-0.5">{getSummarySentence()}</p>
+                              <p className="text-[10px] uppercase tracking-wider font-bold opacity-60">Delivery Schedule Summary</p>
+                              <p className="text-sm font-semibold mt-0.5">{getSummarySentence()}</p>
                             </div>
                           </div>
                         </div>
@@ -747,34 +760,42 @@ export const CapsuleMultistepForm = ({
 
               {/* Step 1: Recipients */}
               {currentStep === 1 && (
-                <div className="p-10 md:p-14 h-full flex flex-col gap-10">
-                  <div>
-                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.recipientsHeading')}</h2>
-                    <p className="text-[#666] text-base font-medium">{t('create.recipientsSub')}</p>
+                <div className="h-full flex flex-col gap-10 lg:pt-4">
+                  <div className="text-center max-w-2xl mx-auto">
+                    <h2 className="text-4xl md:text-5xl font-black text-[#5D2A42] tracking-tighter mb-4">{t('create.recipientsHeading')}</h2>
+                    <p className="text-[#666] text-lg font-medium">{t('create.recipientsSub')}</p>
                   </div>
 
                   <Tabs
                     value={recipientType}
                     onValueChange={(value) => onRecipientTypeChange(value as any)}
-                    className="flex flex-col flex-1 gap-6"
+                    className="flex flex-col flex-1 gap-8"
                   >
-                    <TabsList className="grid w-full h-auto grid-cols-3 bg-[#FFF9EC] p-2 rounded-2xl border border-[#FFDCCC]">
-                      <TabsTrigger value="self" className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12">
-                        {t('create.recTypeSelf')}
+                    <TabsList className="grid w-full h-auto grid-cols-1 md:grid-cols-2 gap-6 bg-transparent p-0 max-w-2xl mx-auto">
+                      <TabsTrigger value="self" className="flex flex-col items-center justify-center h-auto min-h-[140px] p-6 rounded-3xl border-2 border-[#E8E8E8] bg-white data-[state=active]:border-[#FB6376] data-[state=active]:bg-[#FFF9EC] data-[state=active]:text-[#5D2A42] text-[#1A1A1A] transition-all shadow-sm hover:shadow-md hover:border-[#FB6376]/50 group">
+                        <div className="w-16 h-16 rounded-full bg-[#FFF9EC] group-data-[state=active]:bg-white flex items-center justify-center mb-3 transition-colors shadow-sm">
+                          <span className="text-3xl">👤</span>
+                        </div>
+                        <span className="text-xl font-bold">{t('create.recTypeSelf')}</span>
                       </TabsTrigger>
-                      <TabsTrigger value="friends" className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12">
-                        {t('create.recTypeFriends')}
-                      </TabsTrigger>
-                      <TabsTrigger value="public" className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12">
-                        {t('create.recTypePublic')}
+                      <TabsTrigger value="friends" className="flex flex-col items-center justify-center h-auto min-h-[140px] p-6 rounded-3xl border-2 border-[#E8E8E8] bg-white data-[state=active]:border-[#FB6376] data-[state=active]:bg-[#FFF9EC] data-[state=active]:text-[#5D2A42] text-[#1A1A1A] transition-all shadow-sm hover:shadow-md hover:border-[#FB6376]/50 group">
+                        <div className="w-16 h-16 rounded-full bg-[#FFF9EC] group-data-[state=active]:bg-white flex items-center justify-center mb-3 transition-colors shadow-sm">
+                          <span className="text-3xl">🤝</span>
+                        </div>
+                        <span className="text-xl font-bold">{t('create.recTypeFriends')}</span>
                       </TabsTrigger>
                     </TabsList>
 
                     <div className="flex-1 mt-2 overflow-y-auto no-scrollbar pb-6">
                       <TabsContent value="self" className="mt-0 outline-none">
-                        <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC]">
-                          <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">{t('create.giftTitleSelf')}</h3>
-                          <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
+                        <div className="flex flex-col py-8 px-8 border-2 border-[#FFF9EC] rounded-3xl bg-white shadow-sm">
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-10 h-10 rounded-full bg-[#FB6376]/10 flex items-center justify-center">
+                              <Lock className="w-5 h-5 text-[#FB6376]" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-[#5D2A42]">{t('create.giftTitleSelf')}</h3>
+                          </div>
+                          <p className="text-[#666] font-medium text-base leading-relaxed">
                             {t('create.giftDescSelf')}
                           </p>
                         </div>
@@ -817,12 +838,12 @@ export const CapsuleMultistepForm = ({
                                   <div
                                     key={friend.id}
                                     className={cn(
-                                      "flex items-center p-4 rounded-2xl transition-all duration-200 border",
+                                      "flex items-center p-4 rounded-3xl transition-all duration-300 border-2",
                                       !hasKey
-                                        ? "opacity-60 cursor-not-allowed bg-gray-50 border-[#E8E8E8]"
+                                        ? "opacity-50 cursor-not-allowed bg-gray-50 border-[#E8E8E8]"
                                         : isSelected
-                                          ? "border-[#FB6376] bg-[#FFF9EC] cursor-pointer"
-                                          : "border-[#E8E8E8] bg-white hover:border-[#FB6376] hover:bg-[#FFF9EC] cursor-pointer"
+                                          ? "border-[#FB6376] bg-[#FFF9EC] shadow-sm cursor-pointer scale-[1.02]"
+                                          : "border-transparent bg-white hover:border-[#FFDCCC] hover:bg-[#FFF9EC]/50 hover:shadow-sm cursor-pointer shadow-sm border-[#E8E8E8]"
                                     )}
                                     onClick={() => hasKey && toggleFriendSelection(friend.id)}
                                   >
@@ -852,34 +873,7 @@ export const CapsuleMultistepForm = ({
                         )}
                       </TabsContent>
 
-                      <TabsContent value="public" className="mt-0">
-                        <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC] mb-8">
-                          <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">{t('create.shareWorldTitle')}</h3>
-                          <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
-                            {t('create.shareWorldDesc')}
-                          </p>
-                        </div>
 
-                        <div className="flex flex-col gap-3">
-                          <Label htmlFor="category" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                            {t('create.communityCategoryLabel')}
-                          </Label>
-                          <Select value={capsuleCategory} onValueChange={onCapsuleCategoryChange}>
-                            <SelectTrigger id="category" className="h-14 border-[#E8E8E8] bg-white text-base font-medium rounded-2xl focus:ring-0 focus:border-[#5D2A42]">
-                              <SelectValue placeholder={t('create.communityCategoryPlaceholder')} />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-2xl border-[#E8E8E8] shadow-sm">
-                              <SelectItem value="memories" className="rounded-xl h-12 font-medium">{t('create.categoryMemories')}</SelectItem>
-                              <SelectItem value="reflections" className="rounded-xl h-12 font-medium">{t('create.categoryReflections')}</SelectItem>
-                              <SelectItem value="moments" className="rounded-xl h-12 font-medium">{t('create.categoryMoments')}</SelectItem>
-                              <SelectItem value="stories" className="rounded-xl h-12 font-medium">{t('create.categoryStories')}</SelectItem>
-                              <SelectItem value="milestones" className="rounded-xl h-12 font-medium">{t('create.categoryMilestones')}</SelectItem>
-                              <SelectItem value="wisdom" className="rounded-xl h-12 font-medium">{t('create.categoryWisdom')}</SelectItem>
-                              <SelectItem value="other" className="rounded-xl h-12 font-medium">{t('create.categoryOther')}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </TabsContent>
                     </div>
                   </Tabs>
                 </div>
@@ -887,10 +881,10 @@ export const CapsuleMultistepForm = ({
 
               {/* Step 3: Review */}
               {currentStep === 3 && (
-                <div className="p-10 md:p-14 h-full flex flex-col gap-8">
-                  <div className="flex items-start justify-between">
+                <div className="h-full flex flex-col gap-10">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-[#FFF9EC] p-6 rounded-3xl border border-[#FFDCCC]">
                     <div>
-                      <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.reviewHeading')}</h2>
+                      <h2 className="text-3xl font-black text-[#5D2A42] tracking-tighter mb-2">{t('create.reviewHeading')}</h2>
                       <p className="text-[#666] text-base font-medium">{t('create.reviewSub')}</p>
                     </div>
                     <Button
@@ -917,7 +911,7 @@ export const CapsuleMultistepForm = ({
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.2 }}
-                        className="bg-[#FFF9EC] border border-[#FFDCCC] rounded-3xl p-8 flex-1 flex flex-col justify-between shadow-sm"
+                        className="bg-white border-2 border-[#F5F5F5] rounded-[2rem] p-8 md:p-10 flex-1 flex flex-col justify-between shadow-lg shadow-black/[0.03]"
                       >
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8 border-b border-[#E8E8E8]">
                           <div>
@@ -1167,13 +1161,13 @@ export const CapsuleMultistepForm = ({
           </AnimatePresence>
 
           {/* Footer Navigation */}
-          <div className="p-8 border border-[#EAEAEA] bg-white flex justify-between items-center z-10 rounded-2xl shadow-sm mt-6">
+          <div className="mt-12 pt-8 flex justify-between items-center z-10">
             <Button
               type="button"
               variant="outline"
               onClick={currentStep === 0 ? onCancel : handlePrev}
               disabled={isSubmitting}
-              className="h-14 px-8 rounded-2xl border-[#EAEAEA] bg-white text-[#1A1A1A] font-bold hover:bg-[#FFF9EC] hover:text-[#5D2A42] hover:border-[#FFDCCC] transition-all uppercase tracking-wider text-sm"
+              className="h-14 px-8 rounded-2xl border-2 border-[#E8E8E8] bg-white text-[#1A1A1A] font-bold hover:bg-[#F8F8F8] hover:border-[#CCC] transition-all uppercase tracking-wider text-sm shadow-sm hover:shadow-md"
             >
               {currentStep === 0 ? t('common.cancel') : t('common.goBack')}
             </Button>
@@ -1182,7 +1176,7 @@ export const CapsuleMultistepForm = ({
               type="button"
               onClick={currentStep === translatedSteps.length - 1 ? onSubmit : handleNext}
               disabled={!isStepValid() || isSubmitting}
-              className="h-14 px-10 rounded-2xl bg-[#FB6376] hover:bg-[#e8556a] text-white font-bold transition-all uppercase tracking-wider text-sm"
+              className="h-14 px-10 rounded-2xl bg-[#FB6376] hover:bg-[#e8556a] text-white font-bold transition-all uppercase tracking-wider text-sm shadow-[0_8px_20px_-8px_rgba(251,99,118,0.5)] hover:shadow-[0_8px_25px_-5px_rgba(251,99,118,0.6)] hover:-translate-y-0.5"
             >
               {isSubmitting ? (
                 t('common.processing')

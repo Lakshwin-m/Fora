@@ -56,41 +56,51 @@ export default function AnimatedNumberCountdown({
   }, [endDate, startDate])
 
   return (
-    <div className={`flex items-center justify-center gap-4 ${className}`}>
+    <div className={`flex items-center justify-center gap-6 md:gap-12 ${className}`}>
+      {/* Days Block */}
       <div className="flex flex-col items-center">
         <MotionNumberFlow
           value={timeLeft.days}
-          className="text-5xl font-semibold tracking-tighter text-[#1A1A1A]"
+          className="text-5xl md:text-7xl font-light tracking-tighter text-[#5D2A42]"
           format={{ minimumIntegerDigits: 2 }}
         />
-        <span className="text-sm text-gray-500 font-medium">Days</span>
+        <span className="text-[10px] md:text-xs text-[#5D2A42]/50 font-medium tracking-[0.2em] uppercase mt-2">Days</span>
       </div>
-      <div className="text-2xl font-bold text-[#FB6376] mt-[-20px]">:</div>
+
+      <div className="w-px h-12 md:h-16 bg-[#5D2A42]/10" />
+
+      {/* Hours Block */}
       <div className="flex flex-col items-center">
         <MotionNumberFlow
           value={timeLeft.hours}
-          className="text-5xl font-semibold tracking-tighter text-[#1A1A1A]"
+          className="text-5xl md:text-7xl font-light tracking-tighter text-[#5D2A42]"
           format={{ minimumIntegerDigits: 2 }}
         />
-        <span className="text-sm text-gray-500 font-medium">Hours</span>
+        <span className="text-[10px] md:text-xs text-[#5D2A42]/50 font-medium tracking-[0.2em] uppercase mt-2">Hours</span>
       </div>
-      <div className="text-2xl font-bold text-[#FB6376] mt-[-20px]">:</div>
+
+      <div className="w-px h-12 md:h-16 bg-[#5D2A42]/10" />
+
+      {/* Minutes Block */}
       <div className="flex flex-col items-center">
         <MotionNumberFlow
           value={timeLeft.minutes}
-          className="text-5xl font-semibold tracking-tighter text-[#1A1A1A]"
+          className="text-5xl md:text-7xl font-light tracking-tighter text-[#5D2A42]"
           format={{ minimumIntegerDigits: 2 }}
         />
-        <span className="text-sm text-gray-500 font-medium">Minutes</span>
+        <span className="text-[10px] md:text-xs text-[#5D2A42]/50 font-medium tracking-[0.2em] uppercase mt-2">Minutes</span>
       </div>
-      <div className="text-2xl font-bold text-[#FB6376] mt-[-20px]">:</div>
+
+      <div className="w-px h-12 md:h-16 bg-[#5D2A42]/10" />
+
+      {/* Seconds Block */}
       <div className="flex flex-col items-center">
         <MotionNumberFlow
           value={timeLeft.seconds}
-          className="text-5xl font-semibold tracking-tighter text-[#FB6376]"
+          className="text-5xl md:text-7xl font-light tracking-tighter text-[#5D2A42]"
           format={{ minimumIntegerDigits: 2 }}
         />
-        <span className="text-sm text-gray-500 font-medium">Seconds</span>
+        <span className="text-[10px] md:text-xs text-[#5D2A42]/50 font-medium tracking-[0.2em] uppercase mt-2">Seconds</span>
       </div>
     </div>
   )

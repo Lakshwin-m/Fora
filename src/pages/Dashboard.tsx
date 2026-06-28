@@ -298,7 +298,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
               className="absolute inset-0 w-full h-full object-contain drop-shadow-sm pointer-events-none"
             />
             {/* The letter area inside the open envelope. */}
-            <div className="absolute top-[32%] left-[22%] right-[22%] h-[35%] flex flex-col items-center justify-center z-10 text-center text-[#1A1A1A] overflow-hidden pt-2">
+            <div className="absolute top-[28%] left-[24%] right-[24%] h-[40%] bg-[#FAF9F6] shadow-sm rounded-t-sm border-x border-t border-[#EAEAEA] flex flex-col items-center justify-start z-10 text-center overflow-hidden p-3">
               {isDecrypting ? (
                 <Loader2 className="w-5 h-5 animate-spin text-[#FB6376] mt-4" />
               ) : (
@@ -322,17 +322,14 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
               alt={!isUnlocked ? "Sealed Envelope" : "Unlocked Envelope"}
               className="absolute inset-0 w-full h-full object-contain drop-shadow-sm pointer-events-none"
             />
-            {/* Center text on closed envelope */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4">
-              <div className="rotate-[0deg] flex flex-col items-center max-w-[85%] mt-4">
-                <span className="text-[12px] md:text-[14px] text-[#5D2A42]/90 font-serif italic mb-1 tracking-tight">
-                  {t('dashboard.openWhen')}
-                </span>
-                <h3 className="text-lg md:text-xl font-bold text-[#1A1A1A]/80 text-balance font-serif tracking-tight leading-snug line-clamp-3">
+            {/* Text on closed envelope - positioned above the seal */}
+            <div className="absolute top-[16%] md:top-[18%] left-0 right-0 flex flex-col items-center justify-center z-10 text-center px-8">
+              <div className="flex flex-col items-center max-w-[90%]">
+                <h3 className="text-sm md:text-base font-bold text-[#1A1A1A] text-balance font-serif tracking-tight leading-snug line-clamp-2 uppercase opacity-90">
                   {isDecrypting ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-[#5D2A42]" />
+                    <Loader2 className="w-4 h-4 animate-spin text-[#5D2A42]" />
                   ) : (
-                    title || "you are down"
+                    title || "Untitled"
                   )}
                 </h3>
               </div>
@@ -552,10 +549,10 @@ const Dashboard = () => {
             <div className="mb-12">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
                 <div>
-                  <h1 className="text-3xl font-bold text-[#1A1A1A] mb-3">
-                    <span className="text-[#FB6376]">{t('dashboard.titlePrefix')}</span>{t('dashboard.titleSuffix')}
+                  <h1 className="text-3xl md:text-4xl font-semibold tracking-tight text-[#5D2A42] mb-3">
+                    {t('dashboard.titlePrefix')} {t('dashboard.titleSuffix')}
                   </h1>
-                  <p className="text-[#666666] text-md">
+                  <p className="text-[#5D2A42]/70 text-sm md:text-base font-medium">
                     {t('dashboard.subtitle')}
                   </p>
                 </div>
@@ -564,7 +561,7 @@ const Dashboard = () => {
               </div>
 
               {/* Stats */}
-              <div className="flex flex-wrap items-center gap-8">
+              <div className="flex flex-wrap items-center gap-10 md:gap-16 lg:gap-20">
                 <AnimatedStatsCard title={t('dashboard.capsulesCreated')} primaryValue={sent.length} />
                 <AnimatedStatsCard title={t('dashboard.capsulesReceived')} primaryValue={received.length} />
                 <AnimatedStatsCard
@@ -597,23 +594,21 @@ const Dashboard = () => {
               const unlockDate = parseFirebaseDate(nextCapsule.unlockDate || nextCapsule.deliveryDate);
 
               return (
-                <div className="mb-12 flex flex-col items-center justify-center bg-white/50 backdrop-blur-md border border-[#E8E8E8] rounded-3xl p-8 shadow-sm">
-                  <Badge
-                    variant="outline"
-                    className="rounded-[14px] border border-[#FB6376]/20 bg-[#FFDCCC]/10 text-base text-[#5D2A42] font-medium px-4 py-1.5 mb-6"
-                  >
-                    <Timer className="w-5 h-5 fill-[#FB6376]/20 stroke-[1.5px] text-[#FB6376] mr-2" />
-                    {t('dashboard.nextMemoryUnlock')}
-                  </Badge>
+                <div className="mb-12 flex flex-col items-center justify-center w-full max-w-2xl mx-auto mt-8">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="h-px w-8 md:w-16 bg-[#5D2A42]/10" />
+                    <div className="text-[10px] md:text-xs font-medium tracking-[0.2em] uppercase text-[#5D2A42]/50 text-center">
+                      {t('dashboard.nextMemoryUnlock')}
+                    </div>
+                    <div className="h-px w-8 md:w-16 bg-[#5D2A42]/10" />
+                  </div>
 
                   {unlockDate && (
                     <AnimatedNumberCountdown
                       endDate={unlockDate}
-                      className="scale-90 md:scale-110"
+                      className="w-full max-w-2xl mx-auto scale-90 md:scale-100"
                     />
                   )}
-
-
                 </div>
               );
             })()}

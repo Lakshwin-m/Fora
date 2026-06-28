@@ -34,32 +34,32 @@ const UsageBadge = React.forwardRef<HTMLDivElement, UsageBadgeProps>(
             <div
               ref={ref}
               className={cn(
-                "group relative inline-flex cursor-default items-center gap-3 overflow-hidden rounded-full border border-[#E8E8E8] bg-white px-5 py-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all hover:border-[#D0D0D0] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)]",
+                "group relative inline-flex cursor-default items-center gap-3 overflow-hidden rounded-full border border-[#5D2A42]/10 bg-white/60 backdrop-blur-sm px-4 py-2 shadow-sm transition-all hover:border-[#5D2A42]/20 hover:bg-white/80",
                 className
               )}
             >
               {/* Progress Bar Fill - Thin elegant line at the bottom instead of full background muddying */}
               {limit !== null && limit > 0 && (
                 <div
-                  className="absolute bottom-0 left-0 z-0 h-[3px] bg-[#FB6376] transition-all duration-700 ease-out"
+                  className="absolute bottom-0 left-0 z-0 h-[2px] bg-[#5D2A42]/40 transition-all duration-700 ease-out"
                   style={{ width: `${usagePercentage}%` }}
                 />
               )}
 
               {/* Icon */}
               {icon && (
-                <div className="z-10 flex items-center justify-center text-[#1A1A1A] bg-[#F8F8F8] p-1.5 rounded-full border border-[#E8E8E8]">
-                  {React.cloneElement(icon as React.ReactElement, { className: "w-3.5 h-3.5" })}
+                <div className="z-10 flex items-center justify-center text-[#5D2A42] bg-[#5D2A42]/5 p-1.5 rounded-full border border-[#5D2A42]/10">
+                  {React.cloneElement(icon as React.ReactElement, { className: "w-3 h-3" })}
                 </div>
               )}
 
               {/* Text Content */}
               <div className="z-10 flex items-center gap-2.5 pb-[1px]">
-                <span className="text-[#1A1A1A] font-extrabold text-[13px] tracking-wide uppercase">
+                <span className="text-[#5D2A42] font-semibold text-[10px] md:text-xs tracking-widest uppercase">
                   {planName}
                 </span>
-                <span className="text-[#E8E8E8] font-light">|</span>
-                <span className="text-[#666] font-bold text-[13px] tracking-tight">
+                <span className="text-[#5D2A42]/20 font-light">|</span>
+                <span className="text-[#5D2A42]/80 font-medium text-[11px] md:text-xs tracking-wide">
                   {limit === null || limit <= 0
                     ? "Unlimited"
                     : `${Math.max(0, limit - usage)} Left`}

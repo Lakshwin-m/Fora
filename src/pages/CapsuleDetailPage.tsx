@@ -298,10 +298,9 @@ const CapsuleDetailPage = () => {
               }}
             >
               <img src="/letter_cover-4fCnauP6.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Unlocked Envelope" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4">
-                <div className="rotate-[0deg] flex flex-col items-center max-w-[85%] mt-4">
-                  <span className="text-[14px] text-[#5D2A42]/90 font-serif italic mb-1 tracking-tight">{t('capsuleDetail.openWhen')}</span>
-                  <h3 className="text-xl font-bold text-[#1A1A1A]/80 font-serif tracking-tight leading-snug line-clamp-3">
+              <div className="absolute top-[16%] md:top-[18%] left-0 right-0 flex flex-col items-center justify-center z-10 text-center px-8">
+                <div className="flex flex-col items-center max-w-[90%]">
+                  <h3 className="text-base md:text-lg font-bold text-[#1A1A1A] font-serif tracking-tight leading-snug line-clamp-2 uppercase opacity-90">
                     {decryptedTitle || t('capsuleDetail.untitled')}
                   </h3>
                 </div>
@@ -323,13 +322,10 @@ const CapsuleDetailPage = () => {
               onClick={() => setInteractionStep(2)}
             >
               <img src="/open_envelope-eMfrWOgA.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Open Envelope" />
-              <div className="absolute top-[32%] left-[22%] right-[22%] h-[35%] flex flex-col items-center justify-start z-10 text-center text-[#1A1A1A] overflow-hidden pt-2">
-                 <h3 className="font-bold text-[15px] leading-tight w-full font-serif mb-1 line-clamp-2 text-[#5D2A42]">
+              <div className="absolute top-[28%] left-[24%] right-[24%] h-[40%] bg-[#FAF9F6] shadow-sm rounded-t-sm border-x border-t border-[#EAEAEA] flex flex-col items-center justify-start z-10 text-center overflow-hidden p-4">
+                 <h3 className="font-bold text-sm md:text-base leading-tight w-full font-serif text-[#5D2A42] line-clamp-3">
                    {decryptedTitle || t('capsuleDetail.untitled')}
                  </h3>
-                 <div className="text-[11px] text-[#1A1A1A]/80 line-clamp-3 leading-snug w-full px-1">
-                   {decryptedContent ? (() => { const tmp = document.createElement("div"); tmp.innerHTML = decryptedContent; return tmp.textContent || tmp.innerText || "..."; })() : "..."}
-                 </div>
               </div>
               <div className="absolute bottom-[-50px] left-0 right-0 text-center text-[#5D2A42]/60 animate-bounce text-sm font-medium">
                 {t('capsuleDetail.clickPull')}
