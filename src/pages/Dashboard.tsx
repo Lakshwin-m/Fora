@@ -226,7 +226,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
     parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ?? new Date(0);
   const isUnlockedDate = unlockDate.getTime() <= currentTime.getTime();
   const isUnlocked = isUnlockedDate || capsule.isUnlocked;
-  const isOpened = capsule.isOpenedByMe === true;
+  const isOpened = true;
   const showAsOpen = isUnlocked && isOpened;
   const isSentToSelf = capsule.recipientType === "self";
   const countdown = getCountdown(capsule.unlockDate || capsule.deliveryDate, currentTime);

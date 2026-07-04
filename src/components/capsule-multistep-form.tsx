@@ -425,7 +425,7 @@ export const CapsuleMultistepForm = ({
       </div>
 
       {/* Form Card */}
-      <Card className="border border-[#EAEAEA] shadow-sm bg-white rounded-[2rem] overflow-hidden relative min-h-[500px]">
+      <Card className="border border-[#EAEAEA] shadow-sm bg-white rounded-[2rem] relative min-h-[500px]">
         <div className="flex flex-col h-full relative">
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
@@ -515,7 +515,7 @@ export const CapsuleMultistepForm = ({
                             <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
                               Occasion Preset
                             </Label>
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            <div className="grid grid-cols-5 gap-4 w-full px-2">
                               {[
                                 { id: "birthday", name: "Birthday", emoji: "🎂", description: "Yearly at 9:00 AM" },
                                 { id: "anniversary", name: "Anniversary", emoji: "💍", description: "Yearly at 9:00 AM" },
@@ -530,7 +530,7 @@ export const CapsuleMultistepForm = ({
                                     type="button"
                                     onClick={() => onReminderPresetChange(preset.id)}
                                     className={cn(
-                                      "flex flex-col items-center justify-between p-4 rounded-3xl border transition-all text-center h-32 focus:outline-none",
+                                      "w-full h-32 flex flex-col items-center justify-between p-4 rounded-3xl border transition-all text-center focus:outline-none",
                                       isSelected
                                         ? "border-[#FB6376] bg-[#FFF9EC] shadow-sm scale-[1.02]"
                                         : "border-[#E8E8E8] bg-white hover:border-[#FB6376] hover:bg-[#FFF9EC]/40"
