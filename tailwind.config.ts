@@ -14,8 +14,11 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
-        heading: ["Outfit", "sans-serif"],
+        sans: ["Nunito", "sans-serif"],
+        heading: ["Nunito", "sans-serif"],
+        serif: ["Playfair Display", "serif"],
+        cursive: ["Patrick Hand", "cursive"],
+        mono: ["Geist Mono", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",

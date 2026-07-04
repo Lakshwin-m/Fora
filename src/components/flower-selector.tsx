@@ -80,7 +80,7 @@ export function FlowerSelector({
               height={80}
               className="w-20 h-20 object-contain"
             />
-            <span className="text-sm mt-2 text-center font-medium">
+            <span className="text-sm mt-2 text-center font-semibold text-gray-900">
               {meta.name}
             </span>
 

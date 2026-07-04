@@ -6,6 +6,12 @@ import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import { defineSecret } from "firebase-functions/params";
 
 const FORA_PEPPER = defineSecret("FORA_PEPPER");
+const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+
+import { runPipeline } from "./moderation/pipeline";
+import { sanitize, detectInjections, Fields } from "./moderation/sanitize";
+import { CreateCapsuleSchema, PlantFlowerSchema, SendFriendRequestSchema, SearchUsersSchema, OnboardingSchema } from "./moderation/schemas";
+import { logValidationFailure } from "./moderation/validationLogger";
 import cors from "cors";
 import { Resend } from "resend";
 import { ReceiptEmail } from "./emails/ReceiptTemplate";
@@ -77,7 +83,7 @@ export const verifyAuth = async (req: any) => {
 function getNextUnlockDate(currentUnlockDate: Date, pattern: "minutely" | "daily" | "weekly" | "monthly" | "yearly" | string): Date {
   const now = new Date();
   const next = new Date(currentUnlockDate);
-  while (next <= now) {
+  do {
     if (pattern === "minutely") {
       next.setMinutes(next.getMinutes() + 1);
     } else if (pattern === "daily") {
@@ -91,7 +97,7 @@ function getNextUnlockDate(currentUnlockDate: Date, pattern: "minutely" | "daily
     } else {
       next.setDate(next.getDate() + 1); // fallback to daily if unknown
     }
-  }
+  } while (next <= now);
   return next;
 }
 
@@ -103,6 +109,7 @@ function handleCapsuleUnlock(doc: admin.firestore.DocumentSnapshot, batch: admin
     isUnlocked: true,
     status: "unlocked",
     unlockedAt: admin.firestore.FieldValue.serverTimestamp(),
+
   });
 
   // Create notifications for each recipient upon unlock
@@ -128,9 +135,15 @@ function handleCapsuleUnlock(doc: admin.firestore.DocumentSnapshot, batch: admin
     });
   }
 
-  if (!data.isReminderCapsule &&data.recurrencePattern &&data.recurrencePattern !== "none") {
+  if (!data.isReminderCapsule && data.recurrencePattern && data.recurrencePattern !== "none" && !data.nextInstanceCreated) {
+    batch.update(doc.ref, { nextInstanceCreated: true });
+
     const currentUnlockDate = data.unlockDate.toDate();
     const nextUnlockDate = getNextUnlockDate(currentUnlockDate, data.recurrencePattern);
+    const nextVisibleFrom = new Date(nextUnlockDate);
+    nextVisibleFrom.setHours(nextVisibleFrom.getHours() - 1);
+
+
     const nextRef = db.collection("capsules").doc();
     batch.set(nextRef, {
       ...data,
@@ -141,6 +154,10 @@ function handleCapsuleUnlock(doc: admin.firestore.DocumentSnapshot, batch: admin
       isUnlocked: false,
       unlockedAt: null,
       priorReminderSent: false,
+      openedBy: [],
+      nextUnlockAt: nextUnlockDate.toISOString(),
+      visibleFrom: nextVisibleFrom.toISOString(),
+      nextInstanceCreated: false,
     });
   }
 }
@@ -179,10 +196,10 @@ export const checkAndUnlockCapsules = onSchedule(
     handleCapsuleUnlock(doc, batch);
   });
     await batch.commit(); 
- }  
+  }  
 
     // 2. Processing Prior Reminders
-    const reminderSnapshot = await db
+    const timeReminderSnapshot = await db
       .collection("capsules")
       .where("isUnlocked", "==", false)
       .where("status", "==", "scheduled")
@@ -191,11 +208,27 @@ export const checkAndUnlockCapsules = onSchedule(
       .where("priorReminderSent", "==", false)
       .get();
 
-    if (!reminderSnapshot.empty) {
+    const eventReminderSnapshot = await db
+      .collection("capsules")
+      .where("isUnlocked", "==", false)
+      .where("status", "==", "scheduled")
+      .where("triggerType", "==", "event")
+      .where("priorReminderEnabled", "==", true)
+      .where("priorReminderSent", "==", false)
+      .get();
+
+    let docsForReminder = [...timeReminderSnapshot.docs];
+    eventReminderSnapshot.docs.forEach((doc) => {
+      if (doc.data().isReminderCapsule) {
+        docsForReminder.push(doc);
+      }
+    });
+
+    if (docsForReminder.length > 0) {
       const reminderBatch = db.batch();
       const nowMs = Date.now();
 
-      for (const doc of reminderSnapshot.docs) {
+      for (const doc of docsForReminder) {
         const data = doc.data();
         const unlockDateMs = data.unlockDate.toMillis();
         const reminderDaysMs = data.priorReminderDays * 24 * 60 * 60 * 1000;
@@ -339,12 +372,47 @@ export const getServerTime = onRequest((req, res) => {
 });
 
 /**
- * Create capsule
+ * Create capsule (with moderation pipeline)
  */
-export const createCapsule = onRequest((req, res) => {
+export const createCapsule = onRequest(
+  { secrets: [OPENAI_API_KEY] },
+  (req, res) => {
   corsHandler(req, res, async () => {
     try {
       const user = await verifyAuth(req);
+
+      // ── Zod validation ──
+      const parsed = CreateCapsuleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "Invalid input", details: parsed.error.flatten() });
+        return;
+      }
+      const body = parsed.data;
+
+      // ── Moderation pipeline — plaintext preview only, never stored ──
+      const modResult = await runPipeline(
+        req,
+        {
+          title:   body.plaintextTitle,
+          content: body.plaintextPreview,
+        },
+        {
+          uid: user.uid,
+          contentType: "capsule",
+          openaiApiKey: OPENAI_API_KEY.value(),
+          fields: {
+            title:   Fields.capsuleTitle,
+            content: Fields.capsulePreview,
+          },
+        }
+      );
+
+      if (!modResult.allowed) {
+        res.status(422).json({ error: modResult.rejectionReason });
+        return;
+      }
+
+      // ── Business logic (unchanged) ──
       const subRef = db.collection("subscriptions").doc(user.uid);
 
       await db.runTransaction(async (tx) => {
@@ -352,7 +420,7 @@ export const createCapsule = onRequest((req, res) => {
         const plan = subSnap.exists ? subSnap.data() : { tier: "free", usedCapsules: 0 };
         if (!plan) throw new Error("No plan assigned");
 
-        const capsuleLimit = plan.capsuleLimit === undefined ? 5 : plan.capsuleLimit; // Default to free limit of 5, null means unlimited
+        const capsuleLimit = plan.capsuleLimit === undefined ? 5 : plan.capsuleLimit;
         let usedCapsules = plan.usedCapsules ?? 0;
 
         // 🔁 Monthly reset (starter)
@@ -377,7 +445,7 @@ export const createCapsule = onRequest((req, res) => {
           }
         }
 
-        // 🚫 ENFORCEMENT (ONLY THIS)
+        // 🚫 ENFORCEMENT
         if (capsuleLimit !== null && usedCapsules >= capsuleLimit) {
           throw new Error("CAPSULE_LIMIT_REACHED");
         }
@@ -419,7 +487,7 @@ export const createCapsule = onRequest((req, res) => {
           openedBy:         [],
         });
 
-        // 🔢 Increment usage (single source of truth)
+        // 🔢 Increment usage
         tx.set(subRef, {
           usedCapsules: admin.firestore.FieldValue.increment(1),
         }, { merge: true });
@@ -506,9 +574,39 @@ export const openCapsule = onRequest((req, res) => {
         return;
       }
 
-      await ref.update({
+      const batch = db.batch();
+      batch.update(ref, {
         openedBy: admin.firestore.FieldValue.arrayUnion(user.uid),
+        isUnlocked: true,
+        status: "unlocked",
       });
+
+      if (data?.userId === user.uid && data?.recurrencePattern && data?.recurrencePattern !== "none" && !data?.nextInstanceCreated && data?.isReminderCapsule !== true && data?.isReminder !== true) {
+        batch.update(ref, { nextInstanceCreated: true });
+
+        const currentUnlockDate = data.unlockDate ? data.unlockDate.toDate() : new Date();
+        const nextUnlockDate = getNextUnlockDate(currentUnlockDate, data.recurrencePattern);
+        const nextVisibleFrom = new Date(nextUnlockDate);
+        nextVisibleFrom.setHours(nextVisibleFrom.getHours() - 1);
+
+        const nextRef = db.collection("capsules").doc();
+        batch.set(nextRef, {
+          ...data,
+          id: nextRef.id,
+          unlockDate: admin.firestore.Timestamp.fromDate(nextUnlockDate),
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          status: "scheduled",
+          isUnlocked: false,
+          unlockedAt: null,
+          priorReminderSent: false,
+          openedBy: [],
+          nextUnlockAt: nextUnlockDate.toISOString(),
+          visibleFrom: nextVisibleFrom.toISOString(),
+          nextInstanceCreated: false,
+        });
+      }
+
+      await batch.commit();
       res.json({ success: true });
     } catch (e: any) {
       res.status(401).json({ error: e.message });
@@ -544,8 +642,12 @@ export const sealReminder = onRequest((req, res) => {
         return;
       }
 
-      if (data?.isReminderCapsule === true && data?.recurrencePattern && data?.recurrencePattern !== "none") {
-        const currentUnlockDate = data.unlockDate.toDate();
+      if ((data?.isReminderCapsule === true || data?.isReminder === true) && data?.recurrencePattern && data?.recurrencePattern !== "none") {
+        let currentUnlockDate = new Date();
+        if (data.unlockDate) {
+          currentUnlockDate = data.unlockDate.toDate ? data.unlockDate.toDate() : new Date(data.unlockDate);
+        }
+        
         const nextUnlockDate = getNextUnlockDate(currentUnlockDate, data.recurrencePattern);
         const nextVisibleFrom = new Date(nextUnlockDate);
         nextVisibleFrom.setHours(nextVisibleFrom.getHours() - 1);
@@ -564,7 +666,12 @@ export const sealReminder = onRequest((req, res) => {
 
       res.json({ success: true });
     } catch (e: any) {
-      res.status(401).json({ error: e.message });
+      console.error("sealReminder error:", e);
+      if (e.message === "Missing token" || e.code?.startsWith("auth/")) {
+        res.status(401).json({ error: e.message });
+      } else {
+        res.status(500).json({ error: e.message });
+      }
     }
   });
 });
@@ -605,10 +712,7 @@ export const deleteCapsule = onRequest((req, res) => {
         });
         if (files.length > 0) {
           await Promise.all(files.map((file) => file.delete()));
-          console.log(
-            `Deleted ${files.length} storage files for capsule ${capsuleId}`
-          );
-        }
+                  }
       } catch (storageErr) {
         console.error("Storage cleanup error (non-fatal):", storageErr);
         // Continue even if storage cleanup fails
@@ -739,9 +843,16 @@ export const sendFriendRequest = onRequest((req, res) => {
   corsHandler(req, res, async () => {
     try {
       const user = await verifyAuth(req);
-      const { receiverId } = req.body;
 
-      if (!receiverId || receiverId === user.uid) {
+      // ── Zod validation ──
+      const parsed = SendFriendRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: "Invalid input" });
+        return;
+      }
+      const { receiverId } = parsed.data;
+
+      if (receiverId === user.uid) {
         res.status(400).json({ error: "Invalid receiver" });
         return;
       }
@@ -751,12 +862,33 @@ export const sendFriendRequest = onRequest((req, res) => {
 
       const existing = await ref.get();
       if (existing.exists) {
-        res.status(400).json({ error: "Already requested or friends" });
-        return;
+        const data = existing.data();
+        if (data?.status === "rejected") {
+          // Allow re-sending if previously rejected
+          await ref.update({
+            requesterId: user.uid,
+            receiverId: receiverId,
+            status: "pending",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          res.json({ success: true });
+          return;
+        } else if (data?.status === "pending" && data?.requesterId === receiverId) {
+          // If they already sent us a request, auto-accept
+          await ref.update({
+            status: "accepted"
+          });
+          res.json({ success: true });
+          return;
+        } else {
+          res.status(400).json({ error: "Already requested or friends" });
+          return;
+        }
       }
 
       await ref.set({
         requesterId: user.uid,
+        receiverId: receiverId,
         participants: [user.uid, receiverId],
         status: "pending",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -814,6 +946,83 @@ export const getFriends = onRequest((req, res) => {
     }
   });
 });
+
+export const getUserFriends = onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    try {
+      if (req.method === "OPTIONS") {
+        res.status(204).send("");
+        return;
+      }
+
+      const user = await verifyAuth(req);
+      const { targetUserId } = req.body;
+
+      if (!targetUserId) {
+        res.status(400).json({ error: "Missing targetUserId" });
+        return;
+      }
+
+      // Check target user's visibility settings
+      const targetUserDoc = await db.collection("users").doc(targetUserId).get();
+      if (!targetUserDoc.exists) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+
+      const targetData = targetUserDoc.data();
+      const visibility = targetData?.settings?.profileVisibility || "public";
+
+      if (visibility === "private" && targetUserId !== user.uid) {
+        res.status(403).json({ error: "Profile is private" });
+        return;
+      }
+
+      if (visibility === "connections" && targetUserId !== user.uid) {
+        // Check if current user is a friend of target user
+        const friendshipId = [user.uid, targetUserId].sort().join("_");
+        const friendship = await db.collection("friends").doc(friendshipId).get();
+        if (!friendship.exists || friendship.data()?.status !== "accepted") {
+          res.status(403).json({ error: "Profile is restricted to connections only" });
+          return;
+        }
+      }
+
+      const snap = await db
+        .collection("friends")
+        .where("status", "==", "accepted")
+        .where("participants", "array-contains", targetUserId)
+        .get();
+
+      const friends = await Promise.all(
+        snap.docs.map(async (doc) => {
+          const data = doc.data();
+
+          const friendId = data.participants.find(
+            (id: string) => id !== targetUserId
+          );
+
+          if (!friendId) return null;
+
+          const userSnap = await db.collection("users").doc(friendId).get();
+
+          return {
+            id: doc.id,
+            profile: userSnap.exists
+              ? { uid: friendId, ...userSnap.data() }
+              : null,
+          };
+        })
+      );
+
+      res.json(friends.filter(Boolean));
+    } catch (err: any) {
+      console.error("[getUserFriends ERROR]", err);
+      res.status(401).json({ error: err.message });
+    }
+  });
+});
+
 
 export const acceptFriendRequest = onRequest((req, res) => {
   corsHandler(req, res, async () => {
@@ -896,16 +1105,14 @@ export const getPendingRequests = onRequest((req, res) => {
 
           const senderId = data.requesterId;
           const senderSnap = await db.collection("users").doc(senderId).get();
+          const senderData = senderSnap.exists ? senderSnap.data() : {};
 
           return {
             id: doc.id,
-            senderId,
-            profile: senderSnap.exists
-              ? {
-                  uid: senderId,
-                  ...senderSnap.data(),
-                }
-              : null,
+            senderUid: senderId,
+            senderName: senderData?.name || "Unknown",
+            senderEmail: senderData?.email || "",
+            senderPhotoURL: senderData?.photoURL || "",
           };
         })
       );
@@ -948,18 +1155,67 @@ export const searchUsers = onRequest((req, res) => {
   corsHandler(req, res, async () => {
     try {
       const user = await verifyAuth(req);
-      const { query } = req.body;
 
-      const snap = await db
-        .collection("users")
-        .where("email", ">=", query)
-        .where("email", "<=", query + "\uf8ff")
-        .limit(10)
-        .get();
+      // ── Zod validation ──
+      const parsed = SearchUsersSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.json([]);
+        return;
+      }
+      let { query } = parsed.data;
 
-      res.json(
-        snap.docs.map((d) => d.data()).filter((u) => u.uid !== user.uid)
-      );
+      if (query === "SUGGESTIONS_TRIGGER") {
+        const snap = await db.collection("users").limit(30).get();
+        res.json(
+          snap.docs
+            .map((d) => ({ ...d.data(), uid: d.id }))
+            .filter((u) => u.uid !== user.uid)
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 12)
+        );
+        return;
+      }
+
+      // ── Sanitize the search query — no moderation needed ──
+      try {
+        const result = sanitize(query, Fields.searchQuery);
+        query = result.clean;
+      } catch (err: any) {
+        res.status(400).json({ error: err.publicMessage || "Invalid query" });
+        return;
+      }
+
+      // ── Injection check ──
+      const injection = detectInjections(query);
+      if (!injection.clean) {
+        res.status(400).json({ error: "Invalid query" });
+        return;
+      }
+      const queryLower = query.toLowerCase();
+      const queryTitle = query.charAt(0).toUpperCase() + query.slice(1).toLowerCase();
+
+      const promises = [
+        db.collection("users").where("email", ">=", queryLower).where("email", "<=", queryLower + "\uf8ff").limit(10).get(),
+        db.collection("users").where("username", ">=", queryLower).where("username", "<=", queryLower + "\uf8ff").limit(10).get(),
+        db.collection("users").where("username", ">=", query).where("username", "<=", query + "\uf8ff").limit(10).get(),
+        db.collection("users").where("name", ">=", query).where("name", "<=", query + "\uf8ff").limit(10).get(),
+        db.collection("users").where("name", ">=", queryTitle).where("name", "<=", queryTitle + "\uf8ff").limit(10).get(),
+        db.collection("users").where("name", ">=", queryLower).where("name", "<=", queryLower + "\uf8ff").limit(10).get(),
+      ];
+
+      const snaps = await Promise.all(promises);
+      const resultsMap = new Map();
+
+      snaps.forEach((snap) => {
+        snap.docs.forEach((doc) => {
+          const data = { ...doc.data(), uid: doc.id };
+          if (data.uid !== user.uid) {
+            resultsMap.set(data.uid, data);
+          }
+        });
+      });
+
+      res.json(Array.from(resultsMap.values()).slice(0, 20));
     } catch (e: any) {
       res.status(401).json({ error: e.message });
     }
@@ -1065,29 +1321,56 @@ export const getFlowers = onRequest((req, res) => {
   }
 });
 
-export const plantFlower = onRequest((req, res) => {
+export const plantFlower = onRequest(
+  { secrets: [OPENAI_API_KEY] },
+  (req, res) => {
   corsHandler(req, res, async () => {
     try {
-      const { title, message, author, x, y, flower } = req.body;
-
-      if (!title || !message || x === undefined || y === undefined || !flower) {
+      // ── Zod validation ──
+      const parsed = PlantFlowerSchema.safeParse(req.body);
+      if (!parsed.success) {
         res.status(400).json({ error: "Missing required fields" });
         return;
       }
+      const body = parsed.data;
 
-      const slug = title
+      // ── Moderation pipeline (anonymous — no auth required for garden) ──
+      const modResult = await runPipeline(
+        req,
+        { title: body.title, message: body.message },
+        {
+          uid: "anonymous",
+          contentType: "flower",
+          openaiApiKey: OPENAI_API_KEY.value(),
+          fields: {
+            title:   Fields.flowerTitle,
+            message: Fields.flowerMessage,
+          },
+        }
+      );
+
+      if (!modResult.allowed) {
+        res.status(422).json({ error: modResult.rejectionReason });
+        return;
+      }
+
+      // ── Use sanitized text for storage ──
+      const cleanTitle = modResult.sanitized.title || body.title;
+      const cleanMessage = modResult.sanitized.message || body.message;
+
+      const slug = cleanTitle
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
       const data: FlowerDoc = {
-        title,
+        title: cleanTitle,
         slug,
-        message,
-        author: author || null,
-        x: Math.round(x),
-        y: Math.round(y),
-        flower,
+        message: cleanMessage,
+        author: body.author || null,
+        x: Math.round(body.x),
+        y: Math.round(body.y),
+        flower: body.flower,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
@@ -1100,6 +1383,103 @@ export const plantFlower = onRequest((req, res) => {
     } catch (err) {
       console.error("[plantFlower ERROR]", err);
       res.status(500).json({ error: "Failed to plant flower" });
+    }
+  });
+});
+
+/* ============================================================
+   ONBOARDING — SERVER-SIDE VALIDATED PROFILE SAVE
+   ============================================================ */
+
+/**
+ * Save onboarding profile data with server-side validation.
+ * Replaces direct Firestore writes from the client.
+ *
+ * Pipeline: Auth → Zod schema → Sanitize → Injection detection → Firestore
+ * Returns a generic error message on any validation failure.
+ */
+export const saveOnboarding = onRequest((req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:8080");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Max-Age", "3600");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+
+  corsHandler(req, res, async () => {
+    try {
+      const user = await verifyAuth(req);
+
+      // ── Step 1: Zod schema validation ──
+      const parsed = OnboardingSchema.safeParse(req.body);
+      if (!parsed.success) {
+        logValidationFailure("saveOnboarding", req, user.uid, "schema");
+        console.warn(`[saveOnboarding] Schema validation failed for uid=${user.uid}`);
+        res.status(400).json({
+          error: "Invalid input. Please check your details and try again.",
+        });
+        return;
+      }
+      const body = parsed.data;
+
+      // ── Step 2: Sanitize text fields ──
+      let cleanName: string;
+      let cleanUsername: string;
+      let cleanBio: string;
+
+      try {
+        cleanName = sanitize(body.name, Fields.profileName).clean;
+        cleanUsername = sanitize(body.username, Fields.profileUsername).clean;
+        cleanBio = body.bio ? sanitize(body.bio, Fields.profileBio).clean : "";
+      } catch (err: any) {
+        logValidationFailure("saveOnboarding", req, user.uid, "sanitization");
+        console.warn(`[saveOnboarding] Sanitization failed for uid=${user.uid}`);
+        res.status(400).json({
+          error: "Invalid input. Please check your details and try again.",
+        });
+        return;
+      }
+
+      // ── Step 3: Injection detection ──
+      const allText = [cleanName, cleanUsername, cleanBio].join(" ");
+      const injection = detectInjections(allText);
+
+      if (!injection.clean) {
+        logValidationFailure("saveOnboarding", req, user.uid, "injection");
+        console.warn(`[saveOnboarding] Injection detected for uid=${user.uid}, patterns=${injection.patterns.join(",")}`);
+        res.status(400).json({
+          error: "Invalid input. Please check your details and try again.",
+        });
+        return;
+      }
+
+      // ── Step 4: Write to Firestore ──
+      const userRef = db.collection("users").doc(user.uid);
+
+      await userRef.set({
+        uid: user.uid,
+        email: user.email || "",
+        name: cleanName,
+        username: cleanUsername,
+        bio: cleanBio,
+        dateOfBirth: body.dateOfBirth || null,
+        photoURL: body.photoURL || "",
+        privacyLevel: body.privacyLevel || "private",
+        onboardingCompleted: true,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error("saveOnboarding error:", e.message);
+      if (e.message === "Missing token" || e.code?.startsWith?.("auth/")) {
+        res.status(401).json({ error: "Unauthorized" });
+      } else {
+        res.status(500).json({ error: "An error occurred. Please try again." });
+      }
     }
   });
 });
@@ -1125,10 +1505,39 @@ export const getKeyMaterial = onCall(
 
     const uid = request.auth.uid;
     // DO NOT log uid + pepper together — log uid only
-    console.log(`[getKeyMaterial] uid=${uid}`);
-
+    
     return {
       keyMaterial: uid + FORA_PEPPER.value(),
     };
   }
 );
+
+/* ============================================================
+   ADMIN — MODERATION LOG VIEWER
+   ============================================================ */
+
+export const getModerationFlags = onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    try {
+      const adminSecret = process.env.ADMIN_SECRET;
+      if (!adminSecret || req.headers["x-admin-secret"] !== adminSecret) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+
+      const snap = await db
+        .collection("_moderationLog")
+        .where("flagged", "==", true)
+        .orderBy("timestamp", "desc")
+        .limit(50)
+        .get();
+
+      res.json({
+        flags: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+      });
+    } catch (e: any) {
+      console.error("getModerationFlags error:", e.message);
+      res.status(500).json({ error: e.message });
+    }
+  });
+});

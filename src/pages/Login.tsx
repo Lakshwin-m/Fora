@@ -3,8 +3,10 @@ import { signup, login, loginWithGoogle } from "../auth";
 import { db } from "@/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 export default function SignupPage() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,6 +17,15 @@ export default function SignupPage() {
   const handleSignup = async () => {
     setLoading(true);
     setError("");
+
+    // Pre-flight validation — defense-in-depth before Firebase Auth
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 254 || password.length > 128) {
+      setError(t('loginFallback.signupFailed'));
+      setLoading(false);
+      return;
+    }
+
     try {
       const cred = await signup(email, password);
       const userRef = doc(db, "users", cred.user.uid);
@@ -26,7 +37,7 @@ export default function SignupPage() {
         navigate("/dashboard");
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Signup failed");
+      setError(error instanceof Error ? error.message : t('loginFallback.signupFailed'));
     } finally {
       setLoading(false);
     }
@@ -36,6 +47,15 @@ export default function SignupPage() {
   const handleLogin = async () => {
     setLoading(true);
     setError("");
+
+    // Pre-flight validation — defense-in-depth before Firebase Auth
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 254 || password.length > 128) {
+      setError(t('loginFallback.loginFailed'));
+      setLoading(false);
+      return;
+    }
+
     try {
       const cred = await login(email, password);
       const userRef = doc(db, "users", cred.user.uid);
@@ -47,7 +67,7 @@ export default function SignupPage() {
         navigate("/dashboard");
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Login failed");
+      setError(error instanceof Error ? error.message : t('loginFallback.loginFailed'));
     } finally {
       setLoading(false);
     }
@@ -55,13 +75,11 @@ export default function SignupPage() {
 
   // 🔹 Google login → onboarding if new user, dashboard if existing
   const handleGoogleLogin = async () => {
-    console.log("🚀 Starting Google login...");
-    setLoading(true);
+        setLoading(true);
     setError("");
     try {
       const result = await loginWithGoogle();
-      console.log("✅ Google login successful:", result.user.uid);
-
+      
       const userRef = doc(db, "users", result.user.uid);
       const snap = await getDoc(userRef);
 
@@ -72,7 +90,7 @@ export default function SignupPage() {
       }
     } catch (error) {
       console.error("❌ Google login failed:", error);
-      setError(error instanceof Error ? error.message : "Google login failed");
+      setError(error instanceof Error ? error.message : t('loginFallback.googleLoginFailed'));
     } finally {
       setLoading(false);
     }
@@ -83,10 +101,10 @@ export default function SignupPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Welcome
+            {t('loginFallback.welcome')}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in to your account or create a new one
+            {t('loginFallback.subtitle')}
           </p>
         </div>
 
@@ -103,14 +121,14 @@ export default function SignupPage() {
                 htmlFor="email"
                 className="block text-sm font-medium text-gray-700"
               >
-                Email
+                {t('loginFallback.emailLabel')}
               </label>
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                placeholder={t('loginFallback.emailPlaceholder')}
                 disabled={loading}
                 className="mt-1 appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
@@ -121,14 +139,14 @@ export default function SignupPage() {
                 htmlFor="password"
                 className="block text-sm font-medium text-gray-700"
               >
-                Password
+                {t('loginFallback.passwordLabel')}
               </label>
               <input
                 id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder={t('loginFallback.passwordPlaceholder')}
                 disabled={loading}
                 className="mt-1 appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
@@ -142,7 +160,7 @@ export default function SignupPage() {
               disabled={loading || !email || !password}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Creating Account..." : "Sign Up"}
+              {loading ? t('loginFallback.creatingAccount') : t('loginFallback.signUp')}
             </button>
 
             <button
@@ -151,7 +169,7 @@ export default function SignupPage() {
               disabled={loading || !email || !password}
               className="group relative w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Signing In..." : "Sign In"}
+              {loading ? t('loginFallback.signingIn') : t('loginFallback.signIn')}
             </button>
 
             <div className="relative">
@@ -159,7 +177,7 @@ export default function SignupPage() {
                 <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-gray-50 text-gray-500">Or</span>
+                <span className="px-2 bg-gray-50 text-gray-500">{t('loginFallback.or')}</span>
               </div>
             </div>
 
@@ -169,7 +187,7 @@ export default function SignupPage() {
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Signing In..." : "Sign In with Google"}
+              {loading ? t('loginFallback.signingIn') : t('loginFallback.signInWithGoogle')}
             </button>
           </div>
         </form>

@@ -19,8 +19,7 @@ export async function startPayment({
     }
 
     // Show loading indicator (you can integrate with your UI state)
-    console.log("Initiating payment...");
-
+    
     // Get fresh ID token
     const token = await user.getIdToken();
 
@@ -58,8 +57,7 @@ export async function startPayment({
       // Success handler
       handler: async (response: any) => {
         try {
-          console.log("Payment successful, verifying...");
-
+          
           // Get fresh token for verification
           const verifyToken = await user.getIdToken();
 
@@ -90,8 +88,7 @@ export async function startPayment({
           const result = await verifyResponse.json();
 
           // 4️⃣ Success - Redirect or show success message
-          console.log("Payment verified successfully!", result);
-
+          
           // Show success message
           alert("🎉 Payment successful! Your plan has been upgraded.");
 
@@ -113,18 +110,25 @@ export async function startPayment({
       // Payment modal configuration
       modal: {
         ondismiss: () => {
-          console.log("Payment popup closed by user");
-          // Optional: Track analytics event
-        },
+                  },
         escape: true,
         backdropclose: false,
+        confirm_close: true,
       },
 
-      // Prefill user information (optional but recommended)
+      // Prefill user information (requires +91 for UPI to show up)
       prefill: {
         name: user.displayName || "Forá User",
         email: user.email || "test@example.com",
-        contact: user.phoneNumber || "9999999999",
+        contact: user.phoneNumber && user.phoneNumber.startsWith('+')
+          ? user.phoneNumber
+          : (user.phoneNumber ? `+91${user.phoneNumber.replace(/\D/g, '')}` : "+919999999999"),
+      },
+
+      // Retry mechanism as per official docs
+      retry: {
+        enabled: true,
+        max_count: 4
       },
 
       // Theme customization
@@ -143,6 +147,7 @@ export async function startPayment({
 
     // 3️⃣ Open Razorpay checkout modal
     const razorpay = new (window as any).Razorpay(options);
+    console.info("💳 TEST MODE ALERT: If you are in Test Mode, real cards will fail. Use the Razorpay Test Card: 4100 2800 0000 1007, any future expiry, any CVV.");
 
     // Handle payment failure
     razorpay.on("payment.failed", function (response: any) {

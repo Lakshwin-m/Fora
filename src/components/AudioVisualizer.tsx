@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Play, Pause } from 'lucide-react';
-import { AudioVisualizer as ReactAudioVisualizer } from 'react-audio-visualize';
 
 interface AudioVisualizerProps {
   url: string;
@@ -89,17 +88,18 @@ export const AudioVisualizer = ({ url, altText, className }: AudioVisualizerProp
       
       <div className="w-full max-w-[300px] h-[60px] flex items-center justify-center relative pointer-events-none">
         {blob ? (
-          <ReactAudioVisualizer
-            ref={visualizerRef}
-            blob={blob}
-            width={300}
-            height={60}
-            barWidth={3}
-            gap={2}
-            barColor={'#FFDCCC'}
-            barPlayedColor={'#FB6376'}
-            currentTime={currentTime}
-          />
+          <div className="w-full h-[60px] flex items-center justify-center gap-[2px]">
+            {[20, 40, 28, 58, 36, 62, 30, 54].map((height, index) => (
+              <div
+                key={`${height}-${index}`}
+                className="w-[3px] rounded-full bg-[#FFDCCC]"
+                style={{
+                  height: `${height}px`,
+                  opacity: index % 2 === 0 ? 0.9 : 0.7,
+                }}
+              />
+            ))}
+          </div>
         ) : (
           <div className="w-full h-[3px] bg-[#FFDCCC] rounded-full" />
         )}

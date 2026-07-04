@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, db } from "@/firebase";
 import { updateProfile } from "firebase/auth";
-import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Upload, Sparkles, Check, ChevronRight, User, 
@@ -13,16 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/textarea"; // Assuming we have this, or I'll use a normal textarea
-
-// Fun Bio Prompts
-const BIO_PROMPTS = [
-  "Building something my future self will thank me for.",
-  "Still figuring things out — and that's okay.",
-  "Documenting life, one moment at a time.",
-  "Leaving breadcrumbs for my future self.",
-  "An archivist of my own experiences."
-];
+import { useTranslation } from "@/contexts/LanguageContext";
 
 // Step Enums
 enum Step {
@@ -33,15 +24,8 @@ enum Step {
   COMPLETION = 4
 }
 
-const STEP_LABELS = [
-  { id: Step.IDENTITY, label: "Identity", icon: User },
-  { id: Step.DOB, label: "Origin", icon: Calendar },
-  { id: Step.AVATAR, label: "Visage", icon: ImageIcon },
-  { id: Step.PRIVACY, label: "Control", icon: Lock },
-  { id: Step.COMPLETION, label: "Future", icon: Sparkles }
-];
-
 export default function Onboarding() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<Step>(Step.IDENTITY);
   const [playfulMode, setPlayfulMode] = useState(true);
@@ -64,6 +48,21 @@ export default function Onboarding() {
   // Privacy State
   const [privacy, setPrivacy] = useState<"private" | "connections" | "public">("private");
 
+  const STEP_LABELS = [
+    { id: Step.IDENTITY, label: t("onboarding.tabIdentity"), icon: User },
+    { id: Step.DOB, label: t("onboarding.tabOrigin"), icon: Calendar },
+    { id: Step.AVATAR, label: t("onboarding.tabVisage"), icon: ImageIcon },
+    { id: Step.PRIVACY, label: t("onboarding.tabControl"), icon: Lock },
+    { id: Step.COMPLETION, label: t("onboarding.tabFuture"), icon: Sparkles }
+  ];
+
+  const getMonthName = (idx: number): string => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const key = `months.${months[idx].toLowerCase()}`;
+    const trans = t(key);
+    return trans === key ? months[idx] : trans;
+  };
+
   // Load existing user data if any
   useEffect(() => {
     const loadUser = async () => {
@@ -77,7 +76,6 @@ export default function Onboarding() {
           if (data.bio) setBio(data.bio);
           if (data.photoURL) setAvatarUrl(data.photoURL);
           if (data.privacyLevel) setPrivacy(data.privacyLevel);
-          // if data.onboardingCompleted is already true, maybe redirect to dashboard
         }
       }
     };
@@ -107,41 +105,74 @@ export default function Onboarding() {
     setIsSubmitting(true);
     setCurrentStep(Step.COMPLETION);
     
+    // Format DOB (needed in both try and fallback)
+    const dobStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    let onboardingSaved = false;
     try {
       if (!auth.currentUser) throw new Error("No user logged in");
-      const uid = auth.currentUser.uid;
-      const userRef = doc(db, "users", uid);
 
-      // Format DOB
-      const dobStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
+      // Update Firebase Auth profile (displayName / photoURL)
       await updateProfile(auth.currentUser, {
         displayName: name,
         photoURL: avatarUrl || auth.currentUser.photoURL
       });
 
-      await setDoc(userRef, {
-        uid,
-        email: auth.currentUser.email || "",
-        name,
-        username: username || name.split(' ')[0].toLowerCase(),
-        bio,
-        dateOfBirth: dobStr,
-        photoURL: avatarUrl || "",
-        privacyLevel: privacy,
-        onboardingCompleted: true,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+      // Save profile data through server-side validated endpoint
+      const API_BASE = import.meta.env.VITE_API_BASE_URL;
+      const token = await auth.currentUser.getIdToken();
 
-      // Wait a moment so they can see the completion screen
+      const response = await fetch(`${API_BASE}/saveOnboarding`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          username: username || name.split(' ')[0].toLowerCase(),
+          bio,
+          dateOfBirth: dobStr,
+          photoURL: avatarUrl || "",
+          privacyLevel: privacy,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to save profile: ${response.status}`);
+      }
+
+      onboardingSaved = true;
+
+    } catch (error) {
+      console.warn("Error saving onboarding data via function, trying Firestore fallback:", error);
+      try {
+        if (!auth.currentUser) throw new Error("No user logged in");
+        await setDoc(doc(db, "users", auth.currentUser.uid), {
+          uid: auth.currentUser.uid,
+          email: auth.currentUser.email || "",
+          name,
+          username: username || name.split(' ')[0].toLowerCase(),
+          bio,
+          dateOfBirth: dobStr,
+          photoURL: avatarUrl || "",
+          privacyLevel: privacy,
+          onboardingCompleted: true,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+        onboardingSaved = true;
+      } catch (fallbackError) {
+        console.error("Error saving onboarding data via Firestore fallback:", fallbackError);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    if (onboardingSaved) {
       setTimeout(() => {
         navigate("/dashboard");
       }, 3500);
-
-    } catch (error) {
-      console.error("Error saving onboarding data:", error);
-      setIsSubmitting(false);
-      // fallback
+      return;
     }
   };
 
@@ -156,7 +187,7 @@ export default function Onboarding() {
       x: 0,
       opacity: 1,
       scale: 1,
-      transition: { type: "spring", stiffness: 300, damping: 30 }
+      transition: { type: "spring" as any, stiffness: 300, damping: 30 }
     },
     exit: (direction: number) => ({
       zIndex: 0,
@@ -167,7 +198,7 @@ export default function Onboarding() {
     })
   };
 
-  const direction = 1; // Always moving forward for this flow
+  const direction = 1;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4 relative overflow-hidden font-sans">
@@ -230,18 +261,18 @@ export default function Onboarding() {
             >
               <div className="text-center space-y-2">
                 <h2 className="text-2xl md:text-3xl font-heading font-bold">
-                  {playfulMode ? "What should time remember you as?" : "Complete Your Profile"}
+                  {playfulMode ? t("onboarding.identityTitlePlayful") : t("onboarding.identityTitleNormal")}
                 </h2>
                 <p className="text-muted-foreground">
-                  {playfulMode ? "Set up your identity across time." : "Please enter your details."}
+                  {playfulMode ? t("onboarding.identityDescPlayful") : t("onboarding.identityDescNormal")}
                 </p>
               </div>
 
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground ml-1">Full Name</label>
+                  <label className="text-sm font-medium text-foreground ml-1">{t("onboarding.fullNameLabel")}</label>
                   <Input 
-                    placeholder="Your actual name" 
+                    placeholder={t("onboarding.fullNamePlaceholder")} 
                     value={name} 
                     onChange={e => setName(e.target.value)}
                     className="bg-input/50 border-border h-12 rounded-xl focus-visible:ring-primary"
@@ -249,45 +280,58 @@ export default function Onboarding() {
                 </div>
 
                 <div className="space-y-2 relative">
-                  <label className="text-sm font-medium text-foreground ml-1">Username</label>
+                  <label className="text-sm font-medium text-foreground ml-1">{t("onboarding.usernameLabel")}</label>
                   <p className="text-xs text-muted-foreground ml-1 mb-2">
-                    {playfulMode ? "Pick your signal in the future 👀" : "Choose a unique username."}
+                    {playfulMode ? t("onboarding.usernameDescPlayful") : t("onboarding.usernameDescNormal")}
                   </p>
                   <Input 
-                    placeholder="@username" 
+                    placeholder={t("onboarding.usernamePlaceholder")} 
                     value={username} 
                     onChange={e => setUsername(e.target.value)}
                     className={`bg-input/50 border-border h-12 rounded-xl focus-visible:ring-primary ${usernameAvailable === false ? 'border-destructive focus-visible:ring-destructive' : usernameAvailable === true ? 'border-success focus-visible:ring-success' : ''}`}
                   />
                   {username.length > 2 && usernameAvailable === true && (
-                    <p className="text-xs text-success mt-2 flex items-center gap-1 animate-in fade-in slide-in-from-top-1"><Check className="w-3 h-3"/> {playfulMode ? "This identity is yours." : "Available"}</p>
+                    <p className="text-xs text-success mt-2 flex items-center gap-1 animate-in fade-in slide-in-from-top-1">
+                      <Check className="w-3 h-3"/> {playfulMode ? t("onboarding.usernameAvailablePlayful") : t("onboarding.usernameAvailableNormal")}
+                    </p>
                   )}
                   {username.length > 2 && usernameAvailable === false && (
-                    <p className="text-xs text-destructive mt-2 flex items-center gap-1 animate-in fade-in slide-in-from-top-1">Someone from another timeline took this.</p>
+                    <p className="text-xs text-destructive mt-2 flex items-center gap-1 animate-in fade-in slide-in-from-top-1">
+                      {t("onboarding.usernameTaken")}
+                    </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-foreground ml-1">Bio</label>
+                    <label className="text-sm font-medium text-foreground ml-1">{t("onboarding.bioLabel")}</label>
                     <button 
-                      onClick={() => setBio(BIO_PROMPTS[Math.floor(Math.random() * BIO_PROMPTS.length)])}
+                      onClick={() => {
+                        const localPrompts = [
+                          t("onboarding.bioPrompt1"),
+                          t("onboarding.bioPrompt2"),
+                          t("onboarding.bioPrompt3"),
+                          t("onboarding.bioPrompt4"),
+                          t("onboarding.bioPrompt5")
+                        ];
+                        setBio(localPrompts[Math.floor(Math.random() * localPrompts.length)]);
+                      }}
                       className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
                     >
-                      <Sparkles className="w-3 h-3" /> Help me write
+                      <Sparkles className="w-3 h-3" /> {t("onboarding.bioHelp")}
                     </button>
                   </div>
                   <p className="text-xs text-muted-foreground ml-1 mb-2">
-                    {playfulMode ? "Leave a note about who you are right now." : "Write a short bio."}
+                    {playfulMode ? t("onboarding.bioDescPlayful") : t("onboarding.bioDescNormal")}
                   </p>
                   <textarea 
-                    placeholder="Documenting life, one moment at a time..."
+                    placeholder={t("onboarding.bioPlaceholder")}
                     value={bio}
                     onChange={e => setBio(e.target.value)}
                     className="w-full bg-input/50 border border-border text-foreground rounded-xl p-3 min-h-[100px] focus:outline-none focus:ring-2 focus:ring-primary resize-none placeholder:text-muted-foreground text-sm"
                   />
                   {bio.length === 0 && playfulMode && (
-                    <p className="text-xs text-muted-foreground italic text-center mt-2">Say something… your future self is listening.</p>
+                    <p className="text-xs text-muted-foreground italic text-center mt-2">{t("onboarding.bioEmptyPlayful")}</p>
                   )}
                 </div>
               </div>
@@ -297,7 +341,7 @@ export default function Onboarding() {
                 disabled={!name || !username || usernameAvailable === false}
                 className="w-full h-12 rounded-xl text-md font-medium shadow-glow"
               >
-                Continue <ChevronRight className="w-4 h-4 ml-1" />
+                {t("onboarding.continue")} <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </motion.div>
           )}
@@ -315,10 +359,10 @@ export default function Onboarding() {
             >
               <div className="text-center space-y-2 w-full">
                 <h2 className="text-2xl md:text-3xl font-heading font-bold">
-                  {playfulMode ? "When did your story begin?" : "Date of Birth"}
+                  {playfulMode ? t("onboarding.dobTitlePlayful") : t("onboarding.dobTitleNormal")}
                 </h2>
                 <p className="text-muted-foreground">
-                  {playfulMode ? "We'll remember this. So will your future." : "Please provide your birthday."}
+                  {playfulMode ? t("onboarding.dobDescPlayful") : t("onboarding.dobDescNormal")}
                 </p>
               </div>
 
@@ -333,30 +377,34 @@ export default function Onboarding() {
                     items={Array.from({length: 31}, (_, i) => i + 1)} 
                     selected={day} 
                     onChange={setDay} 
-                    label="Day"
+                    label={t("onboarding.dayLabel")}
                   />
                   <ScrollColumn 
                     items={['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']} 
-                    selected={month} 
-                    onChange={(val) => setMonth(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(val as string) + 1)} 
-                    valueDisplay={month}
-                    label="Month"
+                    selected={['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month - 1]} 
+                    onChange={(val: string) => setMonth(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(val) + 1)} 
+                    valueDisplay={['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][month - 1]}
+                    displayMapper={(item: string) => {
+                      const idx = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(item);
+                      return getMonthName(idx);
+                    }}
+                    label={t("onboarding.monthLabel")}
                   />
                   <ScrollColumn 
                     items={Array.from({length: 100}, (_, i) => new Date().getFullYear() - i)} 
                     selected={year} 
                     onChange={setYear} 
-                    label="Year"
+                    label={t("onboarding.yearLabel")}
                   />
                 </div>
               </div>
 
               <div className="flex gap-4 w-full">
                 <Button variant="outline" onClick={() => setCurrentStep(Step.IDENTITY)} className="h-12 rounded-xl flex-1 border-border text-foreground hover:bg-elevated">
-                  Back
+                  {t("onboarding.back")}
                 </Button>
                 <Button onClick={handleNext} className="h-12 rounded-xl flex-[2] font-medium shadow-glow">
-                  Continue <ChevronRight className="w-4 h-4 ml-1" />
+                  {t("onboarding.continue")} <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
             </motion.div>
@@ -375,10 +423,10 @@ export default function Onboarding() {
             >
               <div className="text-center space-y-2">
                 <h2 className="text-2xl md:text-3xl font-heading font-bold">
-                  {playfulMode ? "Show your face..." : "Profile Picture"}
+                  {playfulMode ? t("onboarding.avatarTitlePlayful") : t("onboarding.avatarTitleNormal")}
                 </h2>
                 <p className="text-muted-foreground">
-                  {playfulMode ? "...or stay a mystery." : "Upload an avatar."}
+                  {playfulMode ? t("onboarding.avatarDescPlayful") : t("onboarding.avatarDescNormal")}
                 </p>
               </div>
 
@@ -397,33 +445,24 @@ export default function Onboarding() {
                   </div>
                   
                   {playfulMode && !avatarUrl && (
-                    <motion.div 
+                    <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ delay: 0.5, type: "spring" }}
-                      className="absolute -bottom-2 -right-2 bg-secondary text-white text-xs font-bold px-2 py-1 rounded-full shadow-md rotate-12"
+                      className="absolute -bottom-20 left-1/2 -translate-x-1/2 text-center px-4"
                     >
-                      Mystery!
+                      <p className="text-sm text-muted-foreground">{t("onboarding.avatarHint")}</p>
                     </motion.div>
                   )}
-                </div>
-
-                <div className="flex flex-col w-full gap-3 mt-10">
-                  <Button variant="outline" className="h-12 rounded-xl border-border hover:bg-elevated justify-start px-6" onClick={() => {/* Handle Upload */}}>
-                    <Upload className="w-4 h-4 mr-3 text-primary" /> Upload Image
-                  </Button>
-                  <Button variant="outline" className="h-12 rounded-xl border-border hover:bg-elevated justify-start px-6" onClick={() => setAvatarUrl(`https://api.dicebear.com/7.x/notionists/svg?seed=${username || 'fora'}`)}>
-                    <Dna className="w-4 h-4 mr-3 text-secondary" /> Auto-Generate Abstract
-                  </Button>
                 </div>
               </div>
 
               <div className="flex gap-4 w-full">
                 <Button variant="outline" onClick={() => setCurrentStep(Step.DOB)} className="h-12 rounded-xl flex-1 border-border text-foreground hover:bg-elevated">
-                  Back
+                  {t("onboarding.back")}
                 </Button>
-                <Button onClick={handleNext} className="h-12 rounded-xl flex-[2] font-medium shadow-glow">
-                  Continue <ChevronRight className="w-4 h-4 ml-1" />
+                <Button onClick={() => setCurrentStep(Step.PRIVACY)} className="h-12 rounded-xl flex-[2] font-medium shadow-glow">
+                  {t("onboarding.continue")} <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
               </div>
             </motion.div>
@@ -438,54 +477,34 @@ export default function Onboarding() {
               initial="enter"
               animate="center"
               exit="exit"
-              className="bg-surface/60 backdrop-blur-xl border border-border shadow-card rounded-3xl p-8 space-y-8"
+              className="bg-surface/60 backdrop-blur-xl border border-border shadow-card rounded-3xl p-8 space-y-8 flex flex-col"
             >
               <div className="text-center space-y-2">
-                <h2 className="text-2xl md:text-3xl font-heading font-bold">
-                  {playfulMode ? "Who gets access to your timeline?" : "Privacy Settings"}
-                </h2>
-                <p className="text-muted-foreground">
-                  {playfulMode ? "You decide who hears your voice." : "Choose your profile visibility."}
-                </p>
+                <h2 className="text-2xl md:text-3xl font-heading font-bold">{t("onboarding.privacyTitle")}</h2>
+                <p className="text-muted-foreground">{t("onboarding.privacyDesc")}</p>
               </div>
 
-              <div className="space-y-4 py-4">
-                {[
-                  { id: "private", title: "Only me", desc: "Your capsules and profile remain a secret vault.", icon: Lock },
-                  { id: "connections", title: "People I choose", desc: "Friends and connections can view your timeline.", icon: Users },
-                  { id: "public", title: "Public presence", desc: "Your story is open to the entire Forá community.", icon: Globe }
-                ].map((option) => {
-                  const Icon = option.icon;
-                  const isSelected = privacy === option.id;
-                  return (
-                    <div 
-                      key={option.id}
-                      onClick={() => setPrivacy(option.id as any)}
-                      className={`relative p-5 rounded-2xl border-2 transition-all cursor-pointer overflow-hidden ${isSelected ? 'border-primary bg-primary/5' : 'border-border bg-input/30 hover:border-border/80'}`}
-                    >
-                      {isSelected && (
-                        <motion.div layoutId="privacy-glow" className="absolute inset-0 bg-primary/5 shadow-[inset_0_0_20px_rgba(251,99,118,0.1)]" />
-                      )}
-                      <div className="flex items-center gap-4 relative z-10">
-                        <div className={`p-3 rounded-full ${isSelected ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-surface text-muted-foreground'}`}>
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className={`font-semibold ${isSelected ? 'text-foreground' : 'text-foreground/80'}`}>{option.title}</h4>
-                          <p className="text-sm text-muted-foreground">{option.desc}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+              <div className="space-y-4">
+                <label className="flex items-center gap-3">
+                  <input type="radio" checked={privacy === 'private'} onChange={() => setPrivacy('private')} />
+                  <span className="ml-2">{t('onboarding.privacyPrivate')}</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input type="radio" checked={privacy === 'connections'} onChange={() => setPrivacy('connections')} />
+                  <span className="ml-2">{t('onboarding.privacyConnections')}</span>
+                </label>
+                <label className="flex items-center gap-3">
+                  <input type="radio" checked={privacy === 'public'} onChange={() => setPrivacy('public')} />
+                  <span className="ml-2">{t('onboarding.privacyPublic')}</span>
+                </label>
               </div>
 
               <div className="flex gap-4 w-full">
                 <Button variant="outline" onClick={() => setCurrentStep(Step.AVATAR)} className="h-12 rounded-xl flex-1 border-border text-foreground hover:bg-elevated">
-                  Back
+                  {t("onboarding.back")}
                 </Button>
-                <Button onClick={handleComplete} className="h-12 rounded-xl flex-[2] font-medium bg-gradient-primary text-white shadow-glow">
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : "Complete Journey"}
+                <Button onClick={handleComplete} className="h-12 rounded-xl flex-[2] font-medium shadow-glow">
+                  {t("onboarding.finish")} <Check className="w-4 h-4 ml-1" />
                 </Button>
               </div>
             </motion.div>
@@ -494,48 +513,27 @@ export default function Onboarding() {
           {/* STEP 5: COMPLETION */}
           {currentStep === Step.COMPLETION && (
             <motion.div
-              key="step5"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="text-center space-y-6 relative z-10"
+              key="completion"
+              custom={direction}
+              variants={variants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="text-center space-y-6 relative z-10 bg-surface/60 backdrop-blur-xl border border-border shadow-card rounded-3xl p-8"
             >
-              {/* Glowing Line Animation */}
-              <motion.div 
-                className="w-1 h-32 bg-gradient-to-b from-transparent via-primary to-transparent mx-auto relative overflow-hidden rounded-full mb-8"
-              >
-                <motion.div 
-                  initial={{ y: -100 }}
-                  animate={{ y: 200 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-0 bg-white/50 blur-[2px]"
-                />
+              <motion.div className="w-1 h-32 bg-gradient-to-b from-transparent via-primary to-transparent mx-auto relative overflow-hidden rounded-full mb-8">
+                <motion.div initial={{ y: -100 }} animate={{ y: 200 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="absolute inset-0 bg-white/50 blur-[2px]" />
               </motion.div>
 
-              <motion.h1 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="text-4xl md:text-5xl font-heading font-bold text-foreground drop-shadow-lg tracking-tight"
-              >
-                Your timeline is now alive.
+              <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="text-4xl md:text-5xl font-heading font-bold text-foreground drop-shadow-lg tracking-tight">
+                {t("onboarding.completionTitle")}
               </motion.h1>
-              
-              <motion.p 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1.5 }}
-                className="text-xl text-primary font-medium"
-              >
-                Everything you write from here... will meet you again.
+
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.5 }} className="text-xl text-primary font-medium">
+                {t("onboarding.completionDesc")}
               </motion.p>
-              
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 2.5 }}
-                className="pt-8"
-              >
+
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.5 }} className="pt-8">
                 <Loader2 className="w-6 h-6 text-muted-foreground animate-spin mx-auto" />
               </motion.div>
             </motion.div>
@@ -547,20 +545,57 @@ export default function Onboarding() {
 }
 
 // Custom Scroll Wheel Item component
-function ScrollColumn({ items, selected, onChange, valueDisplay, label }: any) {
+function ScrollColumn({ items, selected, onChange, valueDisplay, displayMapper, label }: any) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
   let scrollTimeout: any = null;
 
+  const selectedValue = typeof valueDisplay !== "undefined" ? valueDisplay : selected;
+  const selectedIndex = items.findIndex((i: any) => i === selectedValue);
+
   useEffect(() => {
     // Scroll to the selected item initially
     if (containerRef.current) {
-      const selectedIndex = items.findIndex((i: any) => i === selected || i === valueDisplay);
       if (selectedIndex >= 0) {
         containerRef.current.scrollTop = selectedIndex * 48; // 48px height per item
       }
     }
   }, []);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let isAnimating = false;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (isAnimating) return;
+
+      const direction = Math.sign(e.deltaY);
+      if (direction === 0) return;
+
+      const targetIndex = selectedIndex + direction;
+
+      if (targetIndex >= 0 && targetIndex < items.length) {
+        isAnimating = true;
+        onChange(items[targetIndex]);
+        container.scrollTo({
+          top: targetIndex * 48,
+          behavior: "smooth",
+        });
+
+        setTimeout(() => {
+          isAnimating = false;
+        }, 200);
+      }
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", handleWheel);
+    };
+  }, [selectedIndex, items, onChange]);
 
   const handleScroll = () => {
     setIsScrolling(true);
@@ -572,11 +607,7 @@ function ScrollColumn({ items, selected, onChange, valueDisplay, label }: any) {
       const scrollTop = containerRef.current.scrollTop;
       const index = Math.round(scrollTop / 48);
       if (items[index]) {
-        if (typeof valueDisplay !== "undefined") {
-          onChange(items[index]);
-        } else {
-          onChange(items[index]);
-        }
+        onChange(items[index]);
         // snap to exact position
         containerRef.current.scrollTo({ top: index * 48, behavior: 'smooth' });
       }
@@ -593,6 +624,7 @@ function ScrollColumn({ items, selected, onChange, valueDisplay, label }: any) {
       >
         {items.map((item: any, idx: number) => {
           const isSelected = (typeof valueDisplay !== "undefined" ? valueDisplay : selected) === item;
+          const displayVal = displayMapper ? displayMapper(item) : item;
           return (
             <div 
               key={idx} 
@@ -604,7 +636,7 @@ function ScrollColumn({ items, selected, onChange, valueDisplay, label }: any) {
                 }
               }}
             >
-              {item}
+              {displayVal}
             </div>
           )
         })}

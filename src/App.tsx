@@ -30,8 +30,7 @@ import { Toaster } from "@/components/ui/toaster";
 function App() {
   useEffect(() => {
     getFCMToken().then((token) => {
-      console.log("FCM Token:", token);
-    });
+          });
     onForegroundMessage();
   }, []);
 

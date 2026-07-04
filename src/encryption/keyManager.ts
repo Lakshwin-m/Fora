@@ -3,7 +3,7 @@
 // Private key is NEVER written to localStorage or any persistent store.
 // Private key lives in memory only (React state in AuthContext).
 
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "../firebase";
 import {
@@ -55,9 +55,13 @@ export async function initUserKeys(userId: string): Promise<CryptoKey> {
   const saltBase64 = bufferToBase64(salt.buffer);
 
   // 2. Save salt first (needed to re-derive later)
-  await updateDoc(doc(db, "users", userId), {
+  // Ensure user document exists (create minimal required fields for security rules)
+  await setDoc(doc(db, "users", userId), {
+    uid: userId,
+    email: "",
+    username: "",
     salt: saltBase64,
-  });
+  }, { merge: true });
 
   // 3. Fetch key material from Cloud Function + derive master key
   const keyMaterial = await fetchKeyMaterial();

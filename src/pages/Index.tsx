@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import { SunIcon as Sunburst, ArrowRight } from "lucide-react";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 const Index = () => {
+  const { t } = useTranslation();
+
   return (
     <div className="min-h-screen bg-background relative overflow-hidden flex flex-col selection:bg-primary/30 selection:text-primary-foreground">
       {/* Navbar */}
@@ -10,17 +13,17 @@ const Index = () => {
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary backdrop-blur-md border border-primary/20">
             <Sunburst className="w-5 h-5" />
           </div>
-          <span className="font-heading font-bold text-xl text-foreground tracking-tight">Forá</span>
+          <span className="font-heading font-bold text-xl text-foreground tracking-tight">{t("nav.fora")}</span>
         </div>
         <div className="flex items-center gap-6">
           <Link to="/login" className="text-muted-foreground hover:text-primary transition-colors font-medium text-sm">
-            Log In
+            {t("auth.signinLink")}
           </Link>
           <Link 
             to="/signup" 
             className="px-5 py-2.5 bg-surface/50 hover:bg-surface backdrop-blur-md border border-border text-foreground rounded-full text-sm font-medium transition-all hover:shadow-glow hover:border-primary/50"
           >
-            Get Started
+            {t("auth.getStarted")}
           </Link>
         </div>
       </nav>
@@ -36,19 +39,18 @@ const Index = () => {
         {/* Badge */}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface/50 border border-border backdrop-blur-sm mb-8 animate-modal-fade-in shadow-sm">
           <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Obsidian Bloom Edition</span>
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">{t("landing.edition")}</span>
         </div>
 
         {/* Heading */}
         <h1 className="max-w-4xl text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-heading font-extrabold tracking-tighter text-foreground drop-shadow-sm mb-6 animate-modal-slide-from-bottom-right [animation-delay:100ms] opacity-0 [animation-fill-mode:forwards]">
-          Preserve your <br className="hidden sm:block" />
-          <span className="bg-gradient-primary bg-clip-text text-transparent italic pr-2">future memories.</span>
+          {t("landing.heroTitle")} <br className="hidden sm:block" />
+          <span className="bg-gradient-primary bg-clip-text text-transparent italic pr-2">{t("landing.heroTitleSpan")}</span>
         </h1>
 
         {/* Subtitle */}
         <p className="max-w-2xl text-lg sm:text-xl text-muted-foreground mb-12 animate-modal-slide-from-bottom-right [animation-delay:200ms] opacity-0 [animation-fill-mode:forwards] leading-relaxed">
-          Create beautiful digital time capsules for the moments that matter most. 
-          Share them instantly or lock them away for a future reveal.
+          {t("landing.heroSubtitle")}
         </p>
 
         {/* CTAs */}
@@ -57,14 +59,14 @@ const Index = () => {
             to="/signup" 
             className="group px-8 py-4 bg-primary text-primary-foreground rounded-full font-semibold text-lg transition-all hover:opacity-90 shadow-glow flex items-center gap-2 w-full sm:w-auto justify-center"
           >
-            Start Creating 
+            {t("landing.startCreating")} 
             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </Link>
           <Link 
             to="/login" 
             className="px-8 py-4 bg-surface hover:bg-elevated border border-border text-foreground rounded-full font-semibold text-lg transition-all w-full sm:w-auto justify-center flex hover:shadow-soft"
           >
-            Sign In
+            {t("auth.signinLink")}
           </Link>
         </div>
 
@@ -91,9 +93,9 @@ const Index = () => {
 
       {/* Footer */}
       <footer className="relative z-10 py-8 text-center text-muted-foreground text-sm border-t border-border mt-auto backdrop-blur-md bg-background/50 flex flex-col items-center gap-2">
-        <p>© {new Date().getFullYear()} Forá Time Capsules. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} {t("landing.rights")}</p>
         <p className="text-xs font-medium opacity-80">
-          A Product by <span style={{ fontFamily: '"JetBrains Mono", monospace' }} className="text-foreground font-semibold tracking-tight">./localhost</span>
+          {t("auth.productBy")} <span style={{ fontFamily: '"JetBrains Mono", monospace' }} className="text-foreground font-semibold tracking-tight">./localhost</span>
         </p>
       </footer>
     </div>
