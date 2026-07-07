@@ -10,7 +10,8 @@ import {
   SheetClose,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Copy, Facebook, Twitter } from "lucide-react";
+import { Copy } from "lucide-react";
+import { SiFacebook, SiX } from "@icons-pack/react-simple-icons";
 import { toast } from "sonner";
 
 interface FlowerDetailModalProps {
@@ -194,7 +195,7 @@ export function FlowerDetailModal({
                   className="h-8 w-8"
                   title="Share on Facebook"
                 >
-                  <Facebook className="w-3.5 h-3.5" />
+                  <SiFacebook className="w-3.5 h-3.5" />
                 </Button>
                 <Button
                   variant="outline"
@@ -203,7 +204,7 @@ export function FlowerDetailModal({
                   className="h-8 w-8"
                   title="Share on Twitter"
                 >
-                  <Twitter className="w-3.5 h-3.5" />
+                  <SiX className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>

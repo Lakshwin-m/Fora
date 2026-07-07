@@ -29,6 +29,7 @@ import { motion, AnimatePresence } from "framer-motion";
 // 🔐 IMPORT DECRYPTION HOOK
 import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
 import { parseFirebaseDate, formatFirebaseDate } from "@/lib/date";
+import { WaxSeal } from "@/components/WaxSeal";
 
 interface TimeRemaining {
   years: number;
@@ -52,7 +53,8 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [interactionStep, setInteractionStep] = useState(0);
-
+  const [showOpeningSequence, setShowOpeningSequence] = useState(false);
+  const [isHoveringLockedLetter, setIsHoveringLockedLetter] = useState(false);
   // Find the capsule in both sent and received capsules
   const capsule = [...capsules, ...receivedCapsules].find((c) => c.id === id);
 
@@ -172,6 +174,27 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
     else return `${time.hours}h ${time.minutes}m ${time.seconds}s`;
   };
 
+  const formatLargestRemainingUnit = (time: TimeRemaining): string => {
+  if (time.years > 0) {
+    return `${time.years} ${time.years === 1 ? "Year" : "Years"} Left`;
+  }
+  if (time.months > 0) {
+    return `${time.months} ${time.months === 1 ? "Month" : "Months"} Left`;
+  }
+  if (time.days > 0) {
+    return `${time.days} ${time.days === 1 ? "Day" : "Days"} Left`;
+  }
+  if (time.hours > 0) {
+    return `${time.hours} ${time.hours === 1 ? "Hour" : "Hours"} Left`;
+  }
+  if (time.minutes > 0) {
+    return time.minutes === 1
+      ? "1 Minute Left"
+      : `${time.minutes} minutes Left`;
+  }
+  return `${time.seconds} seconds Left`;
+};
+
   if (!capsule) {
     return (
       <div className="min-h-screen bg-[#FFF9EC]">
@@ -225,28 +248,68 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
 
         {/* Locked State: Original robust countdown */}
         {!isUnlocked && timeRemaining && (
-          <div className="text-center py-12">
-            <div className="relative">
-              <div className="relative z-10">
-                <div className="bg-white/95 backdrop-blur-lg rounded-3xl p-12 shadow-2xl max-w-2xl mx-auto">
-                  <div className="relative">
-                    <Lock className="w-20 h-20 text-[#8B5A2B] mx-auto mb-8 drop-shadow-lg" />
-                  </div>
-                  <h3 className="text-3xl font-bold text-[#5D2A42] mb-4">Capsule Sealed</h3>
-                  <p className="text-[#5D2A42]/80 mb-8 text-lg">This time capsule will unlock in:</p>
-                  <div className="bg-gradient-to-br from-[#D4B59E] to-[#8B5A2B] rounded-2xl p-8 shadow-inner mb-8">
-                    <div className="text-4xl font-serif font-bold text-white tracking-tight">
-                      {formatTimeRemaining(timeRemaining)}
-                    </div>
-                  </div>
-                  <p className="text-[#5D2A42]/70 text-sm">
-                    Unlocks on {formatFirebaseDate(capsule.deliveryDate || capsule.unlockDate, "PPP p")}
-                  </p>
-                </div>
-              </div>
+  <div className="text-center py-12">
+    <div className="mx-auto max-w-2xl">
+      <div
+        className="relative overflow-hidden rounded-[36px] border border-[#8B5A2B]/15 bg-[#FFF9EC] p-8 shadow-[0_30px_80px_rgba(141,90,43,0.18)] transition-all duration-300 hover:-translate-y-1"
+        onMouseEnter={() => setIsHoveringLockedLetter(true)}
+        onMouseLeave={() => setIsHoveringLockedLetter(false)}
+      >
+        <div className="absolute inset-x-8 top-8 h-24 rounded-b-[40px] bg-[#F4E0C5]/60 blur-xl" />
+        <div className="relative z-10 flex flex-col items-center gap-6">
+          <div className="relative">
+            <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-[#F6E0C1] via-[#FFFFFF] to-[#D9B58E] opacity-80 blur-xl" />
+            <div className="relative flex h-28 w-28 items-center justify-center rounded-full border border-[#8B5A2B]/20 bg-[#FFF5E8] shadow-[0_18px_45px_rgba(141,90,43,0.18)]">
+              <Lock className="h-12 w-12 text-[#8B5A2B]" />
             </div>
           </div>
-        )}
+
+          <div className="space-y-2">
+            <h3 className="text-3xl font-semibold tracking-tight text-[#5D2A42]">
+              Capsule Sealed
+            </h3>
+            <p className="text-base text-[#5D2A42]/80">
+              Hover the letter to reveal remaining wait time.
+            </p>
+          </div>
+
+          <div className="grid w-full gap-4 rounded-[28px] border border-[#8B5A2B]/10 bg-white/90 p-6 text-left shadow-inner">
+            <div className="flex items-center justify-between text-sm text-[#5D2A42]/70">
+              <span className="font-medium">Unlock date</span>
+              <span>{formatFirebaseDate(capsule.deliveryDate || capsule.unlockDate, "PPP p")}</span>
+            </div>
+            <div className="rounded-[24px] border border-[#8B5A2B]/10 bg-[#FFF4E7] p-5 text-center">
+              <p className="text-xs uppercase tracking-[0.24em] text-[#8B5A2B]/70">
+                Sealed letter
+              </p>
+              <p className="mt-3 text-xl font-semibold text-[#5D2A42]">
+                Hover to reveal
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`pointer-events-none absolute inset-0 flex items-center justify-center bg-[#5D2A42]/10 transition-opacity duration-300 ${
+            isHoveringLockedLetter ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          <div className="mx-auto w-[88%] rounded-[30px] border border-[#8B5A2B]/15 bg-white/90 p-6 shadow-[0_30px_60px_rgba(93,42,66,0.18)] backdrop-blur-sm">
+            <p className="text-sm uppercase tracking-[0.24em] text-[#8B5A2B]/60">
+              Time until unlock
+            </p>
+            <p className="mt-3 text-2xl font-semibold text-[#5D2A42]">
+              {formatLargestRemainingUnit(timeRemaining)}
+            </p>
+            <p className="mt-2 text-sm text-[#5D2A42]/70">
+              Countdown updates live while hovered.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* Unlocked State: Interactive Animation */}
         {isUnlocked && (
@@ -259,15 +322,21 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                 exit={{ opacity: 0, scale: 1.05 }}
                 transition={{ duration: 0.4, ease: "easeInOut" }}
                 className="relative max-w-sm mx-auto aspect-square cursor-pointer hover:-translate-y-2 transition-transform duration-300 mt-12"
-                onClick={() => setInteractionStep(1)}
+                onClick={() => {
+                  setInteractionStep(1);
+                  if (isReceived && capsule.status !== "opened") {
+                    markCapsuleAsOpened(capsule.id);
+                  }
+                }}
               >
                 <img src="/letter_cover-4fCnauP6.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Sealed Envelope" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4">
                   <div className="rotate-[0deg] flex flex-col items-center max-w-[85%] mt-4">
                     <span className="text-[14px] text-[#5D2A42]/90 font-serif italic mb-1 tracking-tight">open when...</span>
-                    <h3 className="text-xl font-bold text-[#1A1A1A]/80 font-serif tracking-tight leading-snug line-clamp-3">
+                    <h3 className="text-xl font-bold text-[#1A1A1A]/80 font-serif tracking-tight leading-snug line-clamp-3 mb-4">
                       {title || "Untitled Capsule"}
                     </h3>
+                    <WaxSeal name={capsule.creatorName || capsule.username || "Forá"} className="w-14 h-14 text-[8px] pointer-events-none" />
                   </div>
                 </div>
                 <div className="absolute bottom-[-50px] left-0 right-0 text-center text-[#5D2A42]/60 animate-pulse text-sm font-medium">
@@ -276,7 +345,7 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
               </motion.div>
             )}
 
-            {interactionStep === 1 && (
+                           {interactionStep === 1 && (
               <motion.div 
                 key="open"
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -286,21 +355,55 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                 className="relative max-w-sm mx-auto aspect-square cursor-pointer hover:-translate-y-2 transition-transform duration-300 mt-12"
                 onClick={() => setInteractionStep(2)}
               >
-                <img src="/open_envelope-eMfrWOgA.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Open Envelope" />
-                <div className="absolute top-[32%] left-[22%] right-[22%] h-[35%] flex flex-col items-center justify-start z-10 text-center text-[#1A1A1A] overflow-hidden pt-2">
-                   <h3 className="font-bold text-[15px] leading-tight w-full font-serif mb-1 line-clamp-2 text-[#5D2A42]">
-                     {title || "Untitled Capsule"}
-                   </h3>
-                    <div className="text-[11px] text-[#1A1A1A]/80 line-clamp-3 leading-snug w-full px-1">
-                      {content ? (() => { const tmp = document.createElement("div"); tmp.innerHTML = content; return tmp.textContent || tmp.innerText || "..."; })() : "..."}
-                    </div>
-                </div>
+                {/* Envelope with open flap */}
+                <img 
+                  src="/open_envelope-eMfrWOgA.png" 
+                  className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" 
+                  alt="Open Envelope" 
+                />
+                
+                {/* Wax Seal fading faster on the spot */}
+                <motion.div
+                  initial={{ opacity: 1 }}
+                  animate={{ opacity: 0 }}
+                  transition={{ duration: 0.3, delay: 0.05, ease: "easeInOut" }}
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none"
+                >
+                  <WaxSeal 
+                    name={capsule.creatorName || capsule.username || "Forá"} 
+                    className="w-14 h-14 text-[8px]" 
+                  />
+                </motion.div>
+
+                {/* Letter paper popping up from inside the envelope (trapezium: wide top, narrow bottom) */}
+                <motion.div 
+                  initial={{ y: 30, scale: 0.85, opacity: 0 }}
+                  animate={{ y: 0, scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.1, duration: 0.7, ease: "easeOut" }}
+                  className="absolute z-10 text-center text-[#5D2A42] rounded-lg bg-[#EBE4D5] shadow-md border border-[#D5CBB5] p-6 flex flex-col items-center justify-start"
+                  style={{ 
+                    left: "10%",
+                    top: "40%",
+                    transform: "translate(-50%, -50%)",
+                    width: "80%",
+                    height: "105px",
+                    backgroundImage: "url('/canvas-background-BYlUkw-J.png')", 
+                    backgroundSize: "cover",
+                    clipPath: "polygon(0% 0%, 100% 0%, 67% 100%, 33% 100%)"
+                  }}
+                >
+                  {/* Title only - no content preview */}
+                  <h3 className="font-bold text-[16px] leading-tight w-full font-serif text-[#5D2A42] line-clamp-2">
+                    {title || "Untitled Capsule"}
+                  </h3>
+                </motion.div>
+
+                {/* Help Text */}
                 <div className="absolute bottom-[-50px] left-0 right-0 text-center text-[#5D2A42]/60 animate-pulse text-sm font-medium">
                   Click to pull out letter
                 </div>
               </motion.div>
             )}
-
             {interactionStep === 2 && (
               <motion.div 
                 key="letter"
@@ -354,18 +457,44 @@ const CapsuleDetail: React.FC<CapsuleDetailProps> = () => {
                          </div>
                        </div>
 
-                        <div className="pt-8 pb-4 space-y-6 text-lg md:text-xl leading-[2.5rem] tracking-wide relative">
-                          <p>Dear {isReceived ? (currentUser?.displayName?.split(" ")[0] || "Friend") : "Future Me"},</p>
-                          {/<[a-z][\s\S]*>/i.test(content) ? (
-                            <div
-                              className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
-                              dangerouslySetInnerHTML={{ __html: content }}
-                            />
-                          ) : (
-                            <div className="whitespace-pre-wrap">{(content || "").split(/\n\s*\n/).filter((p: string) => p.trim()).map((para: string, i: number) => <p key={i} className="mb-4">{para}</p>)}</div>
-                          )}
-                          <p className="mt-8 text-xl">Sincerely,</p>
-                        </div>
+                        {/* 📖 DIARY LEAF WRAPPER WITH MARGINAL HOLES */}
+  <div 
+    className="relative pt-8 pb-4 pl-16 pr-4 text-lg md:text-xl tracking-wide font-serif text-[#5D2A42]"
+    style={{
+      lineHeight: "2.5rem", 
+      backgroundImage: "linear-gradient(to bottom, transparent 0px, transparent 14px, #1A1A1A 14px, #1A1A1A 26px, transparent 26px, transparent 40px)",
+      // 👇 Limits width to 12px so it forms squares, not stretched lines
+      backgroundSize: "12px 2.5rem",
+      backgroundPosition: "16px 0",
+      backgroundRepeat: "repeat-y"
+    }}
+  >
+    {/* A vertical binding wire line right next to the holes for a realistic look */}
+    <div className="absolute left-[36px] top-0 bottom-0 w-[1px] bg-[#5D2A42]/15" />
+
+    <p className="mb-4">Dear {isReceived ? (currentUser?.displayName?.split(" ")[0] || "Friend") : "Future Me"},</p>
+    
+    {/<[a-z][\s\S]*>/i.test(content) ? (
+      <div
+        className="prose prose-lg max-w-none text-[#5D2A42] tracking-wide prose-p:my-0 prose-p:leading-[2.5rem] prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:leading-[2.5rem] prose-strong:text-inherit prose-em:text-inherit"
+        style={{ lineHeight: "2.5rem" }}
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    ) : (
+      <div className="whitespace-pre-wrap">
+        {(content || "")
+          .split(/\n\s*\n/)
+          .filter((p: string) => p.trim())
+          .map((para: string, i: number) => (
+            <p key={i} className="mb-0 leading-[2.5rem]">
+              {para}
+            </p>
+          ))}
+      </div>
+    )}
+    
+    <p className="mt-8 mb-0 leading-[2.5rem]">Sincerely,</p>
+  </div>
 
                        <div className="pt-6">
                          <div className="bg-white/40 backdrop-blur-md rounded-xl border border-white/60 p-6 min-h-[140px] max-w-sm flex items-center justify-center shadow-sm">

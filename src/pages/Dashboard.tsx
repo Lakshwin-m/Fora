@@ -59,6 +59,7 @@ import {
   Zap,
 } from "lucide-react";
 import gsap from "gsap";
+import { WaxSeal } from "@/components/WaxSeal";
 
 // 🔐 IMPORT DECRYPTION HOOK
 import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
@@ -201,6 +202,9 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // Hover state for the glass timer
+  const [isHoveringLocked, setIsHoveringLocked] = useState(false);
+
   // 🔐 DECRYPT CAPSULE CONTENT
   const { decryptCapsule } = useCapsuleDecryption();
   const [title, setTitle] = useState("");
@@ -220,18 +224,34 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
     return () => { mounted = false; };
   }, [capsule, decryptCapsule]);
 
-  const unlockDate =
-    parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ?? new Date(0);
-  const isUnlocked =
-    unlockDate.getTime() <= currentTime.getTime() || capsule.isUnlocked;
-  const isSentToSelf = capsule.recipientType === "self";
-  const countdown = getCountdown(capsule.unlockDate || capsule.deliveryDate, currentTime);
+  const unlockDate = parseFirebaseDate(capsule.unlockDate || capsule.deliveryDate) ?? new Date(0);
+  const isUnlocked = unlockDate.getTime() <= currentTime.getTime() || capsule.isUnlocked;
 
-  // Use decrypted content for icon selection
-  const ContentIcon = getContentIcon(capsule, content);
-  const TriggerIcon = getTriggerIcon(capsule.triggerType);
+  // Real-time precise hover countdown logic
+  const getHoverCountdownText = (unlock: Date, now: Date) => {
+    const diff = unlock.getTime() - now.getTime();
+    if (diff <= 0) return "Opening...";
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+    const months = Math.floor(days / 30);
+    const years = Math.floor(months / 12);
 
-  const handleCapsuleClick = () => {
+    if (years > 0) return `${years} ${years === 1 ? "Year" : "Years"} Left`;
+    if (months > 0) return `${months} ${months === 1 ? "Month" : "Months"} Left`;
+    if (days > 0) return `${days} ${days === 1 ? "Day" : "Days"} Left`;
+    if (hours > 0) return `${hours} ${hours === 1 ? "Hour" : "Hours"} Left`;
+    if (minutes > 0) return minutes === 1 ? "1 Minute Left" : `${minutes} minutes Left`;
+    return `${seconds} seconds Left`;
+  };
+
+  const handleCapsuleClick = (e: React.MouseEvent) => {
+    if (!isUnlocked) {
+      e.preventDefault();
+      e.stopPropagation();
+      return; // Prevents clicking entirely when locked
+    }
     if (isDialogOpen) return;
 
     if (cardRef.current) {
@@ -259,7 +279,6 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
         description: "The capsule has been permanently removed.",
       });
     } catch (error) {
-      console.error("Error deleting capsule:", error);
       toast({
         title: "Error",
         description: "Failed to delete capsule. Please try again.",
@@ -274,18 +293,21 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
   return (
     <div ref={cardRef} className="group relative w-full h-[320px] max-w-sm mx-auto flex flex-col items-center justify-center p-2">
       <div 
-        className="relative w-full h-full transition-transform duration-300 group-hover:-translate-y-2 cursor-pointer flex items-center justify-center"
+        className={`relative w-full h-full transition-transform duration-300 flex items-center justify-center ${
+          isUnlocked ? "group-hover:-translate-y-2 cursor-pointer" : "cursor-default"
+        }`}
         onClick={handleCapsuleClick}
+        onMouseEnter={() => !isUnlocked && setIsHoveringLocked(true)}
+        onMouseLeave={() => !isUnlocked && setIsHoveringLocked(false)}
       >
         {isUnlocked ? (
-          // UNLOCKED STATE (OPEN ENVELOPE)
+          // ================= UNLOCKED STATE =================
           <>
             <img 
               src="/open_envelope-eMfrWOgA.png" 
               alt="Opened Envelope" 
               className="absolute inset-0 w-full h-full object-contain drop-shadow-sm pointer-events-none"
             />
-            {/* The letter area inside the open envelope. */}
             <div className="absolute top-[32%] left-[22%] right-[22%] h-[35%] flex flex-col items-center justify-center z-10 text-center text-[#1A1A1A] overflow-hidden pt-2">
                {isDecrypting ? (
                  <Loader2 className="w-5 h-5 animate-spin text-[#FB6376] mt-4" />
@@ -295,7 +317,6 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                  </h3>
                )}
             </div>
-            {/* Status Indicator */}
             <div className="absolute bottom-[20%] left-0 right-0 flex justify-center z-10">
               <Badge variant="outline" className="bg-[#FFF9EC]/90 backdrop-blur-md border-[#E8E8E8] text-[#5D2A42] text-[10px] px-2 py-0.5 rounded-full shadow-sm">
                 Opened {formatFirebaseDate(capsule.unlockDate || capsule.deliveryDate)}
@@ -303,39 +324,51 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
             </div>
           </>
         ) : (
-          // LOCKED STATE (CLOSED ENVELOPE)
+          // ================= LOCKED STATE =================
           <>
+            {/* EXACT ORIGINAL LETTER IMAGE */}
             <img 
               src="/letter_cover-4fCnauP6.png" 
               alt="Sealed Envelope" 
               className="absolute inset-0 w-full h-full object-contain drop-shadow-sm pointer-events-none"
             />
-            {/* Center text on closed envelope */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4">
+            
+            {/* EXACT ORIGINAL TEXT (remains visible) */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4 pointer-events-none">
               <div className="rotate-[0deg] flex flex-col items-center max-w-[85%] mt-4">
                 <span className="text-[12px] md:text-[14px] text-[#5D2A42]/90 font-serif italic mb-1 tracking-tight">
                   open when...
                 </span>
-                <h3 className="text-lg md:text-xl font-bold text-[#1A1A1A]/80 text-balance font-serif tracking-tight leading-snug line-clamp-3">
+                <h3 className="text-lg md:text-xl font-bold text-[#1A1A1A]/80 text-balance font-serif tracking-tight leading-snug line-clamp-3 mb-3">
                   {isDecrypting ? (
                      <Loader2 className="w-5 h-5 animate-spin text-[#5D2A42]" />
                    ) : (
                      title || "you are down"
                    )}
                 </h3>
+                <WaxSeal name={capsule.username || "Forá"} className="w-10 h-10 text-[6px] pointer-events-none" />
               </div>
             </div>
-            {/* Countdown Meta */}
-            <div className="absolute bottom-[22%] left-0 right-0 flex justify-center z-10">
-               <Badge className="bg-[#1A1A1A]/80 hover:bg-[#1A1A1A] text-white text-[10px] px-3 py-1 rounded-full border-none shadow-sm flex items-center gap-1.5 backdrop-blur-md">
-                 <Lock className="w-3 h-3" />
-                 <span className="font-medium tracking-wide">{countdown}</span>
-               </Badge>
+
+            {/* TRANSLUCENT HOVER TIMER OVERLAY */}
+            <div
+              className={`absolute inset-0 m-8 rounded-2xl flex items-center justify-center bg-white/85 backdrop-blur-md transition-opacity duration-300 z-20 pointer-events-none ${
+                isHoveringLocked ? "opacity-100" : "opacity-0"
+              }`}
+            >
+              <div className="text-center px-4">
+                <p className="text-[10px] uppercase tracking-widest text-[#8B5A2B]/80 font-medium mb-2">
+                  Time until unlock
+                </p>
+                <p className="text-xl md:text-2xl font-bold font-serif text-[#5D2A42]">
+                  {getHoverCountdownText(unlockDate, currentTime)}
+                </p>
+              </div>
             </div>
           </>
         )}
 
-        {/* Delete Action (only if not received) */}
+        {/* Delete Action */}
         {!isReceived && (
           <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <AlertDialogTrigger asChild>
@@ -343,9 +376,7 @@ const CapsuleCard: React.FC<CapsuleCardProps> = ({
                 variant="outline"
                 size="icon"
                 className="absolute top-2 right-2 sm:top-6 sm:right-6 h-8 w-8 rounded-full bg-white/95 border border-[#E8E8E8] text-[#FB6376] opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-sm hover:bg-[#FB6376] hover:text-white z-50 hover:scale-105"
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
+                onClick={(e) => e.stopPropagation()}
               >
                 <Trash2 className="w-4 h-4" />
               </Button>

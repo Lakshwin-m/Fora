@@ -19,6 +19,7 @@ import {
   FileText
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { WaxSeal } from "@/components/WaxSeal";
 import {
   getCapsuleDetail,
   CapsuleWithLineage,
@@ -257,9 +258,10 @@ const CapsuleDetailPage = () => {
               <div className="absolute inset-0 flex flex-col items-center justify-center z-10 text-center px-12 pt-4">
                 <div className="rotate-[0deg] flex flex-col items-center max-w-[85%] mt-4">
                   <span className="text-[14px] text-[#5D2A42]/90 font-serif italic mb-1 tracking-tight">open when...</span>
-                  <h3 className="text-xl font-bold text-[#1A1A1A]/80 font-serif tracking-tight leading-snug line-clamp-3">
+                  <h3 className="text-xl font-bold text-[#1A1A1A]/80 font-serif tracking-tight leading-snug line-clamp-3 mb-4">
                     {decryptedTitle || "Untitled Capsule"}
                   </h3>
+                  <WaxSeal name={capsule.creatorName || "Forá"} className="w-14 h-14 text-[8px] pointer-events-none" />
                 </div>
               </div>
               <div className="absolute bottom-[-50px] left-0 right-0 text-center text-[#5D2A42]/60 animate-bounce text-sm font-medium">

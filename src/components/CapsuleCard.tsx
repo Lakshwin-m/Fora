@@ -16,6 +16,7 @@ import {
 // 🔐 Import decryption hook
 import { useCapsuleDecryption } from '@/hooks/useCapsuleDecryption';
 import { formatFirebaseDate } from '@/lib/date';
+import React from 'react';
 
 interface CapsuleCardProps {
   capsule: {
