@@ -7,6 +7,9 @@ import {
   ReactNode,
 } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { db } from "@/firebase";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { toast } from "@/hooks/use-toast";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -50,13 +53,19 @@ export interface Capsule {
 
   status?: "scheduled" | "delivered" | "opened";
   isUnlocked?: boolean;
+  isOpenedByMe?: boolean;
+  openedBy?: string[];
 
   userId?: string;
   username?: string;
+  creatorName?: string;
   signature?: string;
 
   visibility?: "public" | "private";
   isReceived?: boolean;
+  version?: string;
+  isReminder?: boolean;
+  isReminderCapsule?: boolean;
 }
 
 /* ================= CONTEXT TYPE ================= */
@@ -68,6 +77,7 @@ interface CapsuleContextType {
   updateCapsule: (id: string, updates: Partial<Capsule>) => void;
   deleteCapsule: (id: string) => Promise<void>;
   markCapsuleAsOpened: (id: string) => Promise<void>;
+  sealReminder: (id: string) => Promise<void>;
   refreshCapsules: () => Promise<void>;
 
   /** Media-safe helpers */
@@ -97,6 +107,10 @@ export const toDate = (value: any): Date | null => {
 
   try {
     if (value?.toDate) return value.toDate(); // Firestore Timestamp
+    if (typeof value === "object") {
+      if ("seconds" in value) return new Date(value.seconds * 1000);
+      if ("_seconds" in value) return new Date(value._seconds * 1000);
+    }
     const d = new Date(value);
     // Treat invalid or Unix epoch (0) as invalid for forá's logic
     if (isNaN(d.getTime()) || d.getTime() <= 0) return null;
@@ -150,7 +164,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("User not authenticated");
     }
 
-    const token = await auth.currentUser.getIdToken(true);
+    const token = await auth.currentUser.getIdToken();
     return {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
@@ -207,14 +221,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
       const receivedRaw = await receivedRes.json();
 
       // Debug: log raw capsule data to identify orphan/phantom capsules
-      console.log("[CapsuleContext] Raw capsules from API:", mineRaw?.map((c: any) => ({
-        id: c.id,
-        title: c.title?.substring(0, 30),
-        hasContent: !!c.content,
-        unlockDate: c.unlockDate,
-        createdAt: c.createdAt,
-      })));
-
+      
       // Filter out broken/phantom capsules that have no title at all
       const validMine = Array.isArray(mineRaw)
         ? mineRaw.filter((c: any) => c.title || c.content || c.encryptedTitle || c.encryptedContent)
@@ -265,9 +272,28 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         body: JSON.stringify({ capsuleId: id }),
       });
 
-      updateCapsule(id, { status: "opened", isUnlocked: true });
+      updateCapsule(id, { isOpenedByMe: true, isUnlocked: true });
+      await refreshCapsules();
     } catch (error) {
       console.error("markCapsuleAsOpened failed:", error);
+    }
+  };
+
+  const sealReminder = async (id: string) => {
+    try {
+      const headers = await getAuthHeaders();
+
+      const res = await fetch(`${API_BASE}/sealReminder`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ capsuleId: id }),
+      });
+
+      if (!res.ok) throw new Error("Failed to seal reminder");
+      await refreshCapsules();
+    } catch (error) {
+      console.error("sealReminder failed:", error);
+      throw error;
     }
   };
 
@@ -309,17 +335,57 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     fetchServerTime(); // Get server time offset on mount
     
+    let unsubscribeNotif: (() => void) | null = null;
+    const sessionStart = new Date();
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         await refreshCapsules();
+
+        if (unsubscribeNotif) {
+          unsubscribeNotif();
+        }
+
+        const q = query(
+          collection(db, "notifications"),
+          where("userId", "==", user.uid),
+          where("read", "==", false)
+        );
+
+        unsubscribeNotif = onSnapshot(q, (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+              const data = change.doc.data();
+              const createdAt = data.createdAt?.toDate();
+              if (createdAt && createdAt.getTime() > sessionStart.getTime()) {
+                toast({
+                  title: "Notification",
+                  description: data.message,
+                });
+                refreshCapsules();
+              }
+            }
+          });
+        }, (error) => {
+          console.error("Notifications listener error:", error);
+        });
       } else {
         setCapsules([]);
         setReceivedCapsules([]);
         setLoading(false);
+        if (unsubscribeNotif) {
+          unsubscribeNotif();
+          unsubscribeNotif = null;
+        }
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubscribeNotif) {
+        unsubscribeNotif();
+      }
+    };
   }, []);
 
   /* ================= PROVIDER ================= */
@@ -333,6 +399,7 @@ export const CapsuleProvider = ({ children }: { children: ReactNode }) => {
         updateCapsule,
         deleteCapsule,
         markCapsuleAsOpened,
+        sealReminder,
         refreshCapsules,
 
         capsuleHasMedia,

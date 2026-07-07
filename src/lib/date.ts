@@ -7,8 +7,12 @@ export function parseFirebaseDate(value: any): Date | null {
   if (!value) return null;
 
   // Firestore Timestamp
-  if (typeof value === "object" && "seconds" in value) {
-    return new Date(value.seconds * 1000);
+  if (typeof value === "object") {
+    const seconds = value.seconds ?? value._seconds;
+
+    if (typeof seconds === "number") {
+      return new Date(seconds * 1000);
+    }
   }
 
   // ISO string or millis

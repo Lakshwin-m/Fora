@@ -2,16 +2,18 @@ import React, { useEffect, useState } from "react";
 import { Alert, AlertContent, AlertDescription, AlertIcon, AlertTitle } from "@/components/ui/alert-1";
 import { CheckCircle } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 export const GlobalAlertManager = () => {
+  const { t } = useTranslation();
   const [alerts, setAlerts] = useState<{ id: string; title: string; description: string }[]>([]);
 
   useEffect(() => {
     const handleCapsuleCreated = (e: CustomEvent) => {
       const newAlert = {
         id: crypto.randomUUID(),
-        title: e.detail.title || "Capsule Sealed 🔒",
-        description: e.detail.description || "Your capsule has been created and encrypted successfully!",
+        title: e.detail.title || t('alerts.capsuleSealed'),
+        description: e.detail.description || t('alerts.capsuleSealedDesc'),
       };
       
       setAlerts((prev) => [...prev, newAlert]);

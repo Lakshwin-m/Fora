@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
@@ -59,6 +60,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AudioVisualizer } from "./AudioVisualizer";
+import { useTranslation } from "@/contexts/LanguageContext";
+import { format } from "date-fns";
+import { Calendar as CalendarUI } from "@/components/ui/calendar";
 
 const steps = [
   { id: "basic", title: "Message", description: "Write your capsule", icon: MessageSquare },
@@ -83,6 +87,7 @@ interface Attachment {
   name: string;
   uploading?: boolean;
   progress?: number;
+  altText?: string;
 }
 
 interface CapsuleMultistepFormProps {
@@ -97,7 +102,25 @@ interface CapsuleMultistepFormProps {
   attachments: Attachment[];
   friends: Friend[];
   username: string;
+  recurrencePattern: "none" | "minutely" | "daily" | "weekly" | "monthly" | "yearly";
+  onRecurrencePatternChange: (value: "none" | "minutely" | "daily" | "weekly" | "monthly" | "yearly") => void;
+  priorReminderEnabled: boolean;
+  onPriorReminderEnabledChange: (value: boolean) => void;
+  priorReminderDays: number;
+  onPriorReminderDaysChange: (value: number) => void;
 
+  reminderFrequency?: "daily" | "weekly" | "monthly" | "yearly";
+  onReminderFrequencyChange?: (value: "daily" | "weekly" | "monthly" | "yearly") => void;
+  reminderTime: string;
+  onReminderTimeChange: (value: string) => void;
+  reminderDayOfWeek: string;
+  onReminderDayOfWeekChange: (value: string) => void;
+  reminderDayOfMonth: number | null;
+  onReminderDayOfMonthChange: (value: number | null) => void;
+  reminderYearlyDate: Date | null;
+  onReminderYearlyDateChange: (value: Date | null) => void;
+  reminderPreset: string;
+  onReminderPresetChange: (value: string) => void;
   onTitleChange: (value: string) => void;
   onContentChange: (value: string) => void;
   onTriggerTypeChange: (value: "time" | "event" | "connection") => void;
@@ -135,7 +158,7 @@ const slideVariants = {
     opacity: 1,
     scale: 1,
     transition: {
-      x: { type: "spring", stiffness: 300, damping: 30 },
+      x: { type: "spring" as const, stiffness: 300, damping: 30 },
       opacity: { duration: 0.2 },
     },
   },
@@ -145,7 +168,7 @@ const slideVariants = {
     opacity: 0,
     scale: 0.98,
     transition: {
-      x: { type: "spring", stiffness: 300, damping: 30 },
+      x: { type: "spring" as const, stiffness: 300, damping: 30 },
       opacity: { duration: 0.2 },
     },
   }),
@@ -163,6 +186,26 @@ export const CapsuleMultistepForm = ({
   attachments = [],
   friends = [],
   username,
+  recurrencePattern,
+  onRecurrencePatternChange,
+  priorReminderEnabled,
+  onPriorReminderEnabledChange,
+  priorReminderDays,
+  onPriorReminderDaysChange,
+
+  reminderFrequency,
+  onReminderFrequencyChange,
+  reminderTime,
+  onReminderTimeChange,
+  reminderDayOfWeek,
+  onReminderDayOfWeekChange,
+  reminderDayOfMonth,
+  onReminderDayOfMonthChange,
+  reminderYearlyDate,
+  onReminderYearlyDateChange,
+  reminderPreset,
+  onReminderPresetChange,
+
 
   onTitleChange,
   onContentChange,
@@ -174,6 +217,7 @@ export const CapsuleMultistepForm = ({
   onCapsuleCategoryChange,
   onFileSelect,
   onRemoveAttachment,
+  onAttachmentsChange,
 
   onNextStep,
   onPrevStep,
@@ -189,6 +233,15 @@ export const CapsuleMultistepForm = ({
   const audioInputRef = useRef<HTMLInputElement>(null);
   const [direction, setDirection] = useState(1);
   const [showPreview, setShowPreview] = useState(false);
+  const { t } = useTranslation();
+
+  const translatedSteps = [
+    { id: "basic", title: t("create.stepMessageTitle"), description: t("create.stepMessageDesc"), icon: MessageSquare },
+    { id: "trigger", title: t("create.stepDeliveryTitle"), description: t("create.stepDeliveryDesc"), icon: Clock },
+    { id: "recipients", title: t("create.stepRecipientsTitle"), description: t("create.stepRecipientsDesc"), icon: Users },
+    { id: "attachments", title: t("create.stepMemoriesTitle"), description: t("create.stepMemoriesDesc"), icon: Image },
+    { id: "review", title: t("create.stepReviewTitle"), description: t("create.stepReviewDesc"), icon: Check },
+  ];
 
   const handleNext = () => {
     if (currentStep === 1) {
@@ -244,15 +297,47 @@ export const CapsuleMultistepForm = ({
   const triggerOptions = [
     {
       id: "time",
-      label: "Selected Date",
-      description: "Unlock on a specific date and time",
+      label: t("create.triggerOptionTime"),
+      description: t("create.triggerOptionTimeDesc"),
     },
     {
       id: "event",
-      label: "Auto Reminders",
-      description: "Set automatic reminders to unlock",
+      label: t("create.triggerOptionEvent"),
+      description: t("create.triggerOptionEventDesc"),
     },
   ];
+
+  const getSummarySentence = () => {
+    if (recurrencePattern === "none") {
+      return "This capsule will unlock once on the selected date and time.";
+    }
+    const timeStr = reminderTime ? ` at ${reminderTime}` : "";
+    if (recurrencePattern === "daily") {
+      return `Unlocks daily${timeStr}.`;
+    }
+    if (recurrencePattern === "weekly") {
+      return `Unlocks weekly on ${reminderDayOfWeek || "selected day"}${timeStr}.`;
+    }
+    if (recurrencePattern === "monthly") {
+      const daySuffix = (day: number) => {
+        if (day > 3 && day < 21) return "th";
+        switch (day % 10) {
+          case 1: return "st";
+          case 2: return "nd";
+          case 3: return "rd";
+          default: return "th";
+        }
+      };
+      return `Unlocks monthly on the ${reminderDayOfMonth ? `${reminderDayOfMonth}${daySuffix(reminderDayOfMonth)}` : "selected day"}${timeStr}.`;
+    }
+    if (recurrencePattern === "yearly") {
+      const dateStr = reminderYearlyDate
+        ? format(reminderYearlyDate, "MMMM d")
+        : "selected date";
+      return `Unlocks yearly on ${dateStr}${timeStr}.`;
+    }
+    return "";
+  };
 
   const isStepValid = () => {
     switch (currentStep) {
@@ -295,7 +380,7 @@ export const CapsuleMultistepForm = ({
           }}
         >
           <StepperNav className="gap-3.5">
-            {steps.map((step, index) => (
+            {translatedSteps.map((step, index) => (
               <StepperItem
                 key={index}
                 step={index + 1}
@@ -311,8 +396,8 @@ export const CapsuleMultistepForm = ({
                       index < currentStep
                         ? "bg-[#5D2A42]" // Completed: Premium Plum
                         : index === currentStep
-                        ? "bg-[#FB6376]" // Active: Forá Coral (no glow)
-                        : "bg-[#E8E8E8]" // Upcoming: Clean light gray
+                          ? "bg-[#FB6376]" // Active: Forá Coral (no glow)
+                          : "bg-[#E8E8E8]" // Upcoming: Clean light gray
                     )}
                   />
                   <div className="flex flex-col items-start gap-0.5">
@@ -322,8 +407,8 @@ export const CapsuleMultistepForm = ({
                         index === currentStep
                           ? "text-[#5D2A42]" // Active text
                           : index < currentStep
-                          ? "text-[#1A1A1A]" // Completed text
-                          : "text-[#999]"    // Upcoming text
+                            ? "text-[#1A1A1A]" // Completed text
+                            : "text-[#999]"    // Upcoming text
                       )}
                     >
                       <span className="opacity-40 font-semibold mr-1.5">{index + 1}.</span>
@@ -335,8 +420,8 @@ export const CapsuleMultistepForm = ({
                         index === currentStep
                           ? "text-[#FB6376]" // Active description accent
                           : index < currentStep
-                          ? "text-[#999]"
-                          : "text-[#CCC]"
+                            ? "text-[#999]"
+                            : "text-[#CCC]"
                       )}
                     >
                       {step.description}
@@ -366,17 +451,17 @@ export const CapsuleMultistepForm = ({
               {currentStep === 0 && (
                 <div className="p-10 md:p-14 h-full flex flex-col gap-10">
                   <div>
-                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">What's your message?</h2>
-                    <p className="text-[#666] text-base font-medium">Write the contents of your time capsule.</p>
+                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.msgTitleHeading')}</h2>
+                    <p className="text-[#666] text-base font-medium">{t('create.msgTitleSub')}</p>
                   </div>
                   <div className="flex-1 flex flex-col gap-8">
                     <div className="flex flex-col gap-3">
                       <Label htmlFor="title" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                        Capsule Title
+                        {t('create.capsuleTitleLabel')}
                       </Label>
                       <Input
                         id="title"
-                        placeholder="e.g. Letter to my 30-year-old self"
+                        placeholder={t('create.capsuleTitlePlaceholder')}
                         value={title}
                         onChange={(e) => onTitleChange(e.target.value)}
                         className="h-12 border-[#E8E8E8] bg-white text-[#1A1A1A] placeholder:text-[#999] text-base rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#FB6376] transition-all shadow-sm"
@@ -385,14 +470,14 @@ export const CapsuleMultistepForm = ({
                     <div className="flex-1 flex flex-col gap-3">
                       <div className="flex justify-between items-end">
                         <Label htmlFor="content" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                          The Message
+                          {t('create.messageLabel')}
                         </Label>
-                        <span className="text-xs font-bold text-[#FB6376]">{getPlainTextLength(content)} chars</span>
+                        <span className="text-xs font-bold text-[#FB6376]">{getPlainTextLength(content)} {t('create.chars')}</span>
                       </div>
                       <RichTextEditor
                         value={content}
                         onChange={onContentChange}
-                        placeholder="Write your message to the future..."
+                        placeholder={t('create.messagePlaceholder')}
                         className="flex-1"
                       />
                     </div>
@@ -404,10 +489,10 @@ export const CapsuleMultistepForm = ({
               {currentStep === 1 && (
                 <div className="p-10 md:p-14 h-full flex flex-col gap-10">
                   <div>
-                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">When should it open?</h2>
-                    <p className="text-[#666] text-base font-medium">Choose the exact moment this capsule becomes unlocked.</p>
+                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.deliveryHeading')}</h2>
+                    <p className="text-[#666] text-base font-medium">{t('create.deliverySub')}</p>
                   </div>
-                  
+
                   <Tabs
                     value={triggerType}
                     onValueChange={(value) => onTriggerTypeChange(value as any)}
@@ -424,31 +509,188 @@ export const CapsuleMultistepForm = ({
                         </TabsTrigger>
                       ))}
                     </TabsList>
-                    
+
                     <div className="flex-1 mt-2 overflow-y-auto no-scrollbar pb-6">
-                        <TabsContent value="time" className="mt-0 outline-none">
-                          <DateTimePicker 
-                            date={deliveryDate} 
-                            setDate={onDeliveryDateChange} 
-                            time={deliveryTime} 
-                            setTime={onDeliveryTimeChange} 
-                          />
-                        </TabsContent>
-                        <TabsContent value="event" className="mt-0 space-y-4 outline-none">
-                          <div className="flex flex-col gap-3">
-                            <Label htmlFor="eventTrigger" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                              Reminder Schedule
-                            </Label>
-                            <Input
-                              id="eventTrigger"
-                              placeholder="e.g., Every year on my birthday"
-                              className="h-14 border-[#E8E8E8] bg-[#FFF9EC] hover:bg-white text-[#1A1A1A] placeholder:text-[#999] rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-[#5D2A42] transition-all px-5"
-                            />
-                            <p className="text-xs font-medium text-[#FB6376] mt-2">
-                              We'll send automatic reminders based on your schedule to ensure the capsule gets unlocked.
-                            </p>
+                      <TabsContent value="time" className="mt-0 outline-none">
+                        <DateTimePicker
+                          date={deliveryDate}
+                          setDate={onDeliveryDateChange}
+                          time={deliveryTime}
+                          setTime={onDeliveryTimeChange}
+                        />
+                      </TabsContent>
+                      <TabsContent value="event" className="mt-0 space-y-6 outline-none">
+                        {/* Section 1: Predefined Presets */}
+                        <div className="space-y-3">
+                          <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                            {t('create.reminderScheduleLabel') || "Occasion Preset"}
+                          </Label>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            {[
+                              { id: "birthday", name: "Birthday", emoji: "🎂", description: "Yearly at 9:00 AM" },
+                              { id: "anniversary", name: "Anniversary", emoji: "💍", description: "Yearly at 9:00 AM" },
+                              { id: "christmas", name: "Christmas", emoji: "🎄", description: "Every Dec 25 at 9:00 AM" },
+                              { id: "newyear", name: "New Year", emoji: "🎆", description: "Every Jan 1 at 12:00 AM" },
+                              { id: "custom", name: "Custom", emoji: "📅", description: "Define from scratch" },
+                            ].map((preset) => {
+                              const isSelected = reminderPreset === preset.id;
+                              return (
+                                <button
+                                  key={preset.id}
+                                  type="button"
+                                  onClick={() => onReminderPresetChange(preset.id)}
+                                  className={cn(
+                                    "flex flex-col items-center justify-between p-4 rounded-3xl border transition-all text-center h-32 focus:outline-none",
+                                    isSelected
+                                      ? "border-[#FB6376] bg-[#FFF9EC] shadow-sm scale-[1.02]"
+                                      : "border-[#E8E8E8] bg-white hover:border-[#FB6376] hover:bg-[#FFF9EC]/40"
+                                  )}
+                                >
+                                  <span className="text-2xl mb-1">{preset.emoji}</span>
+                                  <div className="flex flex-col">
+                                    <span className={cn("text-xs font-extrabold", isSelected ? "text-[#5D2A42]" : "text-[#1A1A1A]")}>
+                                      {preset.name}
+                                    </span>
+                                    <span className="text-[10px] text-[#999] font-medium leading-tight mt-0.5">
+                                      {preset.description}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
                           </div>
-                        </TabsContent>
+                        </div>
+
+                        {/* Section 2: Date Selector */}
+                        {recurrencePattern !== "none" && recurrencePattern !== "minutely" && (
+                          <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-4">
+                            <div className="flex flex-col gap-1">
+                              <h4 className="text-lg font-bold text-[#5D2A42] flex items-center gap-2">
+                                <span>📅</span> {
+                                  recurrencePattern === "yearly" ? "Select Month & Day" :
+                                    recurrencePattern === "monthly" ? "Select Day of Month" :
+                                      recurrencePattern === "weekly" ? "Select Day of Week" :
+                                        "Select Date"
+                                }
+                              </h4>
+                              <p className="text-sm text-[#5D2A42]/70 font-medium">
+                                {
+                                  recurrencePattern === "yearly" ? "Pick the recurring annual date (e.g. Birthday, Anniversary)." :
+                                    recurrencePattern === "monthly" ? "Pick which day of the month the reminder should trigger." :
+                                      recurrencePattern === "weekly" ? "Pick which day of the week the reminder should trigger." :
+                                        "Select the start date."
+                                }
+                              </p>
+                            </div>
+
+                            <div className="flex justify-center w-full">
+                              {recurrencePattern === "yearly" && (
+                                <CalendarUI
+                                  mode="single"
+                                  selected={reminderYearlyDate || undefined}
+                                  onSelect={(date) => onReminderYearlyDateChange(date || null)}
+                                  className="rounded-2xl border border-[#EAEAEA] p-3 bg-white shadow-sm"
+                                />
+                              )}
+
+                              {recurrencePattern === "monthly" && (
+                                <div className="grid grid-cols-7 gap-2 max-w-xs p-3 border border-[#EAEAEA] rounded-2xl bg-white shadow-sm">
+                                  {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+                                    const isSelected = reminderDayOfMonth === day;
+                                    return (
+                                      <button
+                                        key={day}
+                                        type="button"
+                                        onClick={() => onReminderDayOfMonthChange(day)}
+                                        className={cn(
+                                          "w-8 h-8 rounded-full font-bold transition-all text-xs flex items-center justify-center",
+                                          isSelected
+                                            ? "bg-[#FB6376] text-white shadow-sm scale-105"
+                                            : "text-[#5D2A42] hover:bg-[#FFF9EC] hover:text-[#FB6376] bg-white border border-[#EAEAEA]"
+                                        )}
+                                      >
+                                        {day}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {recurrencePattern === "weekly" && (
+                                <div className="flex flex-wrap gap-2 justify-center max-w-sm p-3 border border-[#EAEAEA] rounded-2xl bg-white shadow-sm">
+                                  {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => {
+                                    const isSelected = reminderDayOfWeek?.toLowerCase() === day.toLowerCase();
+                                    return (
+                                      <button
+                                        key={day}
+                                        type="button"
+                                        onClick={() => onReminderDayOfWeekChange(day)}
+                                        className={cn(
+                                          "px-3 py-1.5 rounded-xl font-bold transition-all text-xs border",
+                                          isSelected
+                                            ? "bg-[#FB6376] border-[#FB6376] text-white shadow-sm"
+                                            : "bg-white border-[#EAEAEA] text-[#5D2A42] hover:bg-[#FFF9EC] hover:text-[#FB6376]"
+                                        )}
+                                      >
+                                        {day.slice(0, 3)}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Section 3: Scheduling Details */}
+                        <div className="p-6 border border-[#FFDCCC] rounded-3xl bg-[#FFF9EC] space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Recurrence Frequency */}
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                                Recurrence Frequency
+                              </Label>
+                              <Select
+                                value={recurrencePattern}
+                                onValueChange={(val: any) => onRecurrencePatternChange(val)}
+                              >
+                                <SelectTrigger className="h-12 border-[#E8E8E8] bg-white text-base font-semibold text-[#1A1A1A] rounded-xl focus:ring-0 focus:border-[#FB6376] w-full">
+                                  <SelectValue placeholder="No Recurrence" />
+                                </SelectTrigger>
+                                <SelectContent className="rounded-xl border-[#E8E8E8] shadow-sm">
+                                  <SelectItem value="daily">Every Day</SelectItem>
+                                  <SelectItem value="weekly">Every Week</SelectItem>
+                                  <SelectItem value="monthly">Every Month</SelectItem>
+                                  <SelectItem value="yearly">Every Year</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Reminder Time */}
+                            <div className="space-y-2">
+                              <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                                Reminder Time
+                              </Label>
+                              <Input
+                                type="time"
+                                value={reminderTime}
+                                onChange={(e) => onReminderTimeChange(e.target.value)}
+                                className="h-12 border-[#E8E8E8] bg-white rounded-xl text-[#1A1A1A] font-semibold"
+                              />
+
+                            </div>
+                          </div>
+
+                          {/* Summary Sentence Card */}
+                          <div className="p-5 bg-[#5D2A42] text-[#FFF9EC] rounded-[1.5rem] flex items-center gap-4">
+                            <span className="text-2xl">✨</span>
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wider font-extrabold opacity-60">Delivery Schedule Summary</p>
+                              <p className="text-sm font-bold mt-0.5">{getSummarySentence()}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
                     </div>
                   </Tabs>
                 </div>
@@ -458,10 +700,10 @@ export const CapsuleMultistepForm = ({
               {currentStep === 2 && (
                 <div className="p-10 md:p-14 h-full flex flex-col gap-10">
                   <div>
-                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">Who is this for?</h2>
-                    <p className="text-[#666] text-base font-medium">Select the recipients who will unlock this capsule.</p>
+                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.recipientsHeading')}</h2>
+                    <p className="text-[#666] text-base font-medium">{t('create.recipientsSub')}</p>
                   </div>
-                  
+
                   <Tabs
                     value={recipientType}
                     onValueChange={(value) => onRecipientTypeChange(value as any)}
@@ -469,126 +711,126 @@ export const CapsuleMultistepForm = ({
                   >
                     <TabsList className="grid w-full h-auto grid-cols-3 bg-[#FFF9EC] p-2 rounded-2xl border border-[#FFDCCC]">
                       <TabsTrigger value="self" className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12">
-                        Just Me
+                        {t('create.recTypeSelf')}
                       </TabsTrigger>
                       <TabsTrigger value="friends" className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12">
-                        Connections
+                        {t('create.recTypeFriends')}
                       </TabsTrigger>
                       <TabsTrigger value="public" className="text-base font-bold rounded-xl data-[state=active]:bg-[#FB6376] data-[state=active]:text-white data-[state=active]:shadow-none text-[#5D2A42] transition-all h-12">
-                        Public
+                        {t('create.recTypePublic')}
                       </TabsTrigger>
                     </TabsList>
 
                     <div className="flex-1 mt-2 overflow-y-auto no-scrollbar pb-6">
-                          <TabsContent value="self" className="mt-0 outline-none">
-                            <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC]">
-                              <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">A gift to your future self</h3>
-                              <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
-                                This capsule will be stored privately in your vault and only you will be able to unlock it when the time comes.
-                              </p>
-                            </div>
-                          </TabsContent>
+                      <TabsContent value="self" className="mt-0 outline-none">
+                        <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC]">
+                          <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">{t('create.giftTitleSelf')}</h3>
+                          <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
+                            {t('create.giftDescSelf')}
+                          </p>
+                        </div>
+                      </TabsContent>
 
-                          <TabsContent value="friends" className="mt-0">
-                            {loadingFriends ? (
-                              <div className="flex items-center justify-center py-16">
-                                <span className="text-[#FB6376] font-bold">Loading...</span>
-                              </div>
-                            ) : friends.length === 0 ? (
-                              <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC]">
-                                <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">No Connections Yet</h3>
-                                <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
-                                  You need to add connections first before you can send them a capsule.
-                                </p>
-                              </div>
-                            ) : (
-                              <div className="space-y-4">
-                                <div className="flex items-center justify-between pb-2">
-                                  <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                                    Select Connections <Badge variant="secondary" className="ml-2 bg-[#FB6376] text-white hover:bg-[#e8556a]">{selectedFriends.length} selected</Badge>
-                                  </Label>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={selectAllFriends}
-                                    className="text-[#FB6376] hover:text-[#e8556a] hover:bg-[#FFF9EC] text-xs font-bold h-8 uppercase tracking-wider"
-                                  >
-                                    {selectedFriends.length === friends.length ? "Deselect All" : "Select All"}
-                                  </Button>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  {friends.map((friend) => {
-                                    const isSelected = selectedFriends.includes(friend.id);
-                                    const hasKey = friend.hasPublicKey !== false;
-                                    return (
-                                      <div
-                                        key={friend.id}
-                                        className={cn(
-                                          "flex items-center p-4 rounded-2xl transition-all duration-200 border",
-                                          !hasKey 
-                                            ? "opacity-60 cursor-not-allowed bg-gray-50 border-[#E8E8E8]" 
-                                            : isSelected 
-                                              ? "border-[#FB6376] bg-[#FFF9EC] cursor-pointer" 
-                                              : "border-[#E8E8E8] bg-white hover:border-[#FB6376] hover:bg-[#FFF9EC] cursor-pointer"
-                                        )}
-                                        onClick={() => hasKey && toggleFriendSelection(friend.id)}
-                                      >
-                                        <Checkbox
-                                          checked={isSelected}
-                                          disabled={!hasKey}
-                                          onCheckedChange={() => hasKey && toggleFriendSelection(friend.id)}
-                                          className="mr-4 w-5 h-5 data-[state=checked]:bg-[#FB6376] data-[state=checked]:border-[#FB6376]"
-                                        />
-                                        <Avatar className="w-12 h-12 border border-[#E8E8E8]">
-                                          <AvatarImage src={friend.photoURL} alt={friend.name} />
-                                          <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-sm font-bold">
-                                            {getInitials(friend.name)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div className="ml-4 flex-1 min-w-0">
-                                          <p className="text-base font-bold text-[#1A1A1A] truncate">{friend.name}</p>
-                                          <p className={cn("text-sm font-medium truncate", !hasKey ? "text-[#FB6376]" : "text-[#999]")}>
-                                            {!hasKey ? "Needs to log in to V2 encryption" : friend.email}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </TabsContent>
-
-                          <TabsContent value="public" className="mt-0">
-                            <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC] mb-8">
-                              <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">Share with the World</h3>
-                              <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
-                                Public capsules are completely anonymous initially but visible to the entire community on the timeline.
-                              </p>
-                            </div>
-
-                            <div className="flex flex-col gap-3">
-                              <Label htmlFor="category" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                                Community Category
+                      <TabsContent value="friends" className="mt-0">
+                        {loadingFriends ? (
+                          <div className="flex items-center justify-center py-16">
+                            <span className="text-[#FB6376] font-bold">{t('create.loadingFriends')}</span>
+                          </div>
+                        ) : friends.length === 0 ? (
+                          <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC]">
+                            <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">{t('create.noFriendsTitle')}</h3>
+                            <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
+                              {t('create.noFriendsDesc')}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between pb-2">
+                              <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                                {t('create.selectConnectionsLabel')} <Badge variant="secondary" className="ml-2 bg-[#FB6376] text-white hover:bg-[#e8556a]">{selectedFriends.length} {t('create.selectedCount')}</Badge>
                               </Label>
-                              <Select value={capsuleCategory} onValueChange={onCapsuleCategoryChange}>
-                                <SelectTrigger id="category" className="h-14 border-[#E8E8E8] bg-white text-base font-medium rounded-2xl focus:ring-0 focus:border-[#5D2A42]">
-                                  <SelectValue placeholder="Select a category..." />
-                                </SelectTrigger>
-                                <SelectContent className="rounded-2xl border-[#E8E8E8] shadow-sm">
-                                  <SelectItem value="memories" className="rounded-xl h-12 font-medium">Memories</SelectItem>
-                                  <SelectItem value="reflections" className="rounded-xl h-12 font-medium">Reflections</SelectItem>
-                                  <SelectItem value="moments" className="rounded-xl h-12 font-medium">Moments</SelectItem>
-                                  <SelectItem value="stories" className="rounded-xl h-12 font-medium">Stories</SelectItem>
-                                  <SelectItem value="milestones" className="rounded-xl h-12 font-medium">Milestones</SelectItem>
-                                  <SelectItem value="wisdom" className="rounded-xl h-12 font-medium">Wisdom</SelectItem>
-                                  <SelectItem value="other" className="rounded-xl h-12 font-medium">Other</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={selectAllFriends}
+                                className="text-[#FB6376] hover:text-[#e8556a] hover:bg-[#FFF9EC] text-xs font-bold h-8 uppercase tracking-wider"
+                              >
+                                {selectedFriends.length === friends.length ? t('create.deselectAll') : t('create.selectAll')}
+                              </Button>
                             </div>
-                          </TabsContent>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              {friends.map((friend) => {
+                                const isSelected = selectedFriends.includes(friend.id);
+                                const hasKey = friend.hasPublicKey !== false;
+                                return (
+                                  <div
+                                    key={friend.id}
+                                    className={cn(
+                                      "flex items-center p-4 rounded-2xl transition-all duration-200 border",
+                                      !hasKey
+                                        ? "opacity-60 cursor-not-allowed bg-gray-50 border-[#E8E8E8]"
+                                        : isSelected
+                                          ? "border-[#FB6376] bg-[#FFF9EC] cursor-pointer"
+                                          : "border-[#E8E8E8] bg-white hover:border-[#FB6376] hover:bg-[#FFF9EC] cursor-pointer"
+                                    )}
+                                    onClick={() => hasKey && toggleFriendSelection(friend.id)}
+                                  >
+                                    <Checkbox
+                                      checked={isSelected}
+                                      disabled={!hasKey}
+                                      onCheckedChange={() => hasKey && toggleFriendSelection(friend.id)}
+                                      className="mr-4 w-5 h-5 data-[state=checked]:bg-[#FB6376] data-[state=checked]:border-[#FB6376]"
+                                    />
+                                    <Avatar className="w-12 h-12 border border-[#E8E8E8]">
+                                      <AvatarImage src={friend.photoURL} alt={friend.name} />
+                                      <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-sm font-bold">
+                                        {getInitials(friend.name)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <div className="ml-4 flex-1 min-w-0">
+                                      <p className="text-base font-bold text-[#1A1A1A] truncate">{friend.name}</p>
+                                      <p className={cn("text-sm font-medium truncate", !hasKey ? "text-[#FB6376]" : "text-[#999]")}>
+                                        {!hasKey ? t('create.friendsErrorV2') : friend.email}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </TabsContent>
+
+                      <TabsContent value="public" className="mt-0">
+                        <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC] mb-8">
+                          <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">{t('create.shareWorldTitle')}</h3>
+                          <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
+                            {t('create.shareWorldDesc')}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                          <Label htmlFor="category" className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
+                            {t('create.communityCategoryLabel')}
+                          </Label>
+                          <Select value={capsuleCategory} onValueChange={onCapsuleCategoryChange}>
+                            <SelectTrigger id="category" className="h-14 border-[#E8E8E8] bg-white text-base font-medium rounded-2xl focus:ring-0 focus:border-[#5D2A42]">
+                              <SelectValue placeholder={t('create.communityCategoryPlaceholder')} />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-2xl border-[#E8E8E8] shadow-sm">
+                              <SelectItem value="memories" className="rounded-xl h-12 font-medium">{t('create.categoryMemories')}</SelectItem>
+                              <SelectItem value="reflections" className="rounded-xl h-12 font-medium">{t('create.categoryReflections')}</SelectItem>
+                              <SelectItem value="moments" className="rounded-xl h-12 font-medium">{t('create.categoryMoments')}</SelectItem>
+                              <SelectItem value="stories" className="rounded-xl h-12 font-medium">{t('create.categoryStories')}</SelectItem>
+                              <SelectItem value="milestones" className="rounded-xl h-12 font-medium">{t('create.categoryMilestones')}</SelectItem>
+                              <SelectItem value="wisdom" className="rounded-xl h-12 font-medium">{t('create.categoryWisdom')}</SelectItem>
+                              <SelectItem value="other" className="rounded-xl h-12 font-medium">{t('create.categoryOther')}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </TabsContent>
                     </div>
                   </Tabs>
                 </div>
@@ -598,42 +840,42 @@ export const CapsuleMultistepForm = ({
               {currentStep === 3 && (
                 <div className="p-10 md:p-14 h-full flex flex-col gap-10">
                   <div>
-                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">Curate Your Memories</h2>
-                    <p className="text-[#666] text-lg font-medium">Upload the moments that make this capsule special.</p>
+                    <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.memoriesHeading')}</h2>
+                    <p className="text-[#666] text-lg font-medium">{t('create.memoriesSub')}</p>
                   </div>
-                  
+
                   {attachments.length === 0 ? (
                     /* Premium Bento Box Empty State */
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[400px]">
-                      <div 
+                      <div
                         onClick={() => imageInputRef.current?.click()}
                         className="md:row-span-2 bg-[#F8F8F8] hover:bg-[#F0F0F0] border border-[#E8E8E8] rounded-[32px] p-8 flex flex-col justify-between cursor-pointer transition-all group"
                       >
-                         <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center border border-[#E8E8E8] group-hover:scale-110 transition-transform">
-                           <span className="font-bold text-[#1A1A1A] uppercase text-xs tracking-widest">IMG</span>
-                         </div>
-                         <div>
-                           <h3 className="text-3xl font-extrabold text-[#1A1A1A] tracking-tight mb-1">Photos</h3>
-                           <p className="text-[#666] font-medium">Add high-quality images</p>
-                         </div>
+                        <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center border border-[#E8E8E8] group-hover:scale-110 transition-transform">
+                          <span className="font-bold text-[#1A1A1A] uppercase text-xs tracking-widest">IMG</span>
+                        </div>
+                        <div>
+                          <h3 className="text-3xl font-extrabold text-[#1A1A1A] tracking-tight mb-1">{t('create.photoCardTitle')}</h3>
+                          <p className="text-[#666] font-medium">{t('create.photoCardDesc')}</p>
+                        </div>
                       </div>
-                      <div 
+                      <div
                         onClick={() => videoInputRef.current?.click()}
                         className="bg-[#FFF9EC] hover:bg-[#FDEED2] border border-[#FBE0B5] rounded-[32px] p-8 flex flex-col justify-between cursor-pointer transition-all group"
                       >
-                         <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center border border-[#FBE0B5] group-hover:scale-110 transition-transform">
-                           <span className="font-bold text-[#5D2A42] uppercase text-[10px] tracking-widest">MP4</span>
-                         </div>
-                         <h3 className="text-2xl font-extrabold text-[#5D2A42] tracking-tight">Videos</h3>
+                        <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center border border-[#FBE0B5] group-hover:scale-110 transition-transform">
+                          <span className="font-bold text-[#5D2A42] uppercase text-[10px] tracking-widest">MP4</span>
+                        </div>
+                        <h3 className="text-2xl font-extrabold text-[#5D2A42] tracking-tight">{t('create.videoCardTitle')}</h3>
                       </div>
-                      <div 
+                      <div
                         onClick={() => audioInputRef.current?.click()}
                         className="bg-[#1A1A1A] hover:bg-[#333333] border border-[#1A1A1A] rounded-[32px] p-8 flex flex-col justify-between cursor-pointer transition-all group"
                       >
-                         <div className="w-12 h-12 rounded-full bg-[#333] flex items-center justify-center group-hover:scale-110 transition-transform">
-                           <span className="font-bold text-white uppercase text-[10px] tracking-widest">WAV</span>
-                         </div>
-                         <h3 className="text-2xl font-extrabold text-white tracking-tight">Audio Notes</h3>
+                        <div className="w-12 h-12 rounded-full bg-[#333] flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <span className="font-bold text-white uppercase text-[10px] tracking-widest">WAV</span>
+                        </div>
+                        <h3 className="text-2xl font-extrabold text-white tracking-tight">{t('create.audioCardTitle')}</h3>
                       </div>
                     </div>
                   ) : (
@@ -641,23 +883,23 @@ export const CapsuleMultistepForm = ({
                     <div className="flex flex-col gap-8">
                       {/* Add More Toolbar */}
                       <div className="flex items-center gap-2 p-2 bg-[#F8F8F8] border border-[#E8E8E8] rounded-full w-max mx-auto md:mx-0">
-                        <button 
+                        <button
                           onClick={() => imageInputRef.current?.click()}
                           className="px-6 py-3 bg-white rounded-full font-bold text-sm text-[#1A1A1A] shadow-sm hover:shadow-md transition-all border border-[#E8E8E8]"
                         >
-                          + Photo
+                          {t('create.addPhoto')}
                         </button>
-                        <button 
+                        <button
                           onClick={() => videoInputRef.current?.click()}
                           className="px-6 py-3 bg-[#FFF9EC] rounded-full font-bold text-sm text-[#5D2A42] shadow-sm hover:shadow-md transition-all border border-[#FBE0B5]"
                         >
-                          + Video
+                          {t('create.addVideo')}
                         </button>
-                        <button 
+                        <button
                           onClick={() => audioInputRef.current?.click()}
                           className="px-6 py-3 bg-[#1A1A1A] rounded-full font-bold text-sm text-white shadow-sm hover:shadow-md transition-all"
                         >
-                          + Audio
+                          {t('create.addAudio')}
                         </button>
                       </div>
 
@@ -681,13 +923,13 @@ export const CapsuleMultistepForm = ({
                               {attachment.type === 'image' && (
                                 <img src={url} alt={attachment.name} className="w-full h-auto object-cover min-h-[150px]" />
                               )}
-                              
+
                               {attachment.type === 'video' && (
                                 <div className="w-full bg-black relative">
                                   <video src={url} controls className="w-full h-auto object-cover max-h-[400px]" />
                                 </div>
                               )}
-                              
+
                               {attachment.type === 'audio' && (
                                 <div className="w-full aspect-square bg-[#F8F8F8] flex flex-col items-center justify-center p-6 border-b border-[#E8E8E8]">
                                   <div className="w-16 h-16 rounded-full bg-white border border-[#E8E8E8] shadow-sm flex items-center justify-center mb-6">
@@ -701,7 +943,7 @@ export const CapsuleMultistepForm = ({
                               <div className="p-4 bg-white flex flex-col gap-2 border-t border-[#E8E8E8]/50">
                                 <input
                                   type="text"
-                                  placeholder="Add an optional caption (alt-text)"
+                                  placeholder={t('create.captionPlaceholder')}
                                   className="w-full px-3 py-2 text-sm bg-[#F8F8F8] border border-[#E8E8E8] rounded-md focus:outline-none focus:border-[#FB6376] focus:bg-white transition-all text-[#1A1A1A]"
                                   value={attachment.altText || ''}
                                   onChange={(e) => {
@@ -733,8 +975,8 @@ export const CapsuleMultistepForm = ({
                 <div className="p-10 md:p-14 h-full flex flex-col gap-8">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">Final Review</h2>
-                      <p className="text-[#666] text-base font-medium">Ensure everything is exactly how you want it.</p>
+                      <h2 className="text-4xl font-extrabold text-[#1A1A1A] tracking-tight mb-2">{t('create.reviewHeading')}</h2>
+                      <p className="text-[#666] text-base font-medium">{t('create.reviewSub')}</p>
                     </div>
                     <Button
                       type="button"
@@ -748,7 +990,7 @@ export const CapsuleMultistepForm = ({
                       )}
                     >
                       <Eye className="w-4 h-4 mr-2" />
-                      {showPreview ? "Hide Preview" : "Preview Letter"}
+                      {showPreview ? t('create.hidePreview') : t('create.previewLetter')}
                     </Button>
                   </div>
 
@@ -764,25 +1006,25 @@ export const CapsuleMultistepForm = ({
                       >
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8 border-b border-[#E8E8E8]">
                           <div>
-                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Title</span>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">{t('create.summaryTitle')}</span>
                             <span className="text-xl font-bold text-[#1A1A1A]">{title}</span>
                           </div>
                           <div>
-                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Message Length</span>
-                            <span className="text-xl font-bold text-[#1A1A1A]">{getPlainTextLength(content)} chars</span>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">{t('create.summaryMsgLen')}</span>
+                            <span className="text-xl font-bold text-[#1A1A1A]">{getPlainTextLength(content)} {t('create.chars')}</span>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-8 border-b border-[#E8E8E8]">
                           <div>
-                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Trigger Condition</span>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">{t('create.summaryTrigger')}</span>
                             <span className="text-xl font-bold text-[#1A1A1A] capitalize">
-                               {triggerType}
+                              {triggerType === "time" ? t('create.triggerOptionTime') : t('create.triggerOptionEvent')}
                             </span>
                           </div>
                           {triggerType === "time" && deliveryDate && (
                             <div>
-                              <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Unlock Date</span>
+                              <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">{t('create.summaryUnlockDate')}</span>
                               <span className="text-xl font-bold text-[#1A1A1A]">
                                 {deliveryDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} at {deliveryTime}
                               </span>
@@ -790,18 +1032,35 @@ export const CapsuleMultistepForm = ({
                           )}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 py-8 border-b border-[#E8E8E8]">
                           <div>
-                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Recipients</span>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">{t('create.summaryRecipients')}</span>
                             <span className="text-xl font-bold text-[#1A1A1A] capitalize">
-                              {recipientType === "self" ? "Just Myself" : recipientType === "friends" ? `${selectedFriends.length} Connection(s)` : "Public Community"}
+                              {recipientType === "self" ? t('create.recTypeSelfLabel') : recipientType === "friends" ? `${selectedFriends.length} ${t('create.stepRecipientsTitle')}` : t('create.recTypePublicLabel')}
                             </span>
                           </div>
                           <div>
-                             <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Memories Attached</span>
-                             <span className="text-xl font-bold text-[#1A1A1A]">
-                                {attachments.length} file(s)
-                             </span>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">{t('create.summaryMemories')}</span>
+                            <span className="text-xl font-bold text-[#1A1A1A]">
+                              {attachments.length} {t('create.filesCount')}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8">
+                          <div>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Auto Reminder Schedule</span>
+                            <span className="text-xl font-bold text-[#1A1A1A] capitalize">
+                              {reminderPreset === "custom"
+                                ? `${recurrencePattern} Schedule`
+                                : `${reminderPreset} Preset (${recurrencePattern})`}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-xs uppercase tracking-wider font-bold text-[#5D2A42] block mb-2">Next Occurrence</span>
+                            <span className="text-xl font-bold text-[#1A1A1A]">
+                              {getSummarySentence()}
+                            </span>
                           </div>
                         </div>
                       </motion.div>
@@ -829,10 +1088,10 @@ export const CapsuleMultistepForm = ({
                               {/* Header */}
                               <div className="text-center mb-8 pt-2">
                                 <span className="inline-flex items-center border border-[#5D2A42]/30 text-[#5D2A42] bg-[#EBE4D5]/60 mb-4 px-3 py-1 rounded-full uppercase text-[10px] tracking-widest font-bold backdrop-blur-sm shadow-sm">
-                                  <FileText className="w-3 h-3 mr-1.5 inline" /> LETTER PREVIEW
+                                  <FileText className="w-3 h-3 mr-1.5 inline" /> {t('create.letterPreviewBadge')}
                                 </span>
                                 <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-widest mb-4 text-[#5D2A42]">
-                                  {title || "Untitled Capsule"}
+                                  {title || t('create.letterPreviewUntitled')}
                                 </h1>
                                 <div className="flex items-center justify-center gap-4 text-xs text-[#5D2A42]/70">
                                   <div className="flex items-center"><Calendar className="w-3 h-3 mr-1" /> {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
@@ -844,36 +1103,36 @@ export const CapsuleMultistepForm = ({
                               {/* Meta */}
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <span className="text-[10px] text-[#5D2A42]/50 block mb-0.5">Date Written:</span>
+                                  <span className="text-[10px] text-[#5D2A42]/50 block mb-0.5">{t('create.letterPreviewDateWritten')}</span>
                                   <span className="font-semibold text-sm">{new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
                                 </div>
                                 <div className="text-right">
-                                  <span className="text-[10px] text-[#5D2A42]/50 block mb-0.5">To:</span>
+                                  <span className="text-[10px] text-[#5D2A42]/50 block mb-0.5">{t('create.letterPreviewToLabel')}</span>
                                   <span className="font-semibold text-sm">
-                                    {recipientType === "self" 
-                                      ? "My Future Self" 
-                                      : recipientType === "friends" 
+                                    {recipientType === "self"
+                                      ? t('create.letterPreviewMyFutureSelf')
+                                      : recipientType === "friends"
                                         ? selectedFriends.map(id => friends.find(f => f.id === id)?.name || "Friend").join(", ")
-                                        : "The World"}
+                                        : t('create.letterPreviewTheWorld')}
                                   </span>
                                 </div>
                               </div>
 
                               {/* Body */}
                               <div className="pt-6 pb-4 space-y-4 text-base md:text-lg leading-[2rem] tracking-wide relative">
-                                <p>Dear {recipientType === "self" 
-                                  ? "Future Me," 
-                                  : recipientType === "friends" 
+                                <p>{recipientType === "self"
+                                  ? t('create.letterPreviewDearSelf')
+                                  : recipientType === "friends"
                                     ? selectedFriends.map(id => friends.find(f => f.id === id)?.name || "Friend").join(", ") + ","
-                                    : "World,"}</p>
+                                    : t('create.letterPreviewDearWorld')}</p>
                                 <div
                                   className="prose prose-base max-w-none text-[#5D2A42] prose-p:my-2 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-0.5 prose-img:rounded-xl prose-img:max-w-full prose-img:my-3 prose-strong:text-inherit prose-em:text-inherit"
-                                  dangerouslySetInnerHTML={{ 
-                                    __html: content ? (() => { 
-                                      const txt = document.createElement("textarea"); 
-                                      txt.innerHTML = content; 
-                                      return txt.value; 
-                                    })() : "<p><em>Your message will appear here...</em></p>" 
+                                  dangerouslySetInnerHTML={{
+                                    __html: content ? (() => {
+                                      const txt = document.createElement("textarea");
+                                      txt.innerHTML = content;
+                                      return txt.value;
+                                    })() : `<p><em>${t('create.letterPreviewPlaceholder')}</em></p>`
                                   }}
                                 />
                                 <p className="mt-6 text-lg">Sincerely,</p>
@@ -883,7 +1142,7 @@ export const CapsuleMultistepForm = ({
                               <div className="pt-4">
                                 <div className="bg-white/40 backdrop-blur-md rounded-xl border border-white/60 border-dashed p-4 min-h-[80px] max-w-xs flex items-center justify-center shadow-sm">
                                   <span className="font-sans text-lg text-[#5D2A42]/60 uppercase tracking-widest text-center px-4">
-                                    Signature Placeholder
+                                    {t('create.signaturePlaceholder')}
                                   </span>
                                 </div>
                               </div>
@@ -961,21 +1220,21 @@ export const CapsuleMultistepForm = ({
               disabled={isSubmitting}
               className="h-14 px-8 rounded-2xl border-[#EAEAEA] bg-white text-[#1A1A1A] font-bold hover:bg-[#FFF9EC] hover:text-[#5D2A42] hover:border-[#FFDCCC] transition-all uppercase tracking-wider text-sm"
             >
-              {currentStep === 0 ? "Cancel" : "Go Back"}
+              {currentStep === 0 ? t('common.cancel') : t('common.goBack')}
             </Button>
-            
+
             <Button
               type="button"
-              onClick={currentStep === steps.length - 1 ? onSubmit : handleNext}
+              onClick={currentStep === translatedSteps.length - 1 ? onSubmit : handleNext}
               disabled={!isStepValid() || isSubmitting}
               className="h-14 px-10 rounded-2xl bg-[#FB6376] hover:bg-[#e8556a] text-white font-bold transition-all uppercase tracking-wider text-sm"
             >
               {isSubmitting ? (
-                "Processing..."
-              ) : currentStep === steps.length - 1 ? (
-                "Seal Capsule"
+                t('common.processing')
+              ) : currentStep === translatedSteps.length - 1 ? (
+                t('create.sealCapsule')
               ) : (
-                "Next Step"
+                t('common.nextStep')
               )}
             </Button>
           </div>

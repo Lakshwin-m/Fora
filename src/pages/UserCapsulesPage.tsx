@@ -13,6 +13,7 @@ import {
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase";
 import { format } from "date-fns";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 interface UserProfile {
   uid: string;
@@ -25,6 +26,7 @@ interface UserProfile {
 const UserCapsulesPage = () => {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [capsules, setCapsules] = useState<PublicCapsule[]>([]);
   const [originals, setOriginals] = useState<PublicCapsule[]>([]);
@@ -137,7 +139,7 @@ const UserCapsulesPage = () => {
             {isReshare && (
               <>
                 <Share2 className="w-3 h-3" />
-                <span>Reshared</span>
+                <span>{t('userCapsules.reshared')}</span>
               </>
             )}
           </div>
@@ -197,7 +199,7 @@ const UserCapsulesPage = () => {
           className="mb-6 text-[#5D2A42] hover:bg-[#FFDCCC]/30"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Archive
+          {t('userCapsules.backToArchive')}
         </Button>
 
         {loading ? (
@@ -208,7 +210,7 @@ const UserCapsulesPage = () => {
           <div className="text-center py-16">
             <Archive className="w-16 h-16 mx-auto mb-4 text-[#5D2A42]/30" />
             <h3 className="text-lg font-semibold text-[#5D2A42]">
-              User not found
+              {t('userCapsules.userNotFound')}
             </h3>
           </div>
         ) : capsules.length === 0 ? (
@@ -238,10 +240,10 @@ const UserCapsulesPage = () => {
             <div className="text-center py-16">
               <Archive className="w-16 h-16 mx-auto mb-4 text-[#5D2A42]/30" />
               <h3 className="text-lg font-semibold text-[#5D2A42]">
-                No public capsules yet
+                {t('userCapsules.noPublicCapsules')}
               </h3>
               <p className="text-[#5D2A42]/70">
-                This user hasn't shared any capsules with the community
+                {t('userCapsules.noPublicCapsulesDesc')}
               </p>
             </div>
           </div>
@@ -266,7 +268,7 @@ const UserCapsulesPage = () => {
                   <p className="text-[#5D2A42]/70 mt-1">{userProfile.bio}</p>
                 )}
                 <p className="text-sm text-[#5D2A42]/60 mt-2">
-                  {capsules.length} capsule{capsules.length !== 1 ? "s" : ""}
+                  {capsules.length} {capsules.length !== 1 ? t('userCapsules.capsulePlural') : t('userCapsules.capsuleSingle')}
                 </p>
               </div>
             </div>
@@ -275,7 +277,7 @@ const UserCapsulesPage = () => {
             {originals.length > 0 && (
               <div className="mb-12">
                 <h2 className="text-2xl font-bold text-[#5D2A42] mb-6">
-                  Original Capsules
+                  {t('userCapsules.originalCapsules')}
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {originals.map((capsule) => (
@@ -294,7 +296,7 @@ const UserCapsulesPage = () => {
               <div>
                 <h2 className="text-2xl font-bold text-[#5D2A42] mb-6 flex items-center space-x-2">
                   <Share2 className="w-5 h-5" />
-                  <span>Reshared Capsules</span>
+                  <span>{t('userCapsules.resharedCapsules')}</span>
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {reshares.map((capsule) => (
@@ -320,10 +322,10 @@ const UserCapsulesPage = () => {
                   {loadingMore ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Loading...
+                      {t('userCapsules.loading')}
                     </>
                   ) : (
-                    "Load More"
+                    t('userCapsules.loadMore')
                   )}
                 </Button>
               </div>

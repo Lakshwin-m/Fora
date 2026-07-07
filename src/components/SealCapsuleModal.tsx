@@ -7,6 +7,7 @@ import React, { useState, useRef, useEffect } from "react";
 import ReactSignatureCanvas from "react-signature-canvas";
 import Lottie from "lottie-react";
 import { Button } from "@/components/ui/button";
+import { Button as StatefulButton } from "@/components/ui/stateful-button";
 import {
   Card,
   CardContent,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
 import { X, RotateCcw, Lock } from "lucide-react";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 // Animation and sound assets
 import timeTravelAnimation from "@/assets/time animation.json";
@@ -35,6 +37,11 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
   capsuleTitle = "Your Time Capsule",
   capsuleId = "temp-id",
 }) => {
+  const { t } = useTranslation();
+  
+  // Update default title from translation if it's the hardcoded english default
+  const effectiveTitle = capsuleTitle === "Your Time Capsule" ? t('seal.defaultTitle') : capsuleTitle;
+
   // Signature state
   const signatureCanvasRef = useRef<ReactSignatureCanvas>(null);
   const [signature, setSignature] = useState<string | null>(null);
@@ -150,26 +157,22 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
   const handleSealCapsule = async () => {
     if (!signature || isSignatureEmpty) {
       toast({
-        title: "Signature required",
-        description: "Please draw your signature before sealing",
+        title: t('seal.signatureRequired'),
+        description: t('seal.signatureRequiredDesc'),
         variant: "destructive",
       });
       return;
     }
 
-    // Start sealing: show brief animation then fire onSealComplete
-    setIsSealing(true);
-    setShowAnimation(true);
-
     // Play tick sound
     await playTickSound();
 
-    // Brief 1.5s animation, then immediately hand off to parent
-    setTimeout(() => {
-      setShowAnimation(false);
-      setIsSealing(false);
-      onSealComplete(signature);
-    }, 1500);
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        onSealComplete(signature);
+        resolve();
+      }, 5);
+    });
   };
 
   // Reset modal state
@@ -204,7 +207,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
             />
             <div className="absolute bottom-8 left-0 right-0 text-center">
               <p className="text-white/80 text-lg font-medium animate-pulse">
-                Sealing your memories for the future...
+                {t('seal.sealingMessage')}
               </p>
             </div>
           </div>
@@ -222,10 +225,10 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                 </div>
                 <div>
                   <CardTitle className="text-2xl text-[#5D2A42]">
-                    Seal Your Capsule
+                    {t('seal.title')}
                   </CardTitle>
                   <CardDescription className="text-[#5D2A42]/70">
-                    {`Sign to seal "${capsuleTitle}" until its unlock date`}
+                    {t('seal.description').replace('{title}', effectiveTitle)}
                   </CardDescription>
                 </div>
               </div>
@@ -249,10 +252,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
               <div className="space-y-6">
                 <div className="p-4 bg-gradient-to-r from-[#FFDCCC]/30 to-[#FCB1A6]/30 rounded-lg border border-[#FB6376]/30">
                   <p className="text-sm text-[#5D2A42]">
-                    <span className="font-semibold">Important:</span> Once
-                    sealed, this capsule cannot be edited or deleted until its
-                    unlock date. Your signature confirms this is your final
-                    version.
+                    <span className="font-semibold">{t('seal.importantLabel')}</span> {t('seal.warningText')}
                   </p>
                 </div>
 
@@ -260,7 +260,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium text-[#5D2A42]">
-                      Draw your signature below:
+                      {t('seal.drawSignature')}
                     </label>
                     <Button
                       type="button"
@@ -271,7 +271,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                       className="text-[#5D2A42] hover:text-[#FB6376]"
                     >
                       <RotateCcw className="w-4 h-4 mr-2" />
-                      Clear
+                      {t('seal.clear')}
                     </Button>
                   </div>
 
@@ -292,8 +292,8 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                   <div className="flex items-center justify-between text-sm">
                     <p className="text-[#5D2A42]/60">
                       {isSignatureEmpty
-                        ? "Draw your signature in the box above"
-                        : '✓ Signature captured. Click "Seal Capsule" to continue.'}
+                        ? t('seal.signatureEmpty')
+                        : t('seal.signatureCaptured')}
                     </p>
                     <div
                       className={`px-3 py-1 rounded-full ${
@@ -303,8 +303,8 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                       }`}
                     >
                       {isSignatureEmpty
-                        ? "Signature required"
-                        : "Ready to seal"}
+                        ? t('seal.signatureRequiredBadge')
+                        : t('seal.readyToSeal')}
                     </div>
                   </div>
                 </div>
@@ -318,7 +318,7 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                     disabled={isSealing || showAnimation}
                     className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFDCCC]"
                   >
-                    Cancel
+                    {t('capsuleDetail.cancel')}
                   </Button>
 
                   <div className="flex items-center space-x-4">
@@ -329,30 +329,17 @@ const SealCapsuleModal: React.FC<SealCapsuleModalProps> = ({
                       disabled={isSignatureEmpty || isSealing || showAnimation}
                       className="border-[#5D2A42]/20 text-[#5D2A42] hover:bg-[#FFDCCC]"
                     >
-                      Clear & Restart
+                      {t('seal.clearRestart')}
                     </Button>
 
-                    <Button
+                    <StatefulButton
                       type="button"
                       onClick={handleSealCapsule}
                       disabled={isSignatureEmpty || isSealing || showAnimation}
-                      className="relative overflow-hidden bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] text-white px-8 hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="relative overflow-hidden bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] text-white px-8 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed border-none ring-0 hover:ring-0"
                     >
-                      {isSealing ? (
-                        <>
-                          <div className="absolute inset-0 bg-gradient-to-r from-[#FB6376] to-[#FCB1A6] animate-shimmer"></div>
-                          <span className="relative flex items-center">
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3"></div>
-                            Sealing...
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="w-5 h-5 mr-3" />
-                          Seal Capsule
-                        </>
-                      )}
-                    </Button>
+                      {t('seal.sealCapsule')}
+                    </StatefulButton>
                   </div>
                 </div>
               </div>

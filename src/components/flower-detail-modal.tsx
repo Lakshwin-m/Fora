@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Copy } from "lucide-react";
 import { SiFacebook, SiX } from "@icons-pack/react-simple-icons";
 import { toast } from "sonner";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 interface FlowerDetailModalProps {
   flower: Flower | null;
@@ -104,6 +105,7 @@ export function FlowerDetailModal({
   if (!flower) return null;
 
   const flowerMeta = FLOWER_METADATA[flower.flower];
+  const { t } = useTranslation();
   const shareUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/flower/${flower.slug}`
@@ -113,12 +115,12 @@ export function FlowerDetailModal({
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copied!", {
-        description: "Share this flower with your friends.",
+      toast.success(t('garden.toastLinkCopied'), {
+        description: t('garden.toastLinkCopiedDesc'),
       });
     } catch (err) {
       console.error("Failed to copy:", err);
-      toast.error("Failed to copy link");
+      toast.error(t('garden.toastLinkCopyFailed'));
     }
   };
 
@@ -129,7 +131,7 @@ export function FlowerDetailModal({
       `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
       "_blank"
     );
-    toast.success("Opening Twitter...");
+    toast.success(t('garden.toastOpeningTwitter'));
   };
 
   const handleShareFacebook = () => {
@@ -138,7 +140,7 @@ export function FlowerDetailModal({
       `https://www.facebook.com/sharer/sharer.php?u=${url}`,
       "_blank"
     );
-    toast.success("Opening Facebook...");
+    toast.success(t('garden.toastOpeningFacebook'));
   };
 
   return (
@@ -184,7 +186,7 @@ export function FlowerDetailModal({
                   size="icon"
                   onClick={handleCopyLink}
                   className="h-8 w-8"
-                  title="Copy Link"
+                  title={t('garden.shareCopyLink')}
                 >
                   <Copy className="w-3.5 h-3.5" />
                 </Button>
@@ -193,7 +195,7 @@ export function FlowerDetailModal({
                   size="icon"
                   onClick={handleShareFacebook}
                   className="h-8 w-8"
-                  title="Share on Facebook"
+                  title={t('garden.shareFacebook')}
                 >
                   <SiFacebook className="w-3.5 h-3.5" />
                 </Button>
@@ -202,7 +204,7 @@ export function FlowerDetailModal({
                   size="icon"
                   onClick={handleShareTwitter}
                   className="h-8 w-8"
-                  title="Share on Twitter"
+                  title={t('garden.shareTwitter')}
                 >
                   <SiX className="w-3.5 h-3.5" />
                 </Button>
@@ -258,13 +260,13 @@ export function FlowerDetailModal({
             {/* Growth Progress */}
             <div className="w-full border-t border-gray-300 pt-4">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-gray-700">Growth Stage</span>
+                <span className="text-sm font-semibold text-gray-700">{t('garden.growthStage')}</span>
                 <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
                   growthLevel >= 3
                     ? "bg-green-100 text-green-700"
                     : "bg-amber-100 text-amber-700"
                 }`}>
-                  {growthLevel >= 3 ? "✨ " : ""}{GROWTH_LABELS[growthLevel] || "Full Bloom"}
+                  {growthLevel >= 3 ? "✨ " : ""}{[t('garden.growthSeed'), t('garden.growthSprout'), t('garden.growthGrowing'), t('garden.growthBloom')][growthLevel] || t('garden.growthBloom')}
                 </span>
               </div>
 
@@ -291,7 +293,7 @@ export function FlowerDetailModal({
                       : "bg-gray-100 text-gray-400 cursor-not-allowed"
                   }`}
                 >
-                  {canWater ? "💧 Water This Flower" : "⏳ Watered Recently"}
+                  {canWater ? "💧 " + t('garden.btnWaterThis') : "⏳ " + t('garden.btnWateredRecently')}
                 </Button>
               )}
             </div>

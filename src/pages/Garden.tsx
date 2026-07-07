@@ -10,6 +10,7 @@ import { PlantingDrawer } from "@/components/planting-drawer";
 import { FlowerDetailModal } from "@/components/flower-detail-modal";
 import { InfoModal } from "@/components/info-modal";
 import Navigation from "@/components/Navigation";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 /* ── Injected Styles ─────────────────────────────────────── */
 const STYLE_ID = "garden-overhaul-styles";
@@ -53,16 +54,36 @@ if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
 
 /* ── Types ──────────────────────────────────────────────── */
 type UserState = "normal" | "viewing" | "planting";
+type ActiveTool = "shovel" | "seeds" | null;
+
+interface DugHole {
+  id: string;
+  x: number;
+  y: number;
+}
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
+const GROWTH_DELAY_MS = 5000; // 5 seconds before flower appears
+const ZONE_WIDTH = 1200;
+const VIRTUAL_WIDTH = 1920;
+const VIRTUAL_HEIGHT = 1080;
+
+/* ── plantedAt helpers (enforce 5s delay even on refresh) ── */
+function loadPlantedAt(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem("garden-plantedAt");
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function savePlantedAt(data: Record<string, number>) {
+  localStorage.setItem("garden-plantedAt", JSON.stringify(data));
+}
 
 /* ── Growth Helpers ────────────────────────────────────── */
 const GROWTH_SCALES = [0.3, 0.55, 0.8, 1.0];
 const GROWTH_OPACITY = [0.55, 0.7, 0.88, 1.0];
-const GROWTH_LABELS = ["Seed", "Sprout", "Growing", "Full Bloom"];
 const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
-const WORLD_PADDING = 800;
-const MIN_WORLD_WIDTH = 3000;
 
 function loadGrowthData(): Record<string, number> {
   try {
@@ -82,19 +103,20 @@ function loadCooldowns(): Record<string, number> {
 export default function GardenPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   // State machine
   const [userState, setUserState] = useState<UserState>("normal");
+  const [currentZone, setCurrentZone] = useState(0);
 
-  // Scroll state
-  const [offset, setOffset] = useState(0);
-  const [scrollSpeed, setScrollSpeed] = useState(0);
-  const [preZoomOffset, setPreZoomOffset] = useState(0);
-
-  // Touch/drag scroll
+  // Mobile drag state
+  const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ x: 0, offset: 0 });
+  const dragStartRef = useRef({ x: 0, dragOffset: 0 });
   const hasDraggedRef = useRef(false);
+
+  // Reset drag when switching zones
+  useEffect(() => setDragOffset(0), [currentZone]);
 
   // Flower state
   const [allFlowers, setAllFlowers] = useState<Flower[]>([]);
@@ -106,44 +128,46 @@ export default function GardenPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Sun animation
-  const [sunImage, setSunImage] = useState("/sun.png");
-
   // Growth / watering
   const [growthLevels, setGrowthLevels] = useState<Record<string, number>>(loadGrowthData);
   const [waterCooldowns, setWaterCooldowns] = useState<Record<string, number>>(loadCooldowns);
   const [hoveredFlower, setHoveredFlower] = useState<string | null>(null);
   const [splashFlower, setSplashFlower] = useState<string | null>(null);
 
+  // Scaled coordinate space
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (typeof window !== "undefined") {
+        const scaleX = window.innerWidth / VIRTUAL_WIDTH;
+        const scaleY = window.innerHeight / VIRTUAL_HEIGHT;
+        setScale(Math.max(scaleX, scaleY)); // COVER behavior
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Farm tools
+  const [activeTool, setActiveTool] = useState<ActiveTool>(null);
+  const [dugHoles, setDugHoles] = useState<DugHole[]>([]);
+  const [hiddenFlowerIds, setHiddenFlowerIds] = useState<Set<string>>(new Set());
+  const [plantedAtMap, setPlantedAtMap] = useState<Record<string, number>>(loadPlantedAt);
+
   // ─────────────────────────────────────────────
-  // World width for infinite scroll
-  const worldWidth = useMemo(() => {
-    if (allFlowers.length === 0) return MIN_WORLD_WIDTH;
+  // Zone calculation
+  const maxZone = useMemo(() => {
+    if (allFlowers.length === 0) return 0;
     const maxX = Math.max(...allFlowers.map((f) => f.x));
-    return Math.max(maxX + WORLD_PADDING, MIN_WORLD_WIDTH);
+    return Math.floor(maxX / ZONE_WIDTH) + 1;
   }, [allFlowers]);
 
   // ─────────────────────────────────────────────
   // Effects
 
-  useEffect(() => {
-    if (userState !== "normal") setScrollSpeed(0);
-  }, [userState]);
-
-  useEffect(() => {
-    if (userState !== "normal" || scrollSpeed === 0) return;
-
-    let raf: number;
-    const loop = () => {
-      setOffset((prev) => prev + scrollSpeed);
-      raf = requestAnimationFrame(loop);
-    };
-
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, [scrollSpeed, userState]);
-
-  // Load flowers
+  // Load flowers (with 5-second reveal delay for recently planted)
   useEffect(() => {
     setIsLoading(true);
     fetch(`${API_BASE}/getFlowers`)
@@ -151,10 +175,58 @@ export default function GardenPage() {
         if (!res.ok) throw new Error();
         return res.json();
       })
-      .then((data) => setAllFlowers(data || []))
+      .then((data: Flower[]) => {
+        const flowers = data || [];
+        setAllFlowers(flowers);
+
+        // Check plantedAt — hide flowers that haven't aged 5s yet
+        const pAt = loadPlantedAt();
+        const now = Date.now();
+        const newHidden = new Set<string>();
+
+        for (const f of flowers) {
+          const ts = pAt[f.id];
+          if (ts && now - ts < GROWTH_DELAY_MS) {
+            newHidden.add(f.id);
+            // Reveal after remaining time
+            const remaining = GROWTH_DELAY_MS - (now - ts);
+            setTimeout(() => {
+              setHiddenFlowerIds((prev) => {
+                const next = new Set(prev);
+                next.delete(f.id);
+                return next;
+              });
+            }, remaining);
+          } else if (ts) {
+            // Expired — clean it from storage
+            delete pAt[f.id];
+          }
+        }
+        setHiddenFlowerIds(newHidden);
+        savePlantedAt(pAt);
+      })
       .catch(() => setError("Failed to load garden"))
       .finally(() => setIsLoading(false));
   }, []);
+
+  // Escape / right-click to deselect tool
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveTool(null);
+    };
+    const handleContextMenu = (e: MouseEvent) => {
+      if (activeTool) {
+        e.preventDefault();
+        setActiveTool(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("contextmenu", handleContextMenu);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("contextmenu", handleContextMenu);
+    };
+  }, [activeTool]);
 
   // Handle deep link
   useEffect(() => {
@@ -165,121 +237,156 @@ export default function GardenPage() {
       const flower = allFlowers.find((f) => f.slug === parts[2]);
       if (flower) handleFlowerClick(flower);
     }
-  }, [isLoading, location.pathname]);
+  }, [isLoading, location.pathname, allFlowers]);
 
   // ─────────────────────────────────────────────
-  // Infinite scroll: compute visible flowers with wrapping
-
-  const visibleFlowers = useMemo(() => {
-    if (userState !== "normal") return allFlowers;
-
-    const width = typeof window !== "undefined" ? window.innerWidth : 1200;
-    const buffer = 400;
-
-    return allFlowers.filter((f) => {
-      // Modular wrap: ((x + offset) % worldWidth + worldWidth) % worldWidth
-      const screenX = ((f.x + offset) % worldWidth + worldWidth) % worldWidth;
-      return screenX > -buffer && screenX < width + buffer;
-    });
-  }, [offset, allFlowers, userState, worldWidth]);
-
-  // Get screen X for a flower (with infinite wrap)
-  const getScreenX = useCallback(
-    (flower: Flower) => {
-      if (userState !== "normal") return flower.x + offset;
-      return ((flower.x + offset) % worldWidth + worldWidth) % worldWidth;
-    },
-    [offset, userState, worldWidth]
-  );
-
-  // ─────────────────────────────────────────────
-  // Touch / Drag scroll handlers
+  // Touch / Drag scroll handlers (for devices < ZONE_WIDTH)
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (userState !== "normal") return;
+      if (userState !== "normal" || typeof window === "undefined") return;
+
+      const visibleWidth = window.innerWidth / scale;
+      if (visibleWidth >= VIRTUAL_WIDTH) return;
+
       setIsDragging(true);
       hasDraggedRef.current = false;
-      setScrollSpeed(0);
-      dragStartRef.current = { x: e.clientX, offset };
+      dragStartRef.current = { x: e.clientX, dragOffset };
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     },
-    [userState, offset]
+    [userState, dragOffset, scale]
   );
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
-      if (!isDragging || userState !== "normal") return;
-      const deltaX = e.clientX - dragStartRef.current.x;
-      // Only count as drag if moved more than 5px
-      if (Math.abs(deltaX) > 5) hasDraggedRef.current = true;
-      setOffset(dragStartRef.current.offset + deltaX);
+      if (!isDragging || userState !== "normal" || typeof window === "undefined") return;
+      const deltaX = (e.clientX - dragStartRef.current.x) / scale;
+      if (Math.abs(deltaX * scale) > 5) hasDraggedRef.current = true;
+
+      const dragMultiplier = 30; // Fast responsive drag
+      const visibleWidth = window.innerWidth / scale;
+      const maxDrag = Math.max(0, VIRTUAL_WIDTH - visibleWidth);
+
+      const newOffset = Math.max(0, Math.min(dragStartRef.current.dragOffset - (deltaX * dragMultiplier), maxDrag));
+      setDragOffset(newOffset);
     },
-    [isDragging, userState]
+    [isDragging, userState, scale]
   );
 
-  const handlePointerUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
+  const handlePointerUp = useCallback(() => setIsDragging(false), []);
 
   // ─────────────────────────────────────────────
   // Handlers
 
   const handleFlowerClick = useCallback(
     (flower: Flower) => {
-      setPreZoomOffset(offset);
       setSelectedFlower(flower);
       setUserState("viewing");
       navigate(`/flower/${flower.slug}`);
     },
-    [offset]
+    [navigate]
   );
 
   const handleExitViewing = useCallback(() => {
-    setOffset(preZoomOffset);
     setSelectedFlower(null);
     setUserState("normal");
     navigate("/garden");
-  }, [preZoomOffset]);
+  }, [navigate]);
 
-  const handlePlantButton = useCallback(() => {
-    if (userState !== "normal") return;
+  // ── Tool equip handlers ──
+  const handleShovelClick = useCallback(() => {
+    setActiveTool((prev) => (prev === "shovel" ? null : "shovel"));
+  }, []);
 
-    setPreZoomOffset(offset);
+  const handleSeedBagClick = useCallback(() => {
+    setActiveTool((prev) => (prev === "seeds" ? null : "seeds"));
+  }, []);
 
-    // Generate a random planting position in the current viewport area
-    const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-    const gardenH = vh * 0.65;
-    const wrappedOffset = ((offset % worldWidth) + worldWidth) % worldWidth;
-    const x = Math.random() * vw * 0.6 + vw * 0.2 - wrappedOffset;
-    const y = gardenH * 0.3 + Math.random() * gardenH * 0.4;
+  // ── Shovel: dig a hole on ground click ──
+  const handleGardenGroundClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (userState !== "normal" || hasDraggedRef.current) return;
 
-    setPlantingPosition({ x, y });
-    setUserState("planting");
-  }, [userState, offset, worldWidth]);
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = (e.clientX - rect.left) / scale;
+      const clickY = (e.clientY - rect.top) / scale;
+
+      // dragOffset is inherently included in rect.left, but we must add currentZone
+      const absoluteX = clickX + currentZone * ZONE_WIDTH;
+
+      if (activeTool === "shovel") {
+        const id = `hole-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        setDugHoles((prev) => [...prev, { id, x: absoluteX, y: clickY }]);
+        return;
+      }
+
+      if (activeTool === "seeds") {
+        // Check if clicking near an existing dug hole
+        const threshold = 60; // px radius
+        const matchedHole = dugHoles.find((h) => {
+          const dx = absoluteX - h.x;
+          const dy = clickY - h.y;
+          return Math.sqrt(dx * dx + dy * dy) < threshold;
+        });
+
+        if (matchedHole) {
+          setPlantingPosition({ x: matchedHole.x, y: matchedHole.y });
+          setUserState("planting");
+          // Remove the used hole
+          setDugHoles((prev) => prev.filter((h) => h.id !== matchedHole.id));
+        }
+        return;
+      }
+    },
+    [userState, activeTool, dugHoles, currentZone, scale]
+  );
 
   const handleExitPlanting = useCallback(() => {
-    setOffset(preZoomOffset);
     setPlantingPosition(null);
     setUserState("normal");
-  }, [preZoomOffset]);
+    setActiveTool(null);
+  }, []);
 
   const handlePlantSuccess = useCallback(
     (flower: Flower) => {
+      // Save plantedAt timestamp
+      const newPAt = { ...plantedAtMap, [flower.id]: Date.now() };
+      setPlantedAtMap(newPAt);
+      savePlantedAt(newPAt);
+
+      // Hide the flower for 5 seconds
+      setHiddenFlowerIds((prev) => new Set(prev).add(flower.id));
+
+      // Add flower to state (but hidden)
       setAllFlowers((prev) => [...prev, flower]);
-      setNewlyPlantedFlowerId(flower.id);
 
       // New flowers start at seed stage (0)
       const newLevels = { ...growthLevels, [flower.id]: 0 };
       setGrowthLevels(newLevels);
       localStorage.setItem("garden-growth", JSON.stringify(newLevels));
 
-      setTimeout(() => setNewlyPlantedFlowerId(null), 12500);
+      // Reveal after 5 seconds
+      setTimeout(() => {
+        setHiddenFlowerIds((prev) => {
+          const next = new Set(prev);
+          next.delete(flower.id);
+          return next;
+        });
+        setNewlyPlantedFlowerId(flower.id);
+        setTimeout(() => setNewlyPlantedFlowerId(null), 12500);
+
+        // Clean up plantedAt entry
+        setPlantedAtMap((prev) => {
+          const updated = { ...prev };
+          delete updated[flower.id];
+          savePlantedAt(updated);
+          return updated;
+        });
+      }, GROWTH_DELAY_MS);
 
       handleExitPlanting();
     },
-    [handleExitPlanting, growthLevels]
+    [handleExitPlanting, growthLevels, plantedAtMap]
   );
 
   // ─────────────────────────────────────────────
@@ -296,7 +403,6 @@ export default function GardenPage() {
       const lastWatered = waterCooldowns[flowerId] || 0;
 
       if (now - lastWatered < COOLDOWN_MS) {
-        const minsLeft = Math.ceil((COOLDOWN_MS - (now - lastWatered)) / 60000);
         return; // silently block — could add a toast here
       }
 
@@ -329,11 +435,13 @@ export default function GardenPage() {
     [growthLevels, waterCooldowns]
   );
 
-  // Sun blink
-  const blinkSun = () => {
-    setSunImage("/sun_blink.png");
-    setTimeout(() => setSunImage("/sun.png"), 200);
-  };
+  // Seed bag hover swap
+  const [seedHovered, setSeedHovered] = useState(false);
+  const seedImage = activeTool === "seeds" ? "/seedout.png" : seedHovered ? "/seedout.png" : "/seed.png";
+
+  // Shovel hover swap
+  const [shovelHovered, setShovelHovered] = useState(false);
+  const shovelImage = activeTool === "shovel" ? "/shovelout.png" : shovelHovered ? "/shovelout.png" : "/shovel.png";
 
   // ─────────────────────────────────────────────
   // Render
@@ -343,7 +451,7 @@ export default function GardenPage() {
       <div className="fixed inset-0 flex items-center justify-center bg-blue-50">
         <img
           src="/special_flower.png"
-          alt="Loading"
+          alt={t('garden.loading')}
           className="w-[150px] h-[150px] animate-spin"
         />
       </div>
@@ -351,26 +459,239 @@ export default function GardenPage() {
   }
 
   return (
-    <div className={`fixed inset-0 overflow-hidden ${isDragging ? "garden-drag-active" : ""}`}>
-      {/* Background */}
+    <div className="fixed inset-0 overflow-hidden bg-sky-200 select-none">
       <Navigation />
-      <img
-        src="/background.png"
-        alt="Garden"
-        className="absolute inset-0 w-full h-full object-cover object-top"
-        draggable={false}
-      />
+      <CloudsAnimation gardenOffset={0} />
 
-      <CloudsAnimation gardenOffset={offset} />
+      {/* Active tool indicator */}
+      {activeTool && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-black/70 text-white text-sm px-4 py-2 rounded-full backdrop-blur-sm flex items-center gap-2 pointer-events-none">
+          <img src={activeTool === "shovel" ? "/shovel.png" : "/seed.png"} alt="" className="w-5 h-5 object-contain" />
+          {activeTool === "shovel" ? "Click on the ground to dig" : "Click on a dug hole to plant"}
+        </div>
+      )}
 
-      {/* Sun */}
+      {/* Scaled Virtual World */}
       <div
-        className="absolute top-8 left-16 z-10 cursor-pointer"
-        onMouseEnter={blinkSun}
-        onClick={blinkSun}
+        className="absolute top-1/2 left-1/2 origin-center"
+        style={{
+          width: VIRTUAL_WIDTH,
+          height: VIRTUAL_HEIGHT,
+          transform: `translate(-50%, -50%) scale(${scale})`
+        }}
       >
-        <img src={sunImage} alt="Sun" width={200} draggable={false} />
+        {/* Background Layer (translates with drag on mobile, but NOT with zones) */}
+        <div
+          className="absolute inset-0 transition-transform duration-700 pointer-events-none"
+          style={{ transform: `translateX(-${dragOffset}px)` }}
+        >
+          <img
+            src="/bgn.png"
+            alt="Garden"
+            className="absolute inset-0 w-full h-full object-cover"
+            style={{ objectPosition: "center 60%" }}
+            draggable={false}
+          />
+
+          {/* Seed Bag */}
+          <div
+            className={`absolute z-[5] cursor-pointer transition-transform duration-150 pointer-events-auto ${activeTool === "seeds" ? "scale-110 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" : ""}`}
+            style={{ left: "75%", top: "31%", width: "10%", height: "24%" }}
+            onMouseEnter={() => setSeedHovered(true)}
+            onMouseLeave={() => setSeedHovered(false)}
+            onClick={handleSeedBagClick}
+          >
+            <img src={seedImage} alt="Seed Bag" className="w-full h-full object-contain" draggable={false} />
+          </div>
+
+          {/* Shovel */}
+          <div
+            className={`absolute z-[5] cursor-pointer transition-transform duration-150 pointer-events-auto ${activeTool === "shovel" ? "scale-110 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" : ""}`}
+            style={{ left: "55%", top: "10%", width: "9%", height: "40%" }}
+            onMouseEnter={() => setShovelHovered(true)}
+            onMouseLeave={() => setShovelHovered(false)}
+            onClick={handleShovelClick}
+          >
+            <img src={shovelImage} alt="Shovel" className="w-full h-full object-contain" draggable={false} />
+          </div>
+
+          {/* Garden Layer (flowers & holes) - Translates with zones */}
+          <div
+            className={`absolute bottom-[8%] w-full h-[50%] pointer-events-auto ${isDragging ? "garden-drag-active" : ""}`}
+            style={{
+              cursor: activeTool === "shovel"
+                ? "url(/shovel-cursor.png) 8 24, crosshair"
+                : activeTool === "seeds"
+                  ? "crosshair"
+                  : typeof window !== "undefined" && window.innerWidth / scale < VIRTUAL_WIDTH
+                    ? (isDragging ? "grabbing" : "grab")
+                    : undefined,
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            onClick={handleGardenGroundClick}
+          >
+            <div
+              className="relative w-full h-full transition-transform duration-700 ease-in-out"
+              style={{ transform: `translateX(-${currentZone * ZONE_WIDTH}px)` }}
+            >
+              {/* Dug holes */}
+              {dugHoles.map((hole) => (
+                <DirtPlot
+                  key={hole.id}
+                  x={hole.x}
+                  y={hole.y}
+                  visible
+                />
+              ))}
+
+              {plantingPosition && userState === "planting" && (
+                <DirtPlot
+                  x={plantingPosition.x}
+                  y={plantingPosition.y}
+                  visible
+                />
+              )}
+
+              {allFlowers.filter((f) => !hiddenFlowerIds.has(f.id)).map((flower) => {
+                const isSelected = selectedFlower?.id === flower.id;
+                const screenX = flower.x;
+
+                const growthLevel = growthLevels[flower.id] ?? 3;
+                const growthScale = GROWTH_SCALES[growthLevel];
+                const growthOpacity = GROWTH_OPACITY[growthLevel];
+                const isMaxed = growthLevel >= 3;
+                const isHovered = hoveredFlower === flower.id && userState === "normal";
+                const isSplashing = splashFlower === flower.id;
+
+                const style =
+                  userState === "viewing" && isSelected
+                    ? {
+                      left: VIRTUAL_WIDTH / 2,
+                      top: VIRTUAL_HEIGHT * 0.15,
+                      transform: "translate(-50%, -50%) scale(3)",
+                      zIndex: 50,
+                    }
+                    : {
+                      left: screenX,
+                      top: flower.y,
+                      transform: `translate(-50%, -50%) scale(${growthScale})`,
+                      opacity: growthOpacity,
+                      zIndex: 10,
+                    };
+
+                return (
+                  <div
+                    key={flower.id}
+                    className="absolute transition-all duration-700"
+                    style={style}
+                    onMouseEnter={() => userState === "normal" && setHoveredFlower(flower.id)}
+                    onMouseLeave={() => setHoveredFlower(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFlowerClick(flower);
+                    }}
+                  >
+                    {/* Water button */}
+                    {isHovered && !isMaxed && canWater(flower.id) && (
+                      <button
+                        className="garden-water-btn absolute -top-10 left-1/2 -translate-x-1/2 z-50 bg-blue-400/90 hover:bg-blue-500 text-white rounded-full w-9 h-9 flex items-center justify-center shadow-lg backdrop-blur-sm border-2 border-white/40"
+                        onClick={(e) => handleWater(flower.id, e)}
+                        title={t('garden.waterTooltip')}
+                      >
+                        💧
+                      </button>
+                    )}
+
+                    {/* Max bloom sparkle */}
+                    {isHovered && isMaxed && (
+                      <div className="garden-sparkle-icon absolute -top-8 left-1/2 -translate-x-1/2 z-50 text-xl pointer-events-none">
+                        ✨
+                      </div>
+                    )}
+
+                    {/* Splash effect */}
+                    {isSplashing && (
+                      <div
+                        className="garden-splash absolute left-1/2 bottom-0 w-20 h-20 rounded-full bg-blue-300/40 z-40"
+                      />
+                    )}
+
+                    {/* Growth stage indicator (only for non-maxed flowers on hover) */}
+                    {isHovered && !isMaxed && (
+                      <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-50 flex gap-1 pointer-events-none">
+                        {[0, 1, 2, 3].map((lvl) => (
+                          <div
+                            key={lvl}
+                            className={`w-1.5 h-1.5 rounded-full transition-colors ${lvl <= growthLevel
+                              ? "bg-green-500"
+                              : "bg-gray-300"
+                              }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <img
+                      src={FLOWER_METADATA[flower.flower].image}
+                      alt={flower.title}
+                      width={
+                        flower.flower === "blue-forget-me-not" ||
+                          flower.flower === "white-rose"
+                          ? 115
+                          : 100
+                      }
+                      draggable={false}
+                      className={`relative z-[1] transition-all duration-700 ease-in-out
+                        ${userState === "normal"
+                          ? "animate-sway hover:scale-110 flower-hover-glow"
+                          : ""
+                        }
+                        ${newlyPlantedFlowerId === flower.id
+                          ? "animate-new-flower"
+                          : isSelected && userState === "viewing"
+                            ? "animate-viewing-flower"
+                            : ""
+                        }
+                      `}
+                      style={{
+                        animationDelay:
+                          userState === "normal"
+                            ? `${(flower.x % 20) * 0.1}s`
+                            : "0s",
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Overlay UI (Navigation arrows, Music Player, etc. - These stay outside the scaled world so they don't stretch) */}
+      {userState === "normal" && (
+        <>
+          {currentZone > 0 && (
+            <button
+              onClick={() => setCurrentZone((p) => Math.max(0, p - 1))}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-50 p-4 bg-white/50 hover:bg-white/80 rounded-full shadow-lg backdrop-blur transition"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+          )}
+          {currentZone < maxZone && (
+            <button
+              onClick={() => setCurrentZone((p) => Math.min(maxZone, p + 1))}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-50 p-4 bg-white/50 hover:bg-white/80 rounded-full shadow-lg backdrop-blur transition"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+            </button>
+          )}
+        </>
+      )}
 
       <MusicPlayer />
 
@@ -380,166 +701,11 @@ export default function GardenPage() {
         </div>
       )}
 
-      {/* Scroll edge zones (hover to auto-scroll) */}
-      {userState === "normal" && !isDragging && (
-        <>
-          <div
-            className="absolute left-0 top-0 w-16 h-full z-20"
-            onMouseEnter={() => setScrollSpeed(4)}
-            onMouseLeave={() => setScrollSpeed(0)}
-          />
-          <div
-            className="absolute right-0 top-0 w-16 h-full z-20"
-            onMouseEnter={() => setScrollSpeed(-4)}
-            onMouseLeave={() => setScrollSpeed(0)}
-          />
-        </>
-      )}
-
-      {/* Garden */}
-      <div
-        className="absolute bottom-0 w-full h-[65vh]"
-        style={{ cursor: userState === "normal" ? (isDragging ? "grabbing" : "grab") : undefined }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-      >
-        <div
-          className="relative h-full"
-        >
-          {plantingPosition && userState === "planting" && (
-            <DirtPlot
-              x={plantingPosition.x + preZoomOffset}
-              y={plantingPosition.y}
-              visible
-            />
-          )}
-
-          {visibleFlowers.map((flower) => {
-            const isSelected = selectedFlower?.id === flower.id;
-            const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-            const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-            const screenX = getScreenX(flower);
-
-            const growthLevel = growthLevels[flower.id] ?? 3;
-            const growthScale = GROWTH_SCALES[growthLevel];
-            const growthOpacity = GROWTH_OPACITY[growthLevel];
-            const isMaxed = growthLevel >= 3;
-            const isHovered = hoveredFlower === flower.id && userState === "normal";
-            const isSplashing = splashFlower === flower.id;
-
-            const style =
-              userState === "viewing" && isSelected
-                ? {
-                    left: vw / 2,
-                    top: vh * 0.15,
-                    transform: "translate(-50%, -50%) scale(3)",
-                    zIndex: 50,
-                  }
-                : {
-                    left: screenX,
-                    top: flower.y,
-                    transform: `translate(-50%, -50%) scale(${growthScale})`,
-                    opacity: growthOpacity,
-                    zIndex: 10,
-                  };
-
-            return (
-              <div
-                key={flower.id}
-                className="absolute transition-all duration-700"
-                style={style}
-                onMouseEnter={() => userState === "normal" && setHoveredFlower(flower.id)}
-                onMouseLeave={() => setHoveredFlower(null)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!isDragging) handleFlowerClick(flower);
-                }}
-              >
-                {/* Water button */}
-                {isHovered && !isMaxed && canWater(flower.id) && (
-                  <button
-                    className="garden-water-btn absolute -top-10 left-1/2 -translate-x-1/2 z-50 bg-blue-400/90 hover:bg-blue-500 text-white rounded-full w-9 h-9 flex items-center justify-center shadow-lg backdrop-blur-sm border-2 border-white/40"
-                    onClick={(e) => handleWater(flower.id, e)}
-                    title="Water this flower"
-                  >
-                    💧
-                  </button>
-                )}
-
-                {/* Max bloom sparkle */}
-                {isHovered && isMaxed && (
-                  <div className="garden-sparkle-icon absolute -top-8 left-1/2 -translate-x-1/2 z-50 text-xl pointer-events-none">
-                    ✨
-                  </div>
-                )}
-
-                {/* Splash effect */}
-                {isSplashing && (
-                  <div
-                    className="garden-splash absolute left-1/2 bottom-0 w-20 h-20 rounded-full bg-blue-300/40 z-40"
-                  />
-                )}
-
-                {/* Growth stage indicator (only for non-maxed flowers on hover) */}
-                {isHovered && !isMaxed && (
-                  <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 z-50 flex gap-1 pointer-events-none">
-                    {[0, 1, 2, 3].map((lvl) => (
-                      <div
-                        key={lvl}
-                        className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                          lvl <= growthLevel
-                            ? "bg-green-500"
-                            : "bg-gray-300"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                <img
-                  src={FLOWER_METADATA[flower.flower].image}
-                  alt={flower.title}
-                  width={
-                    flower.flower === "blue-forget-me-not" ||
-                    flower.flower === "white-rose"
-                      ? 115
-                      : 100
-                  }
-                  draggable={false}
-                  className={`relative z-[1] transition-all duration-700 ease-in-out
-                    ${
-                      userState === "normal"
-                        ? "animate-sway hover:scale-110 flower-hover-glow"
-                        : ""
-                    }
-                    ${
-                      newlyPlantedFlowerId === flower.id
-                        ? "animate-new-flower"
-                        : isSelected && userState === "viewing"
-                        ? "animate-viewing-flower"
-                        : ""
-                    }
-                  `}
-                  style={{
-                    animationDelay:
-                      userState === "normal"
-                        ? `${(flower.x % 20) * 0.1}s`
-                        : "0s",
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       <PlantingDrawer
         isOpen={userState === "planting"}
         onClose={handleExitPlanting}
         clickPosition={plantingPosition}
-        currentOffset={offset}
+        currentOffset={0}
         onPlantSuccess={handlePlantSuccess}
       />
 
@@ -553,20 +719,6 @@ export default function GardenPage() {
       />
 
       <InfoModal />
-
-      {/* Floating Plant Button */}
-      {userState === "normal" && (
-        <button
-          onClick={handlePlantButton}
-          className="fixed bottom-8 right-8 z-50 flex items-center gap-2.5 px-6 py-3.5 bg-green-500 hover:bg-green-600 active:scale-95 text-white font-semibold rounded-full shadow-xl hover:shadow-2xl transition-all duration-200"
-          style={{ fontFamily: '"Inter", sans-serif' }}
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M10 4V16M4 10H16" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-          </svg>
-          Plant a Flower
-        </button>
-      )}
     </div>
   );
 }

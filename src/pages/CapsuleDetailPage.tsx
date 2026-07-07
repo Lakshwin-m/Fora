@@ -1,6 +1,6 @@
 // src/pages/CapsuleDetailPage.tsx
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +31,7 @@ import CommentSection from "@/components/CommentSection";
 import { format } from "date-fns";
 import { useAuth } from "@/contexts/AuthContext";
 import { getAuth } from "firebase/auth";
+import { useTranslation } from "@/contexts/LanguageContext";
 
 // 🔐 IMPORT DECRYPTION HOOK
 import { useCapsuleDecryption } from "@/hooks/useCapsuleDecryption";
@@ -39,8 +40,10 @@ import { getPlainTextLength } from "@/components/ui/rich-text-editor";
 const CapsuleDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const auth = getAuth();
+  const { t } = useTranslation();
 
   const [capsule, setCapsule] = useState<CapsuleWithLineage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,8 +115,7 @@ const CapsuleDetailPage = () => {
       if (!id) return;
 
       try {
-        console.log("📦 Loading capsule:", id);
-        const data = await getCapsuleDetail(id);
+                const data = await getCapsuleDetail(id);
         
         if (!data) {
           console.error("❌ Capsule not found");
@@ -165,7 +167,7 @@ const CapsuleDetailPage = () => {
 
   const handleLike = async () => {
     if (!auth.currentUser) {
-      alert("Please log in to like capsules");
+      alert(t('capsuleDetail.loginToLike'));
       return;
     }
     if (!id) return;
@@ -182,7 +184,7 @@ const CapsuleDetailPage = () => {
       }
     } catch (error) {
       console.error("Error toggling like:", error);
-      alert("Failed to update like");
+      alert(t('capsuleDetail.likeFailed'));
     } finally {
       setIsLiking(false);
     }
@@ -198,7 +200,7 @@ const CapsuleDetailPage = () => {
         <div className="flex flex-col items-center justify-center py-16 space-y-4">
           <Loader2 className="w-8 h-8 animate-spin text-[#FB6376]" />
           <p className="text-[#5D2A42]/60">
-            {loading ? "Loading capsule..." : "Decrypting content..."}
+            {loading ? t('capsuleDetail.loadingCapsule') : t('capsuleDetail.decryptingContent')}
           </p>
         </div>
       </div>
@@ -216,12 +218,12 @@ const CapsuleDetailPage = () => {
             className="mb-4 text-[#5D2A42]"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Archive
+            {t('capsuleDetail.backArchive')}
           </Button>
           <div className="text-center py-16">
             <Archive className="w-16 h-16 mx-auto mb-4 text-[#5D2A42]/30" />
             <h3 className="text-lg font-semibold text-[#5D2A42]">
-              Capsule not found
+              {t('capsuleDetail.notFound')}
             </h3>
           </div>
         </div>
@@ -236,11 +238,19 @@ const CapsuleDetailPage = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         <Button
           variant="outline"
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (location.state?.from === "profile") {
+              navigate("/profile");
+            } else if (location.state?.from === "user-profile" && location.state?.userId) {
+              navigate(`/user/${location.state.userId}`);
+            } else {
+              navigate("/dashboard");
+            }
+          }}
           className="mb-8 text-[#5D2A42] hover:bg-[#FFDCCC]/30 relative z-50 rounded-full bg-white/50 backdrop-blur-md shadow-sm"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
+          {t('capsuleDetail.back')}
         </Button>
 
         <AnimatePresence mode="wait">
@@ -265,7 +275,7 @@ const CapsuleDetailPage = () => {
                 </div>
               </div>
               <div className="absolute bottom-[-50px] left-0 right-0 text-center text-[#5D2A42]/60 animate-bounce text-sm font-medium">
-                Click to open envelope
+                {t('capsuleDetail.clickOpen')}
               </div>
             </motion.div>
           )}
@@ -283,14 +293,14 @@ const CapsuleDetailPage = () => {
               <img src="/open_envelope-eMfrWOgA.png" className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xl" alt="Open Envelope" />
               <div className="absolute top-[32%] left-[22%] right-[22%] h-[35%] flex flex-col items-center justify-start z-10 text-center text-[#1A1A1A] overflow-hidden pt-2">
                  <h3 className="font-bold text-[15px] leading-tight w-full font-serif mb-1 line-clamp-2 text-[#5D2A42]">
-                   {decryptedTitle || "Untitled Capsule"}
+                   {decryptedTitle || t('capsuleDetail.untitled')}
                  </h3>
                  <div className="text-[11px] text-[#1A1A1A]/80 line-clamp-3 leading-snug w-full px-1">
                    {decryptedContent ? (() => { const tmp = document.createElement("div"); tmp.innerHTML = decryptedContent; return tmp.textContent || tmp.innerText || "..."; })() : "..."}
                  </div>
               </div>
               <div className="absolute bottom-[-50px] left-0 right-0 text-center text-[#5D2A42]/60 animate-bounce text-sm font-medium">
-                Click to pull out letter
+                {t('capsuleDetail.clickPull')}
               </div>
             </motion.div>
           )}
@@ -318,7 +328,7 @@ const CapsuleDetailPage = () => {
                      {/* Header */}
                      <div className="text-center mb-10 pt-4">
                        <Badge variant="outline" className="border-[#5D2A42]/30 text-[#5D2A42] bg-[#EBE4D5]/60 mb-6 px-4 py-1.5 uppercase text-xs tracking-widest backdrop-blur-sm shadow-sm">
-                         <FileText className="w-3 h-3 mr-2 inline" /> TIME CAPSULE LETTER
+                         <FileText className="w-3 h-3 mr-2 inline" /> {t('capsuleDetail.letterBadge')}
                        </Badge>
                        <h1 className="text-3xl md:text-5xl font-bold uppercase tracking-widest mb-6 text-[#5D2A42]">
                          {decryptedTitle}
@@ -333,32 +343,32 @@ const CapsuleDetailPage = () => {
                      {/* Meta Dates/To */}
                      <div className="flex justify-between items-start pt-2">
                        <div>
-                         <span className="text-xs text-[#5D2A42]/60 block mb-1">Date Written:</span>
+                         <span className="text-xs text-[#5D2A42]/60 block mb-1">{t('capsuleDetail.dateWritten')}</span>
                          <span className="font-semibold text-lg">{format(capsule.createdAt.toDate(), "MMMM do, yyyy")}</span>
                        </div>
                        <div className="text-right">
-                         <span className="text-xs text-[#5D2A42]/60 block mb-1">To:</span>
+                         <span className="text-xs text-[#5D2A42]/60 block mb-1">{t('capsuleDetail.to')}</span>
                          <span className="font-semibold text-lg">
                            {capsule.recipientType === "self" 
-                             ? "My Future Self" 
+                             ? t('capsuleDetail.toSelf') 
                              : capsule.recipientType === "friends" 
-                               ? (capsule.recipientNames && capsule.recipientNames.length > 0 ? capsule.recipientNames.join(', ') : "My Connections")
+                               ? (capsule.recipientNames && capsule.recipientNames.length > 0 ? capsule.recipientNames.join(', ') : t('capsuleDetail.toConnections'))
                                : capsule.recipientType === "public"
-                                 ? "The World"
-                                 : "My Future Self"}
+                                 ? t('capsuleDetail.toWorld')
+                                 : t('capsuleDetail.toSelf')}
                          </span>
-                         <div className="text-xs text-[#5D2A42]/60 mt-1">Present Day</div>
+                         <div className="text-xs text-[#5D2A42]/60 mt-1">{t('capsuleDetail.presentDay')}</div>
                        </div>
                      </div>
 
                      {/* Body Context - adjusting line-height for visual alignment with canvas */}
                      <div className="pt-8 pb-4 space-y-6 text-lg md:text-xl leading-[2.5rem] tracking-wide relative">
-                       <p>Dear {capsule.recipientType === "self" ? "Future Me," : "Friend,"}</p>
+                       <p>{capsule.recipientType === "self" ? t('capsuleDetail.dearFutureMe') : t('capsuleDetail.dearFriend')}</p>
                        <div
                          className="prose prose-lg max-w-none text-[#5D2A42] leading-[2.5rem] tracking-wide prose-p:my-3 prose-ul:list-disc prose-ol:list-decimal prose-ul:pl-6 prose-ol:pl-6 prose-li:my-1 prose-img:rounded-xl prose-img:max-w-full prose-img:my-4 prose-strong:text-inherit prose-em:text-inherit"
                          dangerouslySetInnerHTML={{ __html: decryptedContent || "" }}
                        />
-                       <p className="mt-8 text-xl">Sincerely,</p>
+                       <p className="mt-8 text-xl">{t('capsuleDetail.sincerely')}</p>
                      </div>
 
                      {/* Signature block */}
@@ -368,7 +378,7 @@ const CapsuleDetailPage = () => {
                            <img 
                              src={(capsule as any).signature} 
                              className="max-h-[100px] object-contain opacity-90 mix-blend-multiply" 
-                             alt="Signature" 
+                             alt={t('capsuleDetail.signatureAlt')} 
                            />
                          ) : (
                            <span className="font-signature text-xl opacity-70 italic">{capsule.creatorName}</span>
@@ -390,7 +400,7 @@ const CapsuleDetailPage = () => {
                   {capsule.isReshare && capsule.originalCapsule && (
                     <div className="mb-6 p-4 bg-[#FFDCCC]/20 border border-[#FFDCCC]/50 rounded-xl relative">
                       <div className="absolute -top-3 left-4 bg-[#FFF9EC] px-2 text-xs font-semibold text-[#FB6376] uppercase tracking-wider">
-                        Reshared Memory
+                        {t('capsuleDetail.resharedMemory')}
                       </div>
                       {isDecryptingOriginal ? (
                         <div className="flex items-center justify-center py-4">
@@ -408,8 +418,8 @@ const CapsuleDetailPage = () => {
                               <p className="text-xs text-[#5D2A42]/60">{format(capsule.originalCapsule.createdAt.toDate(), "MMM dd, yyyy")}</p>
                             </div>
                           </div>
-                          <h3 className="font-semibold text-[#5D2A42] line-clamp-1">{originalDecryptedTitle || "Untitled"}</h3>
-                          <p className="text-sm text-[#5D2A42]/70 line-clamp-2">{originalDecryptedContent || "No context"}</p>
+                          <h3 className="font-semibold text-[#5D2A42] line-clamp-1">{originalDecryptedTitle || t('capsuleDetail.untitled')}</h3>
+                          <p className="text-sm text-[#5D2A42]/70 line-clamp-2">{originalDecryptedContent || t('capsuleDetail.noContext')}</p>
                         </div>
                       )}
                     </div>
@@ -427,11 +437,11 @@ const CapsuleDetailPage = () => {
                       </button>
                       <div className="flex items-center space-x-2 text-[#5D2A42]/70">
                         <MessageCircle className="w-6 h-6" />
-                        <span className="font-medium">Discuss</span>
+                        <span className="font-medium">{t('capsuleDetail.discuss')}</span>
                       </div>
                       {capsule.reshareCount > 0 && (
                         <div className="text-sm font-medium text-[#5D2A42]/60 bg-[#5D2A42]/5 px-3 py-1 rounded-full">
-                          {capsule.reshareCount} reshares
+                          {capsule.reshareCount} {t('capsuleDetail.resharesPlural')}
                         </div>
                       )}
                     </div>
@@ -443,9 +453,9 @@ const CapsuleDetailPage = () => {
                       className="bg-[#FB6376] hover:bg-[#F04860] text-white shadow-md rounded-full px-8 h-12"
                     >
                       {isResharing ? (
-                        <><Loader2 className="w-5 h-5 mr-3 animate-spin" />Resharing</>
+                        <><Loader2 className="w-5 h-5 mr-3 animate-spin" />{t('capsuleDetail.resharingBtn')}</>
                       ) : (
-                        <><Share2 className="w-5 h-5 mr-2" />Reshare Experience</>
+                        <><Share2 className="w-5 h-5 mr-2" />{t('capsuleDetail.reshareExperience')}</>
                       )}
                     </Button>
                   </div>

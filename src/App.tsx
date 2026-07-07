@@ -25,12 +25,12 @@ import Garden from "./pages/Garden.tsx";
 import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
 import { GlobalAlertManager } from "./components/GlobalAlertManager";
+import { Toaster } from "@/components/ui/toaster";
 
 function App() {
   useEffect(() => {
     getFCMToken().then((token) => {
-      console.log("FCM Token:", token);
-    });
+          });
     onForegroundMessage();
   }, []);
 
@@ -38,6 +38,7 @@ function App() {
     <AuthProvider>
       <CapsuleProvider>
       <GlobalAlertManager />
+      <Toaster />
       <Router>
         <Routes>
           <Route path="/signup" element={<SignUpLoginForm />} />
