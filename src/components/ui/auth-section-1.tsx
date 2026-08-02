@@ -149,14 +149,14 @@ export default function AuthSectionOne({
         </div>
 
         {/* Right Panel: Hero */}
-        <div className="relative flex min-h-[600px] overflow-hidden bg-black p-8 text-white sm:p-12 lg:min-h-0">
+        <div className="relative flex min-h-[600px] overflow-hidden bg-black p-8 text-white sm:p-12 lg:min-h-0" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
           <img
             src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop"
             alt="Background"
             className="absolute inset-0 object-cover w-full h-full opacity-40 mix-blend-overlay z-0"
           />
           <GrainGradient
-            speed={1}
+            speed={0.6}
             scale={1}
             rotation={0}
             offsetX={0}
@@ -167,8 +167,9 @@ export default function AuthSectionOne({
             shape="corners"
             frame={2854.5}
             colors={["#FA3854", "#BD284E", "#FA3854", "#BD284E"]}
-            colorBack="transparent"
+            colorBack="rgba(0,0,0,0)"
             className="absolute inset-0 bg-background/50 z-0"
+            style={{ willChange: 'transform', transform: 'translateZ(0)' }}
           />
 
           <div className="relative z-10 flex h-full w-full flex-col justify-between">
