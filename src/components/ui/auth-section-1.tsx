@@ -151,26 +151,12 @@ export default function AuthSectionOne({
         {/* Right Panel: Hero */}
         <div className="relative flex min-h-[600px] overflow-hidden bg-black p-8 text-white sm:p-12 lg:min-h-0" style={{ willChange: 'transform', transform: 'translateZ(0)' }}>
           <img
-            src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop"
-            alt="Background"
-            className="absolute inset-0 object-cover w-full h-full opacity-40 mix-blend-overlay z-0"
+            src="/auth-hero.png"
+            alt="Hero background"
+            className="absolute inset-0 object-cover w-full h-full z-0"
           />
-          <GrainGradient
-            speed={0.6}
-            scale={1}
-            rotation={0}
-            offsetX={0}
-            offsetY={0}
-            softness={0.5}
-            intensity={0.5}
-            noise={0.25}
-            shape="corners"
-            frame={2854.5}
-            colors={["#FA3854", "#BD284E", "#FA3854", "#BD284E"]}
-            colorBack="rgba(0,0,0,0)"
-            className="absolute inset-0 bg-background/50 z-0"
-            style={{ willChange: 'transform', transform: 'translateZ(0)' }}
-          />
+          {/* Dark overlay for text readability */}
+          <div className="absolute inset-0 z-[1] bg-gradient-to-br from-black/60 via-black/30 to-black/50" />
 
           <div className="relative z-10 flex h-full w-full flex-col justify-between">
             <h2 className="max-w-[620px] pt-0 text-5xl font-bold tracking-[-0.05em] text-white sm:text-5xl lg:pt-8 lg:text-[54px] lg:leading-[0.98] xl:text-[60px]">
