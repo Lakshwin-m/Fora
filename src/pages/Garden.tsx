@@ -517,18 +517,21 @@ export default function GardenPage() {
           <img
             src="/bgn.png"
             alt="Garden"
-            className="absolute inset-0 w-[1920px] h-[1080px] object-cover"
-            style={{ objectPosition: "center 60%" }}
+            className="absolute inset-0 w-[1920px] h-[1080px] object-cover scale-100"
+            style={{ objectPosition: "center 70%" }}
             draggable={false}
           />
-
-          {/* Custom Clouds using cloud.png */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {/*  
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
             <img src="/cloud.png" className="absolute top-[8%] w-[250px] opacity-80 garden-cloud" style={{ animationDuration: '45s', animationDelay: '0s' }} alt="cloud" />
             <img src="/cloud.png" className="absolute top-[22%] w-[180px] opacity-60 garden-cloud" style={{ animationDuration: '65s', animationDelay: '-20s' }} alt="cloud" />
             <img src="/cloud.png" className="absolute top-[5%] w-[350px] opacity-90 garden-cloud" style={{ animationDuration: '85s', animationDelay: '-40s' }} alt="cloud" />
             <img src="/cloud.png" className="absolute top-[15%] w-[200px] opacity-70 garden-cloud" style={{ animationDuration: '55s', animationDelay: '-10s' }} alt="cloud" />
           </div>
+          */}
+
+          {/* Custom Clouds using cloud.png */}
+
 
           {/* Seed Bag */}
           <div

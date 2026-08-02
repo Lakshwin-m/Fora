@@ -24,6 +24,7 @@ import { PricingDemo } from "./pages/PricingPage";
 import Garden from "./pages/Garden.tsx";
 import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
+import Notifications from "./pages/Notifications";
 import { GlobalAlertManager } from "./components/GlobalAlertManager";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -92,6 +93,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Settings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <Notifications />
               </ProtectedRoute>
             }
           />

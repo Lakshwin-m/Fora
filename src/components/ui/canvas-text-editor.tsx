@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Trash2, Bold, AlignLeft, AlignCenter, AlignRight, Type, Smile, Palette, Plus, Image, Video, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import EmojiPicker, { Theme, EmojiStyle } from "emoji-picker-react";
 
 export interface TextBlock {
   id: string;
@@ -570,8 +571,15 @@ export const CanvasTextEditor = ({
                   value={block.text}
                   onChange={(e) => updateBlock(block.id, { text: e.target.value })}
                   onBlur={() => setEditingBlockId(null)}
-                  className="bg-transparent border-none outline-none resize-none overflow-hidden w-full h-full text-inherit leading-normal block text-black font-serif"
-                  style={{ textAlign: block.textAlign, minHeight: `${block.fontSize * 1.5}px` }}
+                  className="bg-transparent border-none outline-none resize-none overflow-hidden w-full h-full text-inherit leading-normal block text-black"
+                  style={{ 
+                    textAlign: block.textAlign, 
+                    minHeight: `${block.fontSize * 1.5}px`,
+                    fontFamily: 'inherit',
+                    color: 'inherit',
+                    fontWeight: 'inherit',
+                    fontSize: 'inherit'
+                  }}
                   onInput={(e) => {
                     const target = e.target as HTMLTextAreaElement;
                     target.style.height = "auto";
@@ -582,7 +590,13 @@ export const CanvasTextEditor = ({
               ) : (
                 <div 
                   className="w-full h-full leading-normal select-none pointer-events-none whitespace-pre-wrap break-words"
-                  style={{ textAlign: block.textAlign }}
+                  style={{ 
+                    textAlign: block.textAlign,
+                    fontFamily: 'inherit',
+                    color: 'inherit',
+                    fontWeight: 'inherit',
+                    fontSize: 'inherit'
+                  }}
                 >
                   {block.text}
                 </div>

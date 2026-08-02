@@ -649,7 +649,7 @@ const Dashboard = () => {
               <div className="mb-14">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-[#FFDCCC]/20 rounded-xl">
-                    <Clock className="w-6 h-6 text-[#FB6376]" />
+
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-[#5D2A42]">Auto Reminders</h2>
@@ -669,7 +669,7 @@ const Dashboard = () => {
             {/* Time Capsules Section Title */}
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 bg-[#FFDCCC]/20 rounded-xl">
-                <Send className="w-6 h-6 text-[#FB6376]" />
+
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-[#5D2A42]">Time Capsules</h2>

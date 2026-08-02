@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Clock } from "lucide-react";
+import { Clock, Calendar as CalendarIcon } from "lucide-react";
 
 interface DateTimePickerProps {
   date: Date | undefined;
@@ -24,6 +24,10 @@ function InfiniteScrollColumn({
   onIndexChange: (idx: number) => void;
   repeat?: number;
 }) {
+  const ITEM_HEIGHT = 64; // Premium height
+  const VISIBLE_ITEMS = 5;
+  const CONTAINER_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS; // 320px
+  
   const containerRef = React.useRef<HTMLDivElement>(null);
   const isScrollingRef = React.useRef(false);
   const scrollTimeout = React.useRef<NodeJS.Timeout | null>(null);
@@ -32,8 +36,13 @@ function InfiniteScrollColumn({
   const buttonsRef = React.useRef<(HTMLButtonElement | null)[]>([]);
   const prevIdxRef = React.useRef<number | null>(null);
 
-  const activeClasses = ["font-bold", "text-[#5D2A42]", "scale-110"];
-  const inactiveClasses = ["font-medium", "text-[#999]", "hover:text-[#5D2A42]", "scale-90", "opacity-60", "hover:opacity-100"];
+  // Drag-to-scroll state
+  const isDraggingRef = React.useRef(false);
+  const dragStartYRef = React.useRef(0);
+  const dragStartScrollTopRef = React.useRef(0);
+
+  const activeClasses = ["font-black", "text-[#5D2A42]", "scale-110", "opacity-100"];
+  const inactiveClasses = ["font-bold", "text-[#999]", "scale-90", "opacity-30"];
 
   const updateHighlight = React.useCallback((idx: number) => {
     if (prevIdxRef.current === idx) return;
@@ -53,17 +62,16 @@ function InfiniteScrollColumn({
     }
     
     prevIdxRef.current = idx;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isMounted = React.useRef(false);
 
   React.useLayoutEffect(() => {
     if (containerRef.current && !isScrollingRef.current) {
-      const currentIdx = Math.round(containerRef.current.scrollTop / 48);
+      const currentIdx = Math.round(containerRef.current.scrollTop / ITEM_HEIGHT);
       if (currentIdx !== selectedIndex) {
         containerRef.current.scrollTo({ 
-          top: selectedIndex * 48, 
+          top: selectedIndex * ITEM_HEIGHT, 
           behavior: !isMounted.current || Math.abs(currentIdx - selectedIndex) > 10 ? 'auto' : 'smooth' 
         });
       }
@@ -74,40 +82,57 @@ function InfiniteScrollColumn({
 
   const totalItems = items.length * repeat;
 
+  // Strict but dynamic wheel interceptor
   React.useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+    const el = containerRef.current;
+    if (!el) return;
+    
+    let accumulatedDelta = 0;
+    let targetIdx = 0;
+    let wheelTimeout: NodeJS.Timeout | null = null;
+    
+    const maxIdx = totalItems - 1;
 
-    let isAnimating = false;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      if (isAnimating) return;
-
-      const direction = Math.sign(e.deltaY);
-      if (direction === 0) return;
-
-      isAnimating = true;
-      const targetIndex = selectedIndex + direction;
-
-      if (targetIndex >= 0 && targetIndex < totalItems) {
-        onIndexChange(targetIndex);
-        container.scrollTo({
-          top: targetIndex * 48,
-          behavior: "smooth",
-        });
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault(); // Prevent native scroll
+      
+      // If this is the start of a new scroll gesture, align our targetIdx to where the scrollbar physically is
+      if (!wheelTimeout) {
+         targetIdx = Math.round(el.scrollTop / ITEM_HEIGHT);
+         accumulatedDelta = 0;
       }
-
-      setTimeout(() => {
-        isAnimating = false;
-      }, 200);
+      
+      if (wheelTimeout) clearTimeout(wheelTimeout);
+      wheelTimeout = setTimeout(() => { wheelTimeout = null; }, 150);
+      
+      accumulatedDelta += e.deltaY;
+      
+      // 60 pixels of trackpad/wheel delta equals 1 item tick
+      const threshold = 60; 
+      
+      if (Math.abs(accumulatedDelta) >= threshold) {
+        const ticks = Math.floor(Math.abs(accumulatedDelta) / threshold);
+        const direction = Math.sign(accumulatedDelta);
+        
+        // Remove the processed delta
+        accumulatedDelta -= direction * ticks * threshold;
+        
+        targetIdx += direction * ticks;
+        
+        // Clamp to prevent scrolling out of bounds
+        if (targetIdx < 0) targetIdx = 0;
+        if (targetIdx > maxIdx) targetIdx = maxIdx;
+        
+        // Smoothly zip exactly to the calculated item
+        el.scrollTo({ top: targetIdx * ITEM_HEIGHT, behavior: 'smooth' });
+      }
     };
 
-    container.addEventListener("wheel", handleWheel, { passive: false });
+    el.addEventListener('wheel', onWheel, { passive: false });
     return () => {
-      container.removeEventListener("wheel", handleWheel);
+      el.removeEventListener('wheel', onWheel);
     };
-  }, [selectedIndex, totalItems, onIndexChange]);
+  }, [totalItems]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     isScrollingRef.current = true;
@@ -116,21 +141,48 @@ function InfiniteScrollColumn({
       isScrollingRef.current = false;
     }, 150);
 
-    const idx = Math.round(e.currentTarget.scrollTop / 48);
-    
-    // Instant DOM highlight update (bypassing React re-renders)
+    const idx = Math.round(e.currentTarget.scrollTop / ITEM_HEIGHT);
     updateHighlight(idx);
 
-    // Debounce parent notification
     if (parentTimeout.current) clearTimeout(parentTimeout.current);
     parentTimeout.current = setTimeout(() => {
       if (idx !== selectedIndex) {
         onIndexChange(idx);
       }
-    }, 100);
+    }, 50);
   };
 
-  // Memoize the huge array of buttons so React NEVER diffs them on state changes
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse') return; // Let touch devices use native scrolling
+    isDraggingRef.current = true;
+    dragStartYRef.current = e.clientY;
+    if (containerRef.current) {
+      dragStartScrollTopRef.current = containerRef.current.scrollTop;
+      containerRef.current.style.scrollSnapType = 'none';
+      containerRef.current.style.scrollBehavior = 'auto';
+    }
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current || !containerRef.current) return;
+    e.preventDefault();
+    const deltaY = e.clientY - dragStartYRef.current;
+    containerRef.current.scrollTop = dragStartScrollTopRef.current - deltaY;
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    if (containerRef.current) {
+      containerRef.current.style.scrollSnapType = 'y mandatory';
+      containerRef.current.style.scrollBehavior = 'smooth';
+      const currentIdx = Math.round(containerRef.current.scrollTop / ITEM_HEIGHT);
+      containerRef.current.scrollTo({ top: currentIdx * ITEM_HEIGHT, behavior: 'smooth' });
+    }
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
   const buttonsList = React.useMemo(() => {
     return Array.from({ length: totalItems }).map((_, i) => {
       const item = items[i % items.length];
@@ -142,27 +194,35 @@ function InfiniteScrollColumn({
           onClick={() => {
             if (containerRef.current) {
               isScrollingRef.current = true;
-              containerRef.current.scrollTo({ top: i * 48, behavior: 'smooth' });
+              containerRef.current.scrollTo({ top: i * ITEM_HEIGHT, behavior: 'smooth' });
               updateHighlight(i);
               onIndexChange(i);
             }
           }}
-          className="h-[48px] w-full shrink-0 snap-center flex items-center justify-center text-xl transition-all duration-200 font-medium text-[#999] hover:text-[#5D2A42] scale-90 opacity-60 hover:opacity-100 will-change-transform"
+          style={{ height: ITEM_HEIGHT }}
+          className="w-full shrink-0 snap-center snap-always flex items-center justify-center text-3xl md:text-4xl transition-all duration-300 font-bold text-[#999] scale-90 opacity-30 hover:opacity-70 hover:text-[#5D2A42] will-change-transform"
         >
           {item}
         </button>
       );
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, totalItems]); // Exclude selectedIndex to guarantee no re-renders
+  }, [items, totalItems]);
+
+  const padding = (CONTAINER_HEIGHT - ITEM_HEIGHT) / 2;
 
   return (
     <div 
       ref={containerRef}
-      className="flex-1 h-[240px] overflow-y-auto snap-y snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] will-change-scroll"
+      style={{ height: CONTAINER_HEIGHT }}
+      className="flex-1 overflow-y-auto snap-y snap-mandatory overscroll-contain [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] will-change-scroll relative z-10 cursor-grab active:cursor-grabbing touch-pan-y"
       onScroll={handleScroll}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
     >
-      <div style={{ paddingTop: 96, paddingBottom: 96 }} className="flex flex-col items-center w-full">
+      <div style={{ paddingTop: padding, paddingBottom: padding }} className="flex flex-col items-center w-full">
         {buttonsList}
       </div>
     </div>
@@ -204,9 +264,10 @@ export function DateTimePicker({
   const minutesList = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, "0"));
   const ampmList = ["AM", "PM"];
 
-  const HOUR_REPEAT = 100;
-  const MIN_REPEAT = 40;
-  const AMPM_REPEAT = 100;
+  // Massive repeat counts to simulate infinite looping
+  const HOUR_REPEAT = 100; // 1200 items
+  const MIN_REPEAT = 40; // 2400 items
+  const AMPM_REPEAT = 1; // Not infinite
 
   const init = initialParse();
   
@@ -236,7 +297,7 @@ export function DateTimePicker({
       
       if (flipDiff !== 0) {
         if (Math.abs(flipDiff) % 2 === 1) {
-          setAmpmIdx(prev => prev + Math.sign(flipDiff));
+          setAmpmIdx(prev => (prev === 0 ? 1 : 0));
         }
       }
       prevHourIdx.current = newIdx;
@@ -281,8 +342,8 @@ export function DateTimePicker({
           {!date ? (
             <div className="p-6 flex justify-center items-center bg-transparent w-full transition-all duration-500">
               <div className="flex flex-col items-center w-full max-w-[360px] mx-auto">
-                <div className="mb-8 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">Select a Date</h3>
+                <div className="mb-2 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <h3 className="text-2xl font-bold text-[#5D2A42] mb-1">Select a Date</h3>
                   <p className="text-[#5D2A42]/70 text-sm max-w-[280px] mx-auto leading-relaxed">
                     When should this capsule unlock? You can choose any date up to 10 years in the future.
                   </p>
@@ -295,17 +356,17 @@ export function DateTimePicker({
                   captionLayout="dropdown-buttons"
                   fromYear={today.getFullYear()}
                   toYear={today.getFullYear() + 10}
-                  className="p-3 bg-transparent w-full flex justify-center"
+                  className="bg-transparent w-full flex justify-center"
                   classNames={{
                     months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                    month: "space-y-4 w-full flex flex-col items-center",
-                    caption: "flex justify-center pt-2 relative items-center w-full mb-4",
+                    month: "w-full flex flex-col items-center",
+                    caption: "flex justify-center pt-2 relative items-center w-full mb-2",
                     caption_label: "hidden", 
                     nav: "space-x-1 flex items-center absolute right-0 top-0",
                     nav_button: "h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100 hover:bg-[#5D2A42]/10 text-[#5D2A42] rounded-full transition-all flex justify-center items-center",
-                    nav_button_previous: "absolute left-0 top-2",
-                    nav_button_next: "absolute right-0 top-2",
-                    table: "w-full border-collapse space-y-1 mt-4",
+                    nav_button_previous: "",
+                    nav_button_next: "",
+                    table: "w-full border-collapse space-y-1 mt-2",
                     head_row: "flex w-full justify-between gap-1",
                     head_cell: "text-[#5D2A42]/50 font-bold uppercase tracking-widest text-[10px] w-9 h-9 flex items-center justify-center rounded-md",
                     row: "flex w-full mt-2 justify-between gap-1",
@@ -328,26 +389,34 @@ export function DateTimePicker({
                  <h3 className="text-xl font-bold text-[#5D2A42]">Set the Time</h3>
                  <p className="text-[10px] uppercase tracking-wider font-bold text-[#999]">Hr : Min : AM/PM</p>
                  <Button 
-                   variant="outline" 
+                   variant="ghost" 
                    onClick={() => setDate(undefined)} 
-                   className="mt-4 h-11 px-6 text-[#5D2A42] border-2 border-[#E8E8E8] rounded-xl hover:border-[#5D2A42]/20 hover:bg-[#5D2A42]/5 hover:text-[#5D2A42] text-sm font-bold shadow-none transition-colors"
+                   className="mt-4 h-10 px-5 bg-[#5D2A42]/5 text-[#5D2A42] rounded-full hover:bg-[#5D2A42]/10 hover:text-[#5D2A42] text-sm font-semibold transition-all flex items-center gap-2"
                  >
+                    <CalendarIcon className="w-4 h-4 opacity-70" />
                     Change Date ({date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })})
                  </Button>
                </div>
                
-               <div className="flex-1 relative h-[240px] overflow-hidden select-none bg-white max-w-sm mx-auto w-full mt-6 mb-6">
-                 {/* Center Highlight Band */}
-                 <div className="absolute top-[96px] left-4 right-4 h-[48px] bg-[#5D2A42]/5 border border-[#5D2A42]/10 rounded-xl pointer-events-none z-0" />
+               <div className="flex-1 relative h-[320px] overflow-hidden select-none bg-white max-w-sm mx-auto w-full mt-6 mb-8">
                  
-                 <div className="flex h-full relative z-10 px-8">
+                 {/* Top Labels */}
+                 <div className="absolute top-0 left-0 right-0 h-10 flex px-8 z-30 pointer-events-none">
+                    <div className="flex-1 flex justify-center text-[10px] font-bold text-[#999] tracking-widest uppercase">Hour</div>
+                    <div className="w-8"></div>
+                    <div className="flex-1 flex justify-center text-[10px] font-bold text-[#999] tracking-widest uppercase">Min</div>
+                    <div className="w-8"></div>
+                    <div className="flex-1 flex justify-center text-[10px] font-bold text-[#999] tracking-widest uppercase">AM/PM</div>
+                 </div>
+
+                 <div className="flex h-full relative z-10 px-8 pt-6">
                    <InfiniteScrollColumn 
                      items={hoursList} 
                      selectedIndex={hourIdx} 
                      onIndexChange={setHourIdx} 
                      repeat={HOUR_REPEAT} 
                    />
-                   <div className="flex flex-col justify-center items-center h-full text-[#5D2A42]/30 font-black text-2xl pb-1 z-10 pointer-events-none w-6">
+                   <div className="flex flex-col justify-center items-center h-full text-[#5D2A42]/30 font-black text-4xl pb-1 z-10 pointer-events-none w-8">
                      :
                    </div>
                    <InfiniteScrollColumn 
@@ -356,7 +425,7 @@ export function DateTimePicker({
                      onIndexChange={setMinIdx} 
                      repeat={MIN_REPEAT} 
                    />
-                   <div className="w-6" />
+                   <div className="w-8" />
                    <InfiniteScrollColumn 
                      items={ampmList} 
                      selectedIndex={ampmIdx} 
@@ -366,8 +435,8 @@ export function DateTimePicker({
                  </div>
                  
                  {/* Top/Bottom Fade Gradients */}
-                 <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-white via-white/80 to-transparent pointer-events-none z-20" />
-                 <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white via-white/80 to-transparent pointer-events-none z-20" />
+                 <div className="absolute top-0 left-0 right-0 h-[100px] bg-gradient-to-b from-white via-white/90 to-transparent pointer-events-none z-20" />
+                 <div className="absolute bottom-0 left-0 right-0 h-[100px] bg-gradient-to-t from-white via-white/90 to-transparent pointer-events-none z-20" />
                </div>
             </div>
           )}

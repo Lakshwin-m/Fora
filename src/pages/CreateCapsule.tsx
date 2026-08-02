@@ -588,23 +588,23 @@ const CreateCapsule = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             {t('create.headerBack')}
           </Button>
-          <h1 className="text-3xl font-bold text-[#1A1A1A]">
+          <h1 className="text-xl md:text-2xl font-semibold text-[#5D2A42] tracking-tight">
             {t('create.headerTitle').includes('Forá') ? (
               <>
                 {t('create.headerTitle').split('Forá')[0]}
-                <span className="text-[#FB6376]">Forá</span>
+                <span className="text-[#5D2A42] opacity-80">Forá</span>
                 {t('create.headerTitle').split('Forá')[1]}
               </>
             ) : t('create.headerTitle').includes('ஃபோரா') ? (
               <>
                 {t('create.headerTitle').split('ஃபோரா')[0]}
-                <span className="text-[#FB6376]">ஃபோரா</span>
+                <span className="text-[#5D2A42] opacity-80">ஃபோரா</span>
                 {t('create.headerTitle').split('ஃபோரா')[1]}
               </>
             ) : t('create.headerTitle').includes('फ़ोरा') ? (
               <>
                 {t('create.headerTitle').split('फ़ोरा')[0]}
-                <span className="text-[#FB6376]">फ़ोरा</span>
+                <span className="text-[#5D2A42] opacity-80">फ़ोरा</span>
                 {t('create.headerTitle').split('फ़ोरा')[1]}
               </>
             ) : (
@@ -646,7 +646,7 @@ const CreateCapsule = () => {
           onRemoveAttachment={removeAttachment}
           onNextStep={() => setCurrentStep((s) => Math.min(5, s + 1))}
           onPrevStep={() => setCurrentStep((s) => Math.max(0, s - 1))}
-          onCancel={() => navigate("/")}
+          onCancel={() => navigate("/dashboard")}
           onSubmit={handleFormSubmit}
           isSubmitting={isSubmitting}
           recurrencePattern={recurrencePattern as any}

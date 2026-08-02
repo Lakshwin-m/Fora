@@ -41,7 +41,8 @@ import {
   PartyPopper,
   Cake,
   Star,
-  Heart
+  Heart,
+  User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -397,31 +398,39 @@ export const CapsuleMultistepForm = ({
                 step={index + 1}
                 className="relative flex-1"
               >
+                {index < translatedSteps.length - 1 && (
+                  <div 
+                    className={cn(
+                      "absolute top-[27px] left-[calc(50%+20px)] w-[calc(100%-40px)] h-[2px] transition-colors duration-700 z-0",
+                      index < currentStep ? "bg-[#5D2A42]/30" : "bg-[#5D2A42]/10"
+                    )}
+                  />
+                )}
                 <StepperTrigger
                   className="flex flex-col items-center justify-center gap-3 w-full group rounded-2xl hover:bg-black/5 p-2 transition-colors"
                   disabled={index > currentStep}
                 >
-                  <StepperIndicator
-                    className={cn(
-                      "w-10 h-10 flex items-center justify-center transition-all duration-700 ease-out shrink-0 rounded-2xl border",
-                      index < currentStep
-                        ? "bg-[#5D2A42] border-[#5D2A42] text-white shadow-md"
-                        : index === currentStep
-                          ? "bg-white border-[#5D2A42] text-[#5D2A42] shadow-[0_4px_20px_rgba(93,42,66,0.08)]"
-                          : "bg-[#5D2A42]/5 border-[#5D2A42]/10 text-[#5D2A42]/30"
-                    )}
-                  >
-                    {index < currentStep ? (
-                      <Check className="w-5 h-5" strokeWidth={2.5} />
-                    ) : (
-                      <span className="font-semibold text-sm">{index + 1}</span>
-                    )}
-                  </StepperIndicator>
-                  
+                    <StepperIndicator
+                      className={cn(
+                        "w-10 h-10 flex items-center justify-center transition-all duration-700 ease-out shrink-0 rounded-2xl border !text-sm",
+                        index < currentStep
+                          ? "!bg-[#5D2A42] !border-[#5D2A42] !text-white shadow-md"
+                          : index === currentStep
+                            ? "!bg-white !border-[#5D2A42] !text-[#5D2A42] shadow-[0_4px_20px_rgba(93,42,66,0.08)]"
+                            : "!bg-[#5D2A42]/5 !border-[#5D2A42]/10 !text-[#5D2A42]/40"
+                      )}
+                    >
+                      {index < currentStep ? (
+                        <Check className="w-5 h-5" strokeWidth={2.5} />
+                      ) : (
+                        <span className="font-semibold">{index + 1}</span>
+                      )}
+                    </StepperIndicator>
+                    
                   <div className="flex flex-col items-center gap-1 text-center mt-1">
                     <StepperTitle
                       className={cn(
-                        "font-semibold text-[10px] md:text-xs tracking-[0.15em] uppercase transition-all duration-500",
+                        "font-semibold text-[10px] md:text-xs tracking-wide uppercase transition-all duration-500",
                         index === currentStep
                           ? "text-[#5D2A42]"
                           : index < currentStep
@@ -772,15 +781,15 @@ export const CapsuleMultistepForm = ({
                     className="flex flex-col flex-1 gap-8"
                   >
                     <TabsList className="grid w-full h-auto grid-cols-1 md:grid-cols-2 gap-6 bg-transparent p-0 max-w-2xl mx-auto">
-                      <TabsTrigger value="self" className="flex flex-col items-center justify-center h-auto min-h-[140px] p-6 rounded-3xl border-2 border-[#E8E8E8] bg-white data-[state=active]:border-[#FB6376] data-[state=active]:bg-[#FFF9EC] data-[state=active]:text-[#5D2A42] text-[#1A1A1A] transition-all shadow-sm hover:shadow-md hover:border-[#FB6376]/50 group">
-                        <div className="w-16 h-16 rounded-full bg-[#FFF9EC] group-data-[state=active]:bg-white flex items-center justify-center mb-3 transition-colors shadow-sm">
-                          <span className="text-3xl">👤</span>
+                      <TabsTrigger value="self" className="flex flex-col items-center justify-center h-auto min-h-[140px] p-6 rounded-[2rem] border border-[#E8E8E8] bg-white data-[state=active]:border-[#5D2A42] data-[state=active]:bg-[#5D2A42]/5 data-[state=active]:text-[#5D2A42] text-[#1A1A1A] transition-all hover:border-[#5D2A42]/30 group outline-none focus:ring-0">
+                        <div className="w-14 h-14 rounded-full bg-[#FAFAFA] group-data-[state=active]:bg-white flex items-center justify-center mb-4 transition-colors border border-transparent group-data-[state=active]:border-[#5D2A42]/10">
+                          <User className="w-6 h-6 text-[#1A1A1A]/30 group-data-[state=active]:text-[#5D2A42]" strokeWidth={2.5} />
                         </div>
                         <span className="text-xl font-bold">{t('create.recTypeSelf')}</span>
                       </TabsTrigger>
-                      <TabsTrigger value="friends" className="flex flex-col items-center justify-center h-auto min-h-[140px] p-6 rounded-3xl border-2 border-[#E8E8E8] bg-white data-[state=active]:border-[#FB6376] data-[state=active]:bg-[#FFF9EC] data-[state=active]:text-[#5D2A42] text-[#1A1A1A] transition-all shadow-sm hover:shadow-md hover:border-[#FB6376]/50 group">
-                        <div className="w-16 h-16 rounded-full bg-[#FFF9EC] group-data-[state=active]:bg-white flex items-center justify-center mb-3 transition-colors shadow-sm">
-                          <span className="text-3xl">🤝</span>
+                      <TabsTrigger value="friends" className="flex flex-col items-center justify-center h-auto min-h-[140px] p-6 rounded-[2rem] border border-[#E8E8E8] bg-white data-[state=active]:border-[#5D2A42] data-[state=active]:bg-[#5D2A42]/5 data-[state=active]:text-[#5D2A42] text-[#1A1A1A] transition-all hover:border-[#5D2A42]/30 group outline-none focus:ring-0">
+                        <div className="w-14 h-14 rounded-full bg-[#FAFAFA] group-data-[state=active]:bg-white flex items-center justify-center mb-4 transition-colors border border-transparent group-data-[state=active]:border-[#5D2A42]/10">
+                          <Users className="w-6 h-6 text-[#1A1A1A]/30 group-data-[state=active]:text-[#5D2A42]" strokeWidth={2.5} />
                         </div>
                         <span className="text-xl font-bold">{t('create.recTypeFriends')}</span>
                       </TabsTrigger>
@@ -788,10 +797,10 @@ export const CapsuleMultistepForm = ({
 
                     <div className="flex-1 mt-2 overflow-y-auto no-scrollbar pb-6">
                       <TabsContent value="self" className="mt-0 outline-none">
-                        <div className="flex flex-col py-8 px-8 border-2 border-[#FFF9EC] rounded-3xl bg-white shadow-sm">
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="w-10 h-10 rounded-full bg-[#FB6376]/10 flex items-center justify-center">
-                              <Lock className="w-5 h-5 text-[#FB6376]" />
+                        <div className="flex flex-col py-8 px-8 border border-[#E8E8E8] rounded-[2rem] bg-white">
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-[#5D2A42]/5 border border-[#5D2A42]/10 flex items-center justify-center">
+                              <Lock className="w-5 h-5 text-[#5D2A42]" />
                             </div>
                             <h3 className="text-2xl font-bold text-[#5D2A42]">{t('create.giftTitleSelf')}</h3>
                           </div>
@@ -807,9 +816,9 @@ export const CapsuleMultistepForm = ({
                             <span className="text-[#FB6376] font-bold">{t('create.loadingFriends')}</span>
                           </div>
                         ) : friends.length === 0 ? (
-                          <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-3xl bg-[#FFF9EC]">
+                          <div className="flex flex-col py-10 px-8 border border-[#E8E8E8] rounded-[2rem] bg-[#FAFAFA]">
                             <h3 className="text-2xl font-bold text-[#5D2A42] mb-3">{t('create.noFriendsTitle')}</h3>
-                            <p className="text-[#1A1A1A] font-medium text-base leading-relaxed">
+                            <p className="text-[#666] font-medium text-base leading-relaxed">
                               {t('create.noFriendsDesc')}
                             </p>
                           </div>
@@ -817,14 +826,14 @@ export const CapsuleMultistepForm = ({
                           <div className="space-y-4">
                             <div className="flex items-center justify-between pb-2">
                               <Label className="text-xs font-bold text-[#5D2A42] uppercase tracking-wider">
-                                {t('create.selectConnectionsLabel')} <Badge variant="secondary" className="ml-2 bg-[#FB6376] text-white hover:bg-[#e8556a]">{selectedFriends.length} {t('create.selectedCount')}</Badge>
+                                {t('create.selectConnectionsLabel')} <Badge variant="secondary" className="ml-2 bg-[#5D2A42]/10 text-[#5D2A42] hover:bg-[#5D2A42]/20">{selectedFriends.length} {t('create.selectedCount')}</Badge>
                               </Label>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
                                 onClick={selectAllFriends}
-                                className="text-[#FB6376] hover:text-[#e8556a] hover:bg-[#FFF9EC] text-xs font-bold h-8 uppercase tracking-wider"
+                                className="text-[#5D2A42] hover:text-[#5D2A42] hover:bg-[#5D2A42]/5 text-xs font-bold h-8 uppercase tracking-wider"
                               >
                                 {selectedFriends.length === friends.length ? t('create.deselectAll') : t('create.selectAll')}
                               </Button>
@@ -838,12 +847,12 @@ export const CapsuleMultistepForm = ({
                                   <div
                                     key={friend.id}
                                     className={cn(
-                                      "flex items-center p-4 rounded-3xl transition-all duration-300 border-2",
+                                      "flex items-center p-4 rounded-[1.5rem] transition-all duration-300 border",
                                       !hasKey
                                         ? "opacity-50 cursor-not-allowed bg-gray-50 border-[#E8E8E8]"
                                         : isSelected
-                                          ? "border-[#FB6376] bg-[#FFF9EC] shadow-sm cursor-pointer scale-[1.02]"
-                                          : "border-transparent bg-white hover:border-[#FFDCCC] hover:bg-[#FFF9EC]/50 hover:shadow-sm cursor-pointer shadow-sm border-[#E8E8E8]"
+                                          ? "border-[#5D2A42]/30 bg-[#5D2A42]/5 cursor-pointer"
+                                          : "bg-white hover:border-[#5D2A42]/20 hover:bg-[#FAFAFA] cursor-pointer border-[#E8E8E8]"
                                     )}
                                     onClick={() => hasKey && toggleFriendSelection(friend.id)}
                                   >
@@ -851,11 +860,11 @@ export const CapsuleMultistepForm = ({
                                       checked={isSelected}
                                       disabled={!hasKey}
                                       onCheckedChange={() => hasKey && toggleFriendSelection(friend.id)}
-                                      className="mr-4 w-5 h-5 data-[state=checked]:bg-[#FB6376] data-[state=checked]:border-[#FB6376]"
+                                      className="mr-4 w-5 h-5 border-[#E8E8E8] data-[state=checked]:bg-[#5D2A42] data-[state=checked]:border-[#5D2A42] data-[state=checked]:text-white transition-colors"
                                     />
                                     <Avatar className="w-12 h-12 border border-[#E8E8E8]">
                                       <AvatarImage src={friend.photoURL} alt={friend.name} />
-                                      <AvatarFallback className="bg-[#FFDCCC] text-[#5D2A42] text-sm font-bold">
+                                      <AvatarFallback className="bg-[#5D2A42]/10 text-[#5D2A42] text-sm font-bold">
                                         {getInitials(friend.name)}
                                       </AvatarFallback>
                                     </Avatar>

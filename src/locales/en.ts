@@ -8,6 +8,7 @@ export const en = {
     fora: "Forá",
     capsules: "Time Capsules",
     search: "Search",
+    notifications: "Notifications",
   },
   menu: {
     settings: "Settings",

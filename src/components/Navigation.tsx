@@ -25,6 +25,7 @@ import {
   ArrowUpCircle,
   ExternalLink,
   Search,
+  Bell,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -151,6 +152,11 @@ const Navigation = () => {
       path: "/profile",
       label: t("nav.profile"),
       icon: User,
+    },
+    {
+      path: "/notifications",
+      label: t("nav.notifications"),
+      icon: Bell,
     },
   ];
 

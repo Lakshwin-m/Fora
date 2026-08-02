@@ -1541,3 +1541,48 @@ export const getModerationFlags = onRequest((req, res) => {
     }
   });
 });
+
+/* ============================================================
+   COLLAB CAPSULE NOTIFICATIONS
+   ============================================================ */
+export const onCapsuleCreated = onDocumentCreated("capsules/{capsuleId}", async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) return;
+  const data = snapshot.data();
+
+  const { userId, recipients } = data;
+  
+  // If there are no other recipients besides the creator, do nothing
+  if (!recipients || !Array.isArray(recipients) || recipients.length === 0) return;
+  const otherRecipients = recipients.filter((id: string) => id !== userId);
+  if (otherRecipients.length === 0) return;
+
+  try {
+    const creatorDoc = await db.collection("users").doc(userId).get();
+    const creatorData = creatorDoc.data();
+    const creatorName = creatorData?.name || "Someone";
+    const creatorPhotoURL = creatorData?.photoURL || "";
+
+    const batch = db.batch();
+    
+    otherRecipients.forEach((recipientId: string) => {
+      const notifRef = db.collection("notifications").doc();
+      batch.set(notifRef, {
+        userId: recipientId,
+        type: "capsule_collab",
+        message: `${creatorName} created a collab capsule with you!`,
+        senderId: userId,
+        senderName: creatorName,
+        senderPhotoURL: creatorPhotoURL,
+        capsuleId: event.params.capsuleId,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    await batch.commit();
+    console.log(`Created collab notifications for capsule ${event.params.capsuleId}`);
+  } catch (error) {
+    console.error("Error creating collab notifications:", error);
+  }
+});
