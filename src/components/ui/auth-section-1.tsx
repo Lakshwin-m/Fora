@@ -1,6 +1,3 @@
-"use client";
-
-import { GrainGradient } from "@paper-design/shaders-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
@@ -38,33 +35,16 @@ export default function AuthSectionOne({
 }: AuthSectionProps) {
   return (
     <section className="min-h-screen relative flex items-center justify-center p-4 text-foreground antialiased [font-synthesis:none]">
-      {/* Full-screen animated backdrop */}
-      <div className="fixed inset-0 z-0">
-        <GrainGradient
-          speed={0.5}
-          scale={1.5}
-          rotation={0}
-          offsetX={0}
-          offsetY={0}
-          softness={0.8}
-          intensity={0.3}
-          noise={0.3}
-          shape="corners"
-          frame={2854.5}
-          colors={["#1c0c14", "#5d2a42", "#1c0c14", "#5d2a42"]}
-          colorBack="#000000"
-          className="w-full h-full"
-        />
-        <div className="absolute inset-0 bg-background/80 backdrop-blur-xl" />
-      </div>
+      {/* Static CSS backdrop — no WebGL, no animation, zero GPU cost at idle */}
+      <div className="fixed inset-0 z-0 bg-[#0e0610]" style={{ background: 'radial-gradient(ellipse 80% 60% at 60% 40%, #3d1428 0%, #1c0c14 45%, #0a0608 100%)' }} />
 
       {/* Centered Widget Card */}
-      <div className="relative z-10 w-full max-w-6xl grid lg:grid-cols-[1fr_1fr] rounded-[2.5rem] overflow-hidden shadow-card border border-border bg-card/50 backdrop-blur-2xl">
+      <div className="relative z-10 w-full max-w-6xl grid lg:grid-cols-[1fr_1fr] rounded-[2.5rem] overflow-hidden shadow-card border border-border bg-card/95">
 
         {/* Left Panel: Form */}
         <div className="flex flex-col items-center justify-center p-8 sm:p-12 lg:p-16 relative">
           {/* Subtle ambient glow behind form */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-[128px] pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="w-full max-w-[420px] relative z-10">
             <div>

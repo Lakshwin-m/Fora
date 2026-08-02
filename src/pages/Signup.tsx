@@ -13,6 +13,30 @@ import { IconCheck, IconX } from "@tabler/icons-react";
 import { useTranslation } from "@/contexts/LanguageContext";
 import AuthSectionOne from "@/components/ui/auth-section-1";
 
+// Defined at module level so React sees a STABLE component identity across renders.
+// If defined inside SignUpLoginForm, a new function reference is created every render,
+// causing React to unmount + remount the entire validation checklist on every keystroke.
+const PasswordValidation = ({
+  passwordValidation,
+  t,
+}: {
+  passwordValidation: { minLength: boolean; hasUppercase: boolean; hasLowercase: boolean; hasNumber: boolean; hasSpecialChar: boolean };
+  t: (key: string) => string;
+}) => (
+  <div className="mt-4 space-y-2">
+    <p className="text-xs font-medium text-black/60 dark:text-white/60 uppercase tracking-wider">
+      {t("auth.pwMustContain")}
+    </p>
+    <div className="grid grid-cols-1 gap-2">
+      <ValidationItem isValid={passwordValidation.minLength} text={t("auth.reqMinLength")} />
+      <ValidationItem isValid={passwordValidation.hasUppercase} text={t("auth.reqUppercase")} />
+      <ValidationItem isValid={passwordValidation.hasLowercase} text={t("auth.reqLowercase")} />
+      <ValidationItem isValid={passwordValidation.hasNumber} text={t("auth.reqNumber")} />
+      <ValidationItem isValid={passwordValidation.hasSpecialChar} text={t("auth.reqSpecial")} />
+    </div>
+  </div>
+);
+
 export function SignUpLoginForm() {
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
@@ -193,34 +217,13 @@ export function SignUpLoginForm() {
     }
   };
 
-  const PasswordValidation = () => (
-    <div className="mt-4 space-y-2">
-      <p className="text-xs font-medium text-black/60 dark:text-white/60 uppercase tracking-wider">
-        {t("auth.pwMustContain")}
-      </p>
-      <div className="grid grid-cols-1 gap-2">
-        <ValidationItem
-          isValid={passwordValidation.minLength}
-          text={t("auth.reqMinLength")}
-        />
-        <ValidationItem
-          isValid={passwordValidation.hasUppercase}
-          text={t("auth.reqUppercase")}
-        />
-        <ValidationItem
-          isValid={passwordValidation.hasLowercase}
-          text={t("auth.reqLowercase")}
-        />
-        <ValidationItem
-          isValid={passwordValidation.hasNumber}
-          text={t("auth.reqNumber")}
-        />
-        <ValidationItem
-          isValid={passwordValidation.hasSpecialChar}
-          text={t("auth.reqSpecial")}
-        />
-      </div>
-    </div>
+  // Stable component reference — wraps module-level PasswordValidation with current state.
+  // Using useMemo means React.FC prop stays referentially stable when passwordValidation
+  // hasn't changed, preventing unnecessary rerenders of AuthSectionOne.
+  const PasswordValidationMemo = React.useMemo(
+    () => () => <PasswordValidation passwordValidation={passwordValidation} t={t} />,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [passwordValidation.minLength, passwordValidation.hasUppercase, passwordValidation.hasLowercase, passwordValidation.hasNumber, passwordValidation.hasSpecialChar, t]
   );
 
   const termsText = (
@@ -249,7 +252,7 @@ export function SignUpLoginForm() {
       loading={loading}
       error={error}
       isPasswordValid={isPasswordValid}
-      PasswordValidation={PasswordValidation}
+      PasswordValidation={PasswordValidationMemo}
       termsText={termsText}
     />
   );
